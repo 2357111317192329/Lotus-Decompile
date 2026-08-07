@@ -1,0 +1,148 @@
+package com.xiaohe66.mc.meteor.lotus.modules;
+
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.xiaohe66.mc.meteor.lotus.event.StorageEspLineEvent;
+import com.xiaohe66.mc.meteor.lotus.event.StorageFinderEvent;
+import com.xiaohe66.mc.meteor.lotus.util.Const;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import meteordevelopment.meteorclient.MeteorClient;
+import meteordevelopment.meteorclient.settings.Setting;
+import meteordevelopment.meteorclient.settings.SettingGroup;
+import meteordevelopment.meteorclient.settings.BoolSetting.Builder;
+import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.orbit.EventHandler;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+
+public class StorageEspPlus extends Module {
+   private static final Cache<String, Boolean> storageStatusCache = CacheBuilder.newBuilder()
+      .maximumSize(1024L)
+      .expireAfterWrite(5L, TimeUnit.SECONDS)
+      .expireAfterAccess(5L, TimeUnit.SECONDS)
+      .build();
+   private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
+   public final Setting<Boolean> storageEspEnable = this.sgGeneral
+      .add(((Builder)((Builder)((Builder)new Builder().name("存储透视增强")).description("减少存储透视的连接线")).defaultValue(true)).build());
+   public final Setting<Boolean> stashFinderEnable = this.sgGeneral
+      .add(((Builder)((Builder)((Builder)new Builder().name("存储查找器增强")).description("减少存储查找器的提示")).defaultValue(true)).build());
+   private final Setting<List<Block>> excludeBlock = this.sgGeneral
+      .add(
+         ((meteordevelopment.meteorclient.settings.BlockListSetting.Builder)((meteordevelopment.meteorclient.settings.BlockListSetting.Builder)new meteordevelopment.meteorclient.settings.BlockListSetting.Builder()
+                  .name("排除方块"))
+               .description("附近有指定方块时不显示连接线"))
+            .defaultValue(
+               new Block[]{
+                  Blocks.WAXED_COPPER_BLOCK,
+                  Blocks.WAXED_OXIDIZED_COPPER,
+                  Blocks.MOSSY_COBBLESTONE,
+                  Blocks.MOSSY_STONE_BRICKS,
+                  Blocks.NETHER_BRICKS,
+                  Blocks.BLACKSTONE,
+                  Blocks.CRACKED_POLISHED_BLACKSTONE_BRICKS
+               }
+            )
+            .build()
+      );
+   private final Setting<Integer> excludeRange = this.sgGeneral
+      .add(
+         ((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)new meteordevelopment.meteorclient.settings.IntSetting.Builder()
+                     .name("排除范围"))
+                  .description("排除范围"))
+               .min(1)
+               .sliderMax(5)
+               .defaultValue(3))
+            .build()
+      );
+   private final Setting<Integer> excludeValue = this.sgGeneral
+      .add(
+         ((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)new meteordevelopment.meteorclient.settings.IntSetting.Builder()
+                     .name("排除阈值"))
+                  .description("达到阈值后不显示连接线"))
+               .min(1)
+               .sliderMax(10)
+               .defaultValue(5))
+            .build()
+      );
+   private final Setting<Integer> storageQty = this.sgGeneral
+      .add(
+         ((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)new meteordevelopment.meteorclient.settings.IntSetting.Builder()
+                     .name("强制容器数"))
+                  .description("当附近的容器达到指定数量时，强制显示连接线"))
+               .min(1)
+               .sliderMax(10)
+               .defaultValue(3))
+            .build()
+      );
+
+   public StorageEspPlus() {
+      super(Const.CATEGORY, "存储查找增强", "给[存储透视]和[存储查找器]增加排除遗迹的选项");
+   }
+
+   @EventHandler
+   private void onEvent(StorageEspLineEvent event) {
+      if ((Boolean)this.storageEspEnable.get() && this.testInStructure(event.getBlockEntity())) {
+         event.cancel();
+      }
+   }
+
+   @EventHandler
+   private void onEvent(StorageFinderEvent event) {
+      if ((Boolean)this.stashFinderEnable.get() && this.testInStructure(event.getBlockEntity())) {
+         event.cancel();
+      }
+   }
+
+   private boolean testInStructure(BlockEntity blockEntity) {
+      BlockPos originPos = blockEntity.getBlockPos();
+      String key = originPos.getX() + "_" + originPos.getY() + "_" + originPos.getZ();
+
+      try {
+         return (Boolean)storageStatusCache.get(key, () -> this.doTestInStructure(blockEntity));
+      } catch (ExecutionException e) {
+         e.printStackTrace();
+         return false;
+      }
+   }
+
+   private boolean doTestInStructure(BlockEntity blockEntity) {
+      int range = (Integer)this.excludeRange.get() - 1;
+      List<Block> blocks = (List<Block>)this.excludeBlock.get();
+      Set<Item> blockItemSet = blocks.stream().<Item>map(Block::asItem).collect(Collectors.toSet());
+      int count = 0;
+      int storageCount = 0;
+      BlockPos originPos = blockEntity.getBlockPos();
+      int startX = originPos.getX() - range;
+      int endX = originPos.getX() + range;
+      int startY = originPos.getY() - range;
+      int endY = originPos.getY() + range;
+      int startZ = originPos.getZ() - range;
+      int endZ = originPos.getZ() + range;
+
+      for (int x = startX; x <= endX; x++) {
+         for (int y = startY; y <= endY; y++) {
+            for (int z = startZ; z <= endZ; z++) {
+               BlockPos blockPos = new BlockPos(x, y, z);
+               BlockState blockState = MeteorClient.mc.level.getBlockState(blockPos);
+               Item item = blockState.getBlock().asItem();
+               if (item == Items.CHEST || item == Items.TRAPPED_CHEST || item == Items.HOPPER) {
+                  storageCount++;
+               } else if (blockItemSet.contains(item)) {
+                  count++;
+               }
+            }
+         }
+      }
+
+      return storageCount < (Integer)this.storageQty.get() && count >= (Integer)this.excludeValue.get();
+   }
+}
