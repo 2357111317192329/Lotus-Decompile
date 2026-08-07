@@ -5,9 +5,9 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.registry.RegistryKey;
 
 public enum AutoEnchantmentType {
    自定义(),
@@ -34,19 +34,18 @@ public enum AutoEnchantmentType {
    三叉戟(Enchantments.IMPALING, Enchantments.CHANNELING, Enchantments.LOYALTY, Enchantments.UNBREAKING, Enchantments.MENDING),
    无限弓(Enchantments.POWER, Enchantments.INFINITY, Enchantments.UNBREAKING);
 
-   private final Set<ResourceKey<Enchantment>> enchantments;
+   private final Set<RegistryKey<Enchantment>> enchantments;
 
    @SafeVarargs
-   AutoEnchantmentType(ResourceKey<Enchantment>... enchantments) {
+   AutoEnchantmentType(RegistryKey<Enchantment>... enchantments) {
       if (enchantments != null && enchantments.length > 0) {
          this.enchantments = Arrays.stream(enchantments).filter(Objects::nonNull).collect(Collectors.toSet());
       } else {
-         this.enchantments = Arrays.stream(enchantments).filter(Objects::nonNull).collect(Collectors.toSet());
-         //this.enchantments = Collections.emptySet();
+         this.enchantments = Collections.emptySet();
       }
    }
 
-   public Set<ResourceKey<Enchantment>> getAll() {
+   public Set<RegistryKey<Enchantment>> getAll() {
       return this.enchantments;
    }
 }

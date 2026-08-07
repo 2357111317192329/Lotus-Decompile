@@ -4,13 +4,13 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import meteordevelopment.meteorclient.utils.misc.ISerializable;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.util.Identifier;
+import net.minecraft.registry.Registries;
 
 public class ClearUpMapping implements ISerializable<ClearUpMapping> {
    private Item targetItem;
@@ -51,14 +51,14 @@ public class ClearUpMapping implements ISerializable<ClearUpMapping> {
       this.enabled = enabled;
    }
 
-   public CompoundTag toTag() {
-      CompoundTag tag = new CompoundTag();
-      tag.putString("targetItem", BuiltInRegistries.ITEM.getKey(this.targetItem).toString());
-      ListTag list = new ListTag();
+   public NbtCompound toTag() {
+      NbtCompound tag = new NbtCompound();
+      tag.putString("targetItem", Registries.ITEM.getId(this.targetItem).toString());
+      NbtList list = new NbtList();
 
       for (Item item : this.relatedItems) {
-         CompoundTag itemTag = new CompoundTag();
-         itemTag.putString("id", BuiltInRegistries.ITEM.getKey(item).toString());
+         NbtCompound itemTag = new NbtCompound();
+         itemTag.putString("id", Registries.ITEM.getId(item).toString());
          list.add(itemTag);
       }
 
@@ -67,22 +67,22 @@ public class ClearUpMapping implements ISerializable<ClearUpMapping> {
       return tag;
    }
 
-   public ClearUpMapping fromTag(CompoundTag tag) {
-      Identifier id = Identifier.tryParse(tag.getStringOr("targetItem", ""));
-      this.targetItem = id != null ? (Item)BuiltInRegistries.ITEM.getValue(id) : Items.AIR;
+   public ClearUpMapping fromTag(NbtCompound tag) {
+      Identifier id = Identifier.tryParse(tag.getString("targetItem", ""));
+      this.targetItem = id != null ? (Item)Registries.ITEM.get(id) : Items.AIR;
       this.relatedItems = new HashSet<>();
 
-      for (Tag e : tag.getListOrEmpty("relatedItems")) {
-         if (e.getId() == 10) {
-            CompoundTag itemTag = (CompoundTag)e;
-            Identifier itemId = Identifier.tryParse(itemTag.getStringOr("id", ""));
+      for (NbtElement e : tag.getListOrEmpty("relatedItems")) {
+         if (e.getType() == 10) {
+            NbtCompound itemTag = (NbtCompound)e;
+            Identifier itemId = Identifier.tryParse(itemTag.getString("id", ""));
             if (itemId != null) {
-               this.relatedItems.add((Item)BuiltInRegistries.ITEM.getValue(itemId));
+               this.relatedItems.add((Item)Registries.ITEM.get(itemId));
             }
          }
       }
 
-      this.enabled = tag.getBooleanOr("enabled", true);
+      this.enabled = tag.getBoolean("enabled", true);
       return this;
    }
 }

@@ -3,8 +3,8 @@ package com.xiaohe66.mc.meteor.lotus.util.enchantment.impl;
 import com.xiaohe66.mc.meteor.lotus.util.enchantment.EnchantmentNode;
 import java.util.HashSet;
 import java.util.Set;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.registry.RegistryKey;
 
 public class EnchantmentMargeNode implements EnchantmentNode {
    private final EnchantmentNode left;
@@ -12,7 +12,7 @@ public class EnchantmentMargeNode implements EnchantmentNode {
    private final int repairCost;
    private final int cost;
    private int costSum = -1;
-   private Set<ResourceKey<Enchantment>> allEnchantmentKey;
+   private Set<RegistryKey<Enchantment>> allEnchantmentKey;
 
    public EnchantmentMargeNode(EnchantmentNode left, EnchantmentNode right) {
       this.left = left;
@@ -48,9 +48,9 @@ public class EnchantmentMargeNode implements EnchantmentNode {
       return this.right;
    }
 
-   public Set<ResourceKey<Enchantment>> getAllEnchantmentKey() {
+   public Set<RegistryKey<Enchantment>> getAllEnchantmentKey() {
       if (this.allEnchantmentKey == null) {
-         Set<ResourceKey<Enchantment>> all = new HashSet<>();
+         Set<RegistryKey<Enchantment>> all = new HashSet<>();
          if (this.left instanceof EnchantmentMargeNode margeNode) {
             all.addAll(margeNode.getAllEnchantmentKey());
          } else if (this.left instanceof EnchantmentBookNode bookNode) {
@@ -71,19 +71,36 @@ public class EnchantmentMargeNode implements EnchantmentNode {
 
    @Override
    public String toString() {
-      String s = "";
+      StringBuilder stringBuilder = new StringBuilder();
       if (this.left instanceof EnchantmentMargeNode) {
-         s=s+"("+this.left.toString()+"="+this.left.getRepairCost()+","+this.left.getCost()+","+this.left.getCostSum()+")";
+         stringBuilder.append('(')
+            .append(this.left)
+            .append('=')
+            .append(this.left.getRepairCost())
+            .append(',')
+            .append(this.left.getCost())
+            .append(',')
+            .append(this.left.getCostSum())
+            .append(')');
       } else {
-         s=s+this.left.toString();
-      }
-      s=s+"+";
-      if (this.right instanceof EnchantmentMargeNode) {
-         s=s+"("+this.right.toString()+"="+this.right.getRepairCost()+","+this.right.getCost()+","+this.right.getCostSum()+")";
-      } else {
-         s=s+this.right.toString()+"("+this.right.getCost()+")";
+         stringBuilder.append(this.left);
       }
 
-      return s;
+      stringBuilder.append('+');
+      if (this.right instanceof EnchantmentMargeNode) {
+         stringBuilder.append('(')
+            .append(this.right)
+            .append('=')
+            .append(this.right.getRepairCost())
+            .append(',')
+            .append(this.right.getCost())
+            .append(',')
+            .append(this.right.getCostSum())
+            .append(')');
+      } else {
+         stringBuilder.append(this.right).append('(').append(this.right.getCost()).append(')');
+      }
+
+      return stringBuilder.toString();
    }
 }

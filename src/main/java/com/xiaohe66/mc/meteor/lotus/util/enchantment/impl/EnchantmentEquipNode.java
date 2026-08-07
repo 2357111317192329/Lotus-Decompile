@@ -2,8 +2,8 @@ package com.xiaohe66.mc.meteor.lotus.util.enchantment.impl;
 
 import com.xiaohe66.mc.meteor.lotus.util.enchantment.EnchantmentNode;
 import meteordevelopment.meteorclient.utils.misc.Names;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
+import net.minecraft.component.DataComponentTypes;
 
 public class EnchantmentEquipNode implements EnchantmentNode {
    private final ItemStack itemStack;
@@ -14,7 +14,7 @@ public class EnchantmentEquipNode implements EnchantmentNode {
 
    @Override
    public int getRepairCost() {
-      return (Integer)this.itemStack.getOrDefault(DataComponents.REPAIR_COST, 0);
+      return (Integer)this.itemStack.getOrDefault(DataComponentTypes.REPAIR_COST, 0);
    }
 
    @Override

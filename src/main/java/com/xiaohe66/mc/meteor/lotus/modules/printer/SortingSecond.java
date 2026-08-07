@@ -1,7 +1,7 @@
 package com.xiaohe66.mc.meteor.lotus.modules.printer;
 
 import java.util.Comparator;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 public enum SortingSecond {
    None(SortAlgorithm.None.algorithm),

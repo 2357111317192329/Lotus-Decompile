@@ -19,12 +19,12 @@ import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils.MobSpawn;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.BlockPos.MutableBlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.LightLayer;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.LightType;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.BlockState;
+import net.minecraft.util.math.BlockPos.Mutable;
 
 public class RedstoneAssist extends Module {
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
@@ -120,25 +120,25 @@ public class RedstoneAssist extends Module {
       if ((Boolean)this.lightOverlay.get()) {
          this.markerPool.freeAll(this.markers);
          this.markers.clear();
-         Vec3 center = this.getCameraPos();
+         Vec3d center = this.getCameraPos();
          int px = (int)Math.floor(center.x);
          int py = (int)Math.floor(center.y);
          int pz = (int)Math.floor(center.z);
          int hRange = (Integer)this.horizontalRange.get();
          int vRange = (Integer)this.verticalRange.get();
-         MutableBlockPos pos = new MutableBlockPos();
+         Mutable pos = new Mutable();
 
          for (int x = px - hRange; x <= px + hRange; x++) {
             for (int z = pz - hRange; z <= pz + hRange; z++) {
-               for (int y = Math.max(this.mc.level.getMinY(), py - vRange); y <= py + vRange && y <= this.mc.level.getHeight(); y++) {
+               for (int y = Math.max(this.mc.world.getBottomY(), py - vRange); y <= py + vRange && y <= this.mc.world.getHeight(); y++) {
                   pos.set(x, y, z);
-                  BlockState blockState = this.mc.level.getBlockState(pos);
+                  BlockState blockState = this.mc.world.getBlockState(pos);
                   MobSpawn spawn = BlockUtils.isValidMobSpawn(pos, blockState, (Integer)this.spawnThreshold.get());
                   if (spawn == MobSpawn.Always || spawn == MobSpawn.Potential) {
                      int lightLevel = this.getLightLevel(pos);
                      this.markers.add(((RedstoneAssist.Marker)this.markerPool.get()).set(pos, false, lightLevel));
                   } else if (blockState.isAir()) {
-                     BlockPos downPos = pos.below();
+                     BlockPos downPos = pos.down();
                      if (this.isValidSpawnBase(downPos)) {
                         int lightLevel = this.getLightLevel(pos);
                         this.markers.add(((RedstoneAssist.Marker)this.markerPool.get()).set(pos, true, lightLevel));
@@ -345,22 +345,22 @@ public class RedstoneAssist extends Module {
    }
 
    private int getLightLevel(BlockPos pos) {
-      return this.mc.level.getBrightness(LightLayer.BLOCK, pos);
+      return this.mc.world.getLightLevel(LightType.BLOCK, pos);
    }
 
    private boolean isValidSpawnBase(BlockPos pos) {
-      BlockState state = this.mc.level.getBlockState(pos);
-      return state.isRedstoneConductor(this.mc.level, pos);
+      BlockState state = this.mc.world.getBlockState(pos);
+      return state.isSolidBlock(this.mc.world, pos);
    }
 
-   private Vec3 getCameraPos() {
+   private Vec3d getCameraPos() {
       Freecam freecam = (Freecam)Modules.get().get(Freecam.class);
-      return freecam != null && freecam.isActive() ? new Vec3(freecam.pos.x, freecam.pos.y, freecam.pos.z) : this.mc.player.position();
+      return freecam != null && freecam.isActive() ? new Vec3d(freecam.pos.x, freecam.pos.y, freecam.pos.z) : this.mc.player.getEntityPos();
    }
 
    private Direction getCameraFacing() {
       Freecam freecam = (Freecam)Modules.get().get(Freecam.class);
-      return freecam != null && freecam.isActive() ? Direction.fromYRot(freecam.yaw) : this.mc.player.getDirection();
+      return freecam != null && freecam.isActive() ? Direction.fromHorizontalDegrees(freecam.yaw) : this.mc.player.getHorizontalFacing();
    }
 
    static {

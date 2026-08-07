@@ -14,17 +14,17 @@ import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.EndTick;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Box;
+import net.minecraft.text.Text;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.util.hit.HitResult.Type;
 
 public class AutoPlaceMap extends StepModule {
    private boolean wasRightClicking = false;
@@ -39,7 +39,7 @@ public class AutoPlaceMap extends StepModule {
       this.addStep(Steps.PLACE, this::place);
       ClientTickEvents.END_CLIENT_TICK.register((EndTick)client -> {
          if (this.mc.player != null && this.isActive() && this.step != Steps.PLACE) {
-            boolean isRightClicking = this.mc.options.keyUse.isDown();
+            boolean isRightClicking = this.mc.options.useKey.isPressed();
             if (isRightClicking && !this.wasRightClicking) {
                this.checkItemFramePlacement();
             }
@@ -79,7 +79,7 @@ public class AutoPlaceMap extends StepModule {
 
    private void doPlace(PlaceMapPos placeMapPos) {
       BlockPos placePos = placeMapPos.getBlockPos();
-      ItemFrame itemFrame = this.getItemFrameAtPosition(placePos);
+      ItemFrameEntity itemFrame = this.getItemFrameAtPosition(placePos);
       if (itemFrame == null) {
          FindItemResult findFrameResult = this.findFrame();
          if (findFrameResult.found()) {
@@ -101,7 +101,7 @@ public class AutoPlaceMap extends StepModule {
             this.toggle();
          }
       } else {
-         ItemStack heldItemStack = itemFrame.getItem();
+         ItemStack heldItemStack = itemFrame.getHeldItemStack();
          if (heldItemStack.isEmpty()) {
             FindItemResult findMapResult = this.findMap(placeMapPos.getName());
             if (findMapResult.found()) {
@@ -140,22 +140,22 @@ public class AutoPlaceMap extends StepModule {
    }
 
    private void checkItemFramePlacement() {
-      LocalPlayer player = this.mc.player;
-      ItemStack mainHandStack = player.getItemInHand(InteractionHand.MAIN_HAND);
-      ItemStack offHandStack = player.getItemInHand(InteractionHand.OFF_HAND);
-      boolean holdingItemFrame = mainHandStack.is(Items.ITEM_FRAME)
-         || offHandStack.is(Items.ITEM_FRAME)
-         || mainHandStack.is(Items.GLOW_ITEM_FRAME)
-         || offHandStack.is(Items.GLOW_ITEM_FRAME);
+      ClientPlayerEntity player = this.mc.player;
+      ItemStack mainHandStack = player.getStackInHand(Hand.MAIN_HAND);
+      ItemStack offHandStack = player.getStackInHand(Hand.OFF_HAND);
+      boolean holdingItemFrame = mainHandStack.isOf(Items.ITEM_FRAME)
+         || offHandStack.isOf(Items.ITEM_FRAME)
+         || mainHandStack.isOf(Items.GLOW_ITEM_FRAME)
+         || offHandStack.isOf(Items.GLOW_ITEM_FRAME);
       if (holdingItemFrame) {
-         if (this.mc.hitResult != null && this.mc.hitResult.getType() == Type.BLOCK) {
-            BlockHitResult blockHit = (BlockHitResult)this.mc.hitResult;
+         if (this.mc.crosshairTarget != null && this.mc.crosshairTarget.getType() == Type.BLOCK) {
+            BlockHitResult blockHit = (BlockHitResult)this.mc.crosshairTarget;
             BlockPos blockPos = blockHit.getBlockPos();
-            Direction side = blockHit.getDirection();
-            BlockPos framePos = blockPos.relative(side);
+            Direction side = blockHit.getSide();
+            BlockPos framePos = blockPos.offset(side);
             if (this.blockPos1 == null) {
                this.blockPos1 = new BlockPos(framePos);
-               this.playerDirection = this.mc.player.getNearestViewDirection();
+               this.playerDirection = this.mc.player.getFacing();
             } else {
                this.blockPos2 = new BlockPos(framePos);
                this.readyPlacePos();
@@ -173,7 +173,7 @@ public class AutoPlaceMap extends StepModule {
       for (int i = 0; i < 36; i++) {
          ItemStack itemStack = this.getItemStack(i);
          if (itemStack.getItem() == Items.FILLED_MAP) {
-            Component customName = itemStack.getCustomName();
+            Text customName = itemStack.getCustomName();
             if (customName != null) {
                nameList.add(customName.getString());
             }
@@ -262,12 +262,12 @@ public class AutoPlaceMap extends StepModule {
       }
    }
 
-   public ItemFrame getItemFrameAtPosition(BlockPos framePos) {
-      if (this.mc.level == null) {
+   public ItemFrameEntity getItemFrameAtPosition(BlockPos framePos) {
+      if (this.mc.world == null) {
          return null;
       }
 
-      AABB searchBox = new AABB(
+      Box searchBox = new Box(
          framePos.getX(),
          framePos.getY(),
          framePos.getZ(),
@@ -275,7 +275,7 @@ public class AutoPlaceMap extends StepModule {
          framePos.getY() + 1,
          framePos.getZ() + 1
       );
-      List<ItemFrame> frames = this.mc.level.getEntitiesOfClass(ItemFrame.class, searchBox, itemFrame -> itemFrame.blockPosition().equals(framePos));
+      List<ItemFrameEntity> frames = this.mc.world.getEntitiesByClass(ItemFrameEntity.class, searchBox, itemFrame -> itemFrame.getBlockPos().equals(framePos));
       return frames.isEmpty() ? null : frames.get(0);
    }
 

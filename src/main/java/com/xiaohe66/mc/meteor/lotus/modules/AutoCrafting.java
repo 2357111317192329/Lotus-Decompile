@@ -15,21 +15,21 @@ import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.ClientRecipeBook;
-import net.minecraft.client.gui.screens.recipebook.RecipeCollection;
-import net.minecraft.client.gui.screens.recipebook.RecipeCollection.CraftableStatus;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.inventory.ContainerInput;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.Fireworks;
-import net.minecraft.world.item.crafting.display.RecipeDisplay;
-import net.minecraft.world.item.crafting.display.RecipeDisplayEntry;
-import net.minecraft.world.item.crafting.display.RecipeDisplayId;
-import net.minecraft.world.item.crafting.display.SlotDisplayContext;
+import net.minecraft.recipe.display.RecipeDisplay;
+import net.minecraft.recipe.RecipeDisplayEntry;
+import net.minecraft.recipe.NetworkRecipeId;
+import net.minecraft.recipe.display.SlotDisplayContexts;
+import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.screen.CraftingScreenHandler;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.client.recipebook.ClientRecipeBook;
+import net.minecraft.client.gui.screen.recipebook.RecipeResultCollection;
+import net.minecraft.component.type.FireworksComponent;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.client.gui.screen.recipebook.RecipeResultCollection.RecipeFilterMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,7 +88,7 @@ public class AutoCrafting extends BaseModule {
    private void onTick(Pre event) {
       if (this.checkAndDecrement()) {
          if (this.doing && !((List)this.craftingItems.get()).isEmpty()) {
-            if (this.mc.player.containerMenu instanceof CraftingMenu craftingScreenHandler) {
+            if (this.mc.player.currentScreenHandler instanceof CraftingScreenHandler craftingScreenHandler) {
                this.doCrafting(craftingScreenHandler);
             } else {
                this.finish();
@@ -97,18 +97,18 @@ public class AutoCrafting extends BaseModule {
       }
    }
 
-   private void doCrafting(CraftingMenu craftingScreenHandler) {
+   private void doCrafting(CraftingScreenHandler craftingScreenHandler) {
       if (this.needItem == Items.FIREWORK_ROCKET) {
          this.doFireworkCrafting(craftingScreenHandler);
       } else if (HeItemUtils.isShulkerBox(this.needItem)) {
          this.margeKit(craftingScreenHandler);
       } else {
-         Map<Item, RecipeDisplayId> recipeIdMap = this.getRecipeIdMap();
+         Map<Item, NetworkRecipeId> recipeIdMap = this.getRecipeIdMap();
          if (recipeIdMap.containsKey(this.needItem)) {
-            RecipeDisplayId networkRecipeId = recipeIdMap.get(this.needItem);
-            this.mc.gameMode.handlePlaceRecipe(craftingScreenHandler.containerId, networkRecipeId, true);
-            ContainerInput actionType = this.isDrop ? ContainerInput.THROW : ContainerInput.QUICK_MOVE;
-            this.mc.gameMode.handleContainerInput(craftingScreenHandler.containerId, 0, 1, actionType, this.mc.player);
+            NetworkRecipeId networkRecipeId = recipeIdMap.get(this.needItem);
+            this.mc.interactionManager.clickRecipe(craftingScreenHandler.syncId, networkRecipeId, true);
+            SlotActionType actionType = this.isDrop ? SlotActionType.THROW : SlotActionType.QUICK_MOVE;
+            this.mc.interactionManager.clickSlot(craftingScreenHandler.syncId, 0, 1, actionType, this.mc.player);
             this.setDelay();
          } else {
             this.finish();
@@ -116,8 +116,8 @@ public class AutoCrafting extends BaseModule {
       }
    }
 
-   private void margeKit(CraftingMenu craftingScreenHandler) {
-      ItemStack outItemStack = craftingScreenHandler.getResultSlot().getItem();
+   private void margeKit(CraftingScreenHandler craftingScreenHandler) {
+      ItemStack outItemStack = craftingScreenHandler.getOutputSlot().getStack();
       if (outItemStack.getItem() == this.needItem) {
          this.kitPlacedPending = false;
          if (this.isDrop) {
@@ -133,7 +133,7 @@ public class AutoCrafting extends BaseModule {
          boolean needColor = true;
 
          for (int i = 1; i <= 9; i++) {
-            Item item = craftingScreenHandler.getSlot(i).getItem().getItem();
+            Item item = craftingScreenHandler.getSlot(i).getStack().getItem();
             if (HeItemUtils.isShulkerBox(item)) {
                needKit = false;
             }
@@ -184,12 +184,12 @@ public class AutoCrafting extends BaseModule {
          return -1;
       }
 
-      Fireworks component = (Fireworks)stack.get(DataComponents.FIREWORKS);
+      FireworksComponent component = (FireworksComponent)stack.get(DataComponentTypes.FIREWORKS);
       return component == null ? -1 : component.flightDuration();
    }
 
-   private void doFireworkCrafting(CraftingMenu craftingScreenHandler) {
-      ItemStack outputStack = craftingScreenHandler.getResultSlot().getItem();
+   private void doFireworkCrafting(CraftingScreenHandler craftingScreenHandler) {
+      ItemStack outputStack = craftingScreenHandler.getOutputSlot().getStack();
       if (outputStack.getItem() == Items.FIREWORK_ROCKET) {
          int flightDuration = this.getFireworkFlightDuration(outputStack);
          if (flightDuration == this.needGunpowderCount) {
@@ -208,7 +208,7 @@ public class AutoCrafting extends BaseModule {
       int gunpowderCount = 0;
 
       for (int i = 1; i <= 9; i++) {
-         ItemStack stack = craftingScreenHandler.getSlot(i).getItem();
+         ItemStack stack = craftingScreenHandler.getSlot(i).getStack();
          if (stack.getItem() == Items.PAPER) {
             paperCount++;
          } else if (stack.getItem() == Items.GUNPOWDER) {
@@ -223,7 +223,6 @@ public class AutoCrafting extends BaseModule {
       if (paperCount <= 0) {
          ItemStack paperStack = this.nextPlayerStack(s -> s.getItem() == Items.PAPER);
          if (paperStack.isEmpty()) {
-            this.info("沒有紙了");
             this.finish();
          } else {
             InvUtils.shiftClick().slot(this.getCurPlayerSlot());
@@ -231,7 +230,7 @@ public class AutoCrafting extends BaseModule {
          }
       } else if (gunpowderCount > this.needGunpowderCount) {
          for (int i = 1; i <= 9; i++) {
-            if (craftingScreenHandler.getSlot(i).getItem().getItem() == Items.GUNPOWDER) {
+            if (craftingScreenHandler.getSlot(i).getStack().getItem() == Items.GUNPOWDER) {
                InvUtils.shiftClick().slotId(i);
                this.setDelay();
                return;
@@ -240,7 +239,6 @@ public class AutoCrafting extends BaseModule {
       } else if (gunpowderCount < this.needGunpowderCount) {
          ItemStack nextStack = this.nextPlayerStack(s -> s.getItem() == Items.GUNPOWDER);
          if (nextStack.isEmpty()) {
-            this.info("沒有火藥了(2速煙火至少要2組，3速煙火至少要3組)");
             this.finish();
          } else {
             InvUtils.shiftClick().slot(this.getCurPlayerSlot());
@@ -253,7 +251,7 @@ public class AutoCrafting extends BaseModule {
 
    private void keydown(boolean isDrop) {
       if (this.isReady()) {
-         if (this.mc.player.containerMenu instanceof CraftingMenu craftingScreenHandler) {
+         if (this.mc.player.currentScreenHandler instanceof CraftingScreenHandler craftingScreenHandler) {
             if (!isDrop) {
                FindItemResult emptyResult = InvUtils.find(ItemStack::isEmpty, 0, 35);
                if (!emptyResult.found()) {
@@ -263,8 +261,8 @@ public class AutoCrafting extends BaseModule {
             }
 
             Item needItem = Items.AIR;
-            Slot outputSlot = craftingScreenHandler.getResultSlot();
-            ItemStack outItemStack = outputSlot.getItem();
+            Slot outputSlot = craftingScreenHandler.getOutputSlot();
+            ItemStack outItemStack = outputSlot.getStack();
             if (!outItemStack.isEmpty()) {
                if (!((List)this.craftingItems.get()).contains(outItemStack.getItem())) {
                   ((List)this.craftingItems.get()).add(outItemStack.getItem());
@@ -274,9 +272,9 @@ public class AutoCrafting extends BaseModule {
             }
 
             if (needItem == Items.AIR) {
-               Map<Item, RecipeDisplayId> recipeIdMap = this.getRecipeIdMap();
+               Map<Item, NetworkRecipeId> recipeIdMap = this.getRecipeIdMap();
 
-               for (Entry<Item, RecipeDisplayId> entry : recipeIdMap.entrySet()) {
+               for (Entry<Item, NetworkRecipeId> entry : recipeIdMap.entrySet()) {
                   Item item = entry.getKey();
                   if (((List)this.craftingItems.get()).contains(item)) {
                      needItem = item;
@@ -318,15 +316,15 @@ public class AutoCrafting extends BaseModule {
       this.closeCurScreenIfNeed();
    }
 
-   private Map<Item, RecipeDisplayId> getRecipeIdMap() {
-      Map<Item, RecipeDisplayId> recipeIdMap = new HashMap<>();
+   private Map<Item, NetworkRecipeId> getRecipeIdMap() {
+      Map<Item, NetworkRecipeId> recipeIdMap = new HashMap<>();
       ClientRecipeBook recipeBook = this.mc.player.getRecipeBook();
 
-      for (RecipeCollection recipeResultCollection : recipeBook.getCollections()) {
-         for (RecipeDisplayEntry recipe : recipeResultCollection.getSelectedRecipes(CraftableStatus.CRAFTABLE)) {
+      for (RecipeResultCollection recipeResultCollection : recipeBook.getOrderedResults()) {
+         for (RecipeDisplayEntry recipe : recipeResultCollection.filter(RecipeFilterMode.CRAFTABLE)) {
             RecipeDisplay recipeDisplay = recipe.display();
 
-            for (ItemStack resultStack : recipeDisplay.result().resolveForStacks(SlotDisplayContext.fromLevel(this.mc.level))) {
+            for (ItemStack resultStack : recipeDisplay.result().getStacks(SlotDisplayContexts.createParameters(this.mc.world))) {
                Item item = resultStack.getItem();
                if (((List)this.craftingItems.get()).contains(item)) {
                   recipeIdMap.put(item, recipe.id());

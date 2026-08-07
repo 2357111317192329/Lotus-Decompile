@@ -7,12 +7,12 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.DoubleSetting.Builder;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.player.Input;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.util.PlayerInput;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.block.BlockState;
+import net.minecraft.util.math.MathHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,10 +28,10 @@ public class SafeWalkPlus extends Module {
 
    @EventHandler(priority = -100)
    public void onKeyboardInputTickEvent(KeyboardInputTickEvent event) {
-      Input playerInput = event.getPlayerInput();
-      if (!playerInput.shift() && !playerInput.jump()) {
+      PlayerInput playerInput = event.getPlayerInput();
+      if (!playerInput.sneak() && !playerInput.jump()) {
          boolean needSneak = this.isOnEdge();
-         Input newPlayerInput = new Input(
+         PlayerInput newPlayerInput = new PlayerInput(
             playerInput.forward(),
             playerInput.backward(),
             playerInput.left(),
@@ -45,7 +45,7 @@ public class SafeWalkPlus extends Module {
    }
 
    private boolean isOnEdge() {
-      AABB playerBB = this.mc.player.getBoundingBox();
+      Box playerBB = this.mc.player.getBoundingBox();
       Double distanceValue = (Double)this.distance.get();
       double minX = playerBB.minX + distanceValue;
       double maxX = playerBB.maxX - distanceValue;
@@ -61,15 +61,15 @@ public class SafeWalkPlus extends Module {
    }
 
    private boolean isCornerSupported(double x, double y, double z) {
-      AABB supportCheck = new AABB(x - 0.05, y - 0.001, z - 0.05, x + 0.05, y, z + 0.05);
+      Box supportCheck = new Box(x - 0.05, y - 0.001, z - 0.05, x + 0.05, y, z + 0.05);
       return this.hasSolidSupport(supportCheck);
    }
 
-   private boolean hasSolidSupport(AABB area) {
+   private boolean hasSolidSupport(Box area) {
       for (BlockPos pos : this.getBlocksInBox(area)) {
-         BlockState state = this.mc.level.getBlockState(pos);
-         VoxelShape shape = state.getCollisionShape(this.mc.level, pos);
-         if (!shape.isEmpty() && shape.toAabbs().stream().anyMatch(box -> box.move(pos).intersects(area))) {
+         BlockState state = this.mc.world.getBlockState(pos);
+         VoxelShape shape = state.getCollisionShape(this.mc.world, pos);
+         if (!shape.isEmpty() && shape.getBoundingBoxes().stream().anyMatch(box -> box.offset(pos).intersects(area))) {
             return true;
          }
       }
@@ -77,13 +77,13 @@ public class SafeWalkPlus extends Module {
       return false;
    }
 
-   private Iterable<BlockPos> getBlocksInBox(AABB box) {
-      int minX = Mth.floor(box.minX);
-      int minY = Mth.floor(box.minY);
-      int minZ = Mth.floor(box.minZ);
-      int maxX = Mth.floor(box.maxX);
-      int maxY = Mth.floor(box.maxY);
-      int maxZ = Mth.floor(box.maxZ);
-      return BlockPos.betweenClosed(minX, minY, minZ, maxX, maxY, maxZ);
+   private Iterable<BlockPos> getBlocksInBox(Box box) {
+      int minX = MathHelper.floor(box.minX);
+      int minY = MathHelper.floor(box.minY);
+      int minZ = MathHelper.floor(box.minZ);
+      int maxX = MathHelper.floor(box.maxX);
+      int maxY = MathHelper.floor(box.maxY);
+      int maxZ = MathHelper.floor(box.maxZ);
+      return BlockPos.iterate(minX, minY, minZ, maxX, maxY, maxZ);
    }
 }

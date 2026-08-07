@@ -30,24 +30,24 @@ import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.inventory.AnvilScreen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ServerboundRenameItemPacket;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.inventory.AnvilMenu;
-import net.minecraft.world.inventory.GrindstoneMenu;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.screen.AnvilScreenHandler;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.Block;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.text.Text;
+import net.minecraft.block.BlockState;
+import net.minecraft.network.packet.c2s.play.RenameItemC2SPacket;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.screen.GrindstoneScreenHandler;
+import net.minecraft.client.gui.screen.ingame.AnvilScreen;
+import net.minecraft.registry.RegistryKey;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,7 +142,7 @@ public class AutoEnchantment extends StepModule {
         .visible(() -> !onlyRename.get())
         .build()
    );
-   public final Setting<Set<ResourceKey<Enchantment>>> selectedEnchantments = this.sgGeneral
+   public final Setting<Set<RegistryKey<Enchantment>>> selectedEnchantments = this.sgGeneral
       .add(
          ((meteordevelopment.meteorclient.settings.EnchantmentListSetting.Builder)((meteordevelopment.meteorclient.settings.EnchantmentListSetting.Builder)((meteordevelopment.meteorclient.settings.EnchantmentListSetting.Builder)new meteordevelopment.meteorclient.settings.EnchantmentListSetting.Builder()
                      .name("附魔"))
@@ -159,13 +159,13 @@ public class AutoEnchantment extends StepModule {
                .visible(() -> !(Boolean)this.onlyRename.get()))
             .build()
       );
-   private AnvilMenu anvilLevelHandler;
-   private final Map<ResourceKey<Enchantment>, BlockPos> enchantmentPosMap = new HashMap<>();
+   private AnvilScreenHandler anvilLevelHandler;
+   private final Map<RegistryKey<Enchantment>, BlockPos> enchantmentPosMap = new HashMap<>();
    private BlockPos supplyPos;
    private BlockPos grindPos;
    private BlockPos anvilPos;
    private BlockPos putPos;
-   private final LinkedList<ResourceKey<Enchantment>> needTakeBook = new LinkedList<>();
+   private final LinkedList<RegistryKey<Enchantment>> needTakeBook = new LinkedList<>();
    private int needLevel;
    private int index1;
    private int index2;
@@ -188,7 +188,7 @@ public class AutoEnchantment extends StepModule {
 
    public void onActivate() {
       if (this.isReady()) {
-         this.anvilLevelHandler = new AnvilMenu(-1, this.mc.player.getInventory());
+         this.anvilLevelHandler = new AnvilScreenHandler(-1, this.mc.player.getInventory());
          if ((Boolean)this.rename.get() && StringUtils.isBlank((CharSequence)this.newName.get())) {
             this.warning("改名时<新名称>不能为空", new Object[0]);
             this.toggle();
@@ -201,11 +201,11 @@ public class AutoEnchantment extends StepModule {
                this.anvilPos = null;
                this.putPos = null;
 
-               for (ItemFrame itemFrame : this.mc.level.getEntitiesOfClass(ItemFrame.class, this.mc.player.getBoundingBox().inflate(6.0), frame -> {
-                  Item item = frame.getItem().getItem();
+               for (ItemFrameEntity itemFrame : this.mc.world.getEntitiesByClass(ItemFrameEntity.class, this.mc.player.getBoundingBox().expand(6.0), frame -> {
+                  Item item = frame.getHeldItemStack().getItem();
                   return item == Items.REDSTONE || item == Items.REDSTONE_BLOCK;
                })) {
-                  ItemStack itemStack = itemFrame.getItem();
+                  ItemStack itemStack = itemFrame.getHeldItemStack();
                   if (!itemStack.isEmpty()) {
                      if (itemStack.getItem() == Items.REDSTONE) {
                         Optional<BlockPos> chestPos = HePosUtils.getOtherChestPos(itemFrame);
@@ -217,8 +217,8 @@ public class AutoEnchantment extends StepModule {
                   }
                }
 
-               for (BlockPos blockPos : HeBlockUtils.listPosInSphere(5, 2, this.mc.player.blockPosition())) {
-                  BlockState blockState = this.mc.level.getBlockState(blockPos);
+               for (BlockPos blockPos : HeBlockUtils.listPosInSphere(5, 2, this.mc.player.getBlockPos())) {
+                  BlockState blockState = this.mc.world.getBlockState(blockPos);
                   Block block = blockState.getBlock();
                   if (block == Blocks.ANVIL || block == Blocks.CHIPPED_ANVIL || block == Blocks.DAMAGED_ANVIL) {
                      this.anvilPos = blockPos;
@@ -277,8 +277,8 @@ public class AutoEnchantment extends StepModule {
                   return;
                }
 
-               for (BlockPos blockPos : HeBlockUtils.listPosInSphere(4, 2, this.mc.player.blockPosition())) {
-                  BlockState blockState = this.mc.level.getBlockState(blockPos);
+               for (BlockPos blockPos : HeBlockUtils.listPosInSphere(4, 2, this.mc.player.getBlockPos())) {
+                  BlockState blockState = this.mc.world.getBlockState(blockPos);
                   Block block = blockState.getBlock();
                   if (block == Blocks.ANVIL || block == Blocks.CHIPPED_ANVIL || block == Blocks.DAMAGED_ANVIL) {
                      this.anvilPos = blockPos;
@@ -320,7 +320,7 @@ public class AutoEnchantment extends StepModule {
       Item target = (Item)this.targetItem.get();
       return this.nextPlayerStack(itemStack -> {
          if (itemStack.getItem() == this.targetItem.get()) {
-            Set<ResourceKey<Enchantment>> enchantmentSet = EnchantmentUtils.getEnchantment(itemStack);
+            Set<RegistryKey<Enchantment>> enchantmentSet = EnchantmentUtils.getEnchantment(itemStack);
             return enchantmentSet.equals(this.selectedEnchantments.get());
          } else {
             return false;
@@ -338,7 +338,7 @@ public class AutoEnchantment extends StepModule {
                if (xpResult.getHand() == null) {
                   InvUtils.swap(xpResult.slot(), false);
                } else {
-                  Rotations.rotate(this.mc.player.getYRot(), 90.0, () -> this.mc.gameMode.useItem(this.mc.player, xpResult.getHand()));
+                  Rotations.rotate(this.mc.player.getYaw(), 90.0, () -> this.mc.interactionManager.interactItem(this.mc.player, xpResult.getHand()));
                }
 
                this.setDelay((Integer)this.dropXpDelay.get());
@@ -349,8 +349,7 @@ public class AutoEnchantment extends StepModule {
                   this.setDelay();
                } else {
                   this.warning("缺少XP", new Object[0]);
-                  this.disable();
-                  this.sendToggledMsg();
+                  this.toggle();
                }
             }
          }
@@ -377,12 +376,10 @@ public class AutoEnchantment extends StepModule {
       FindItemResult anvilResult = InvUtils.find(new Item[]{Items.ANVIL});
       if (!anvilResult.found()) {
          this.warning("缺少铁砧", new Object[0]);
-         this.disable();
-         this.sendToggledMsg();
+         this.toggle();
       } else if (!BlockUtils.canPlace(this.anvilPos, true)) {
          this.warning("无法放置铁砧", new Object[0]);
-         this.disable();
-         this.sendToggledMsg();
+         this.toggle();
       } else {
          if (InvUtils.testInMainHand(new Item[]{Items.ANVIL})) {
             this.info("放置铁砧", new Object[0]);
@@ -411,8 +408,8 @@ public class AutoEnchantment extends StepModule {
       if (needLevel > this.mc.player.experienceLevel) {
          this.needLevel = needLevel;
          this.delayCloseNext(Steps.LEVEL);
-      } else if (!(this.mc.player.containerMenu instanceof AnvilMenu screenHandler)) {
-         if (this.mc.level.getBlockState(this.anvilPos).isAir()) {
+      } else if (!(this.mc.player.currentScreenHandler instanceof AnvilScreenHandler screenHandler)) {
+         if (this.mc.world.getBlockState(this.anvilPos).isAir()) {
             this.info("补放铁砧", new Object[0]);
             this.delayNext(Steps.PLACE);
          } else {
@@ -420,7 +417,7 @@ public class AutoEnchantment extends StepModule {
             this.setDelay();
          }
       } else {
-         if (screenHandler.getSlot(0).getItem() == ItemStack.EMPTY) {
+         if (screenHandler.getSlot(0).getStack() == ItemStack.EMPTY) {
             if (this.getItemStack(this.index1).getItem() != this.itemStack1.getItem()) {
                this.delayCloseNext(Steps.NEXT);
                return;
@@ -428,7 +425,7 @@ public class AutoEnchantment extends StepModule {
 
             InvUtils.shiftClick().slot(this.index1);
             this.setDelay();
-         } else if (!(Boolean)this.onlyRename.get() && screenHandler.getSlot(1).getItem() == ItemStack.EMPTY) {
+         } else if (!(Boolean)this.onlyRename.get() && screenHandler.getSlot(1).getStack() == ItemStack.EMPTY) {
             if (this.getItemStack(this.index2).getItem() != itemStack2.getItem()) {
                this.delayCloseNext(Steps.NEXT);
                return;
@@ -438,24 +435,24 @@ public class AutoEnchantment extends StepModule {
             this.setDelay();
          } else {
             if ((Boolean)this.rename.get()) {
-               ItemStack itemStack = screenHandler.getSlot(2).getItem();
+               ItemStack itemStack = screenHandler.getSlot(2).getStack();
                if (itemStack.getItem() != Items.ENCHANTED_BOOK) {
-                  Component customName = itemStack.getCustomName();
+                  Text customName = itemStack.getCustomName();
                   if (customName == null || !newNameValue.equals(customName.getString())) {
                      this.info("改名", new Object[0]);
-                     screenHandler.setItemName(newNameValue);
-                     EditBox textFieldWidget = ((AnvilScreen)this.mc.screen).name;
-                     textFieldWidget.setValue(newNameValue);
-                     textFieldWidget.moveCursorToEnd(false);
-                     this.mc.player.connection.send(new ServerboundRenameItemPacket(newNameValue));
+                     screenHandler.setNewItemName(newNameValue);
+                     TextFieldWidget textFieldWidget = ((AnvilScreen)this.mc.currentScreen).nameField;
+                     textFieldWidget.setText(newNameValue);
+                     textFieldWidget.setCursorToEnd(false);
+                     this.mc.player.networkHandler.sendPacket(new RenameItemC2SPacket(newNameValue));
                      this.setDelay();
                      return;
                   }
                }
             }
 
-            if (screenHandler.getCost() > this.mc.player.experienceLevel) {
-               this.needLevel = screenHandler.getCost();
+            if (screenHandler.getLevelCost() > this.mc.player.experienceLevel) {
+               this.needLevel = screenHandler.getLevelCost();
                this.delayCloseNext(Steps.LEVEL);
             } else {
                InvUtils.shiftClick().slotId(2);
@@ -470,8 +467,8 @@ public class AutoEnchantment extends StepModule {
    }
 
    private void grind() {
-      if (this.mc.player.containerMenu instanceof GrindstoneMenu screenHandler) {
-         if (screenHandler.getSlot(0).getItem() == ItemStack.EMPTY) {
+      if (this.mc.player.currentScreenHandler instanceof GrindstoneScreenHandler screenHandler) {
+         if (screenHandler.getSlot(0).getStack() == ItemStack.EMPTY) {
             if (this.getItemStack(this.index1).getItem() != this.itemStack1.getItem()) {
                this.delayCloseNext(Steps.NEXT);
                return;
@@ -484,7 +481,7 @@ public class AutoEnchantment extends StepModule {
             InvUtils.shiftClick().slotId(2);
             this.delayCloseNext(Steps.NEXT);
          }
-      } else if (this.mc.level.getBlockState(this.grindPos).getBlock() != Blocks.GRINDSTONE) {
+      } else if (this.mc.world.getBlockState(this.grindPos).getBlock() != Blocks.GRINDSTONE) {
          this.breakStep("砂轮位置错误");
       } else {
          this.rotateAndOpen(this.grindPos);
@@ -498,8 +495,7 @@ public class AutoEnchantment extends StepModule {
          ItemStack nextItemStack = this.nextScreenStack(itemStack -> itemStack.getItem() == target);
          if (nextItemStack.isEmpty()) {
             this.warning("无法补给<" + Names.get(target) + ">", new Object[0]);
-            this.disable();
-            this.sendToggledMsg();
+            this.setDelay();
          } else {
             int curScreenSlot = this.getCurScreenSlot();
             InvUtils.shiftClick().slotId(curScreenSlot);
@@ -513,17 +509,16 @@ public class AutoEnchantment extends StepModule {
       if (this.needTakeBook.isEmpty()) {
          this.delayCloseNext(Steps.NEXT);
       } else {
-         ResourceKey<Enchantment> needBook = this.needTakeBook.getFirst();
+         RegistryKey<Enchantment> needBook = this.needTakeBook.getFirst();
          BlockPos kitPos = this.enchantmentPosMap.get(needBook);
-         if (this.mc.player.containerMenu instanceof InventoryMenu) {
+         if (this.mc.player.currentScreenHandler instanceof PlayerScreenHandler) {
             if (kitPos == null) {
                this.warning("找不到<" + Names.get(needBook) + ">容器", new Object[0]);
-               this.disable();
-               this.sendToggledMsg();
+               this.toggle();
                return;
             }
 
-            if (!HeItemUtils.isShulkerBox(this.mc.level.getBlockState(kitPos).getBlock().asItem())) {
+            if (!HeItemUtils.isShulkerBox(this.mc.world.getBlockState(kitPos).getBlock().asItem())) {
                this.warning("找不到<" + Names.get(needBook) + ">容器", new Object[0]);
                this.setDelay();
                return;
@@ -550,10 +545,10 @@ public class AutoEnchantment extends StepModule {
       }
    }
 
-   private ItemStack nextNeedBook(ResourceKey<Enchantment> needBook) {
+   private ItemStack nextNeedBook(RegistryKey<Enchantment> needBook) {
       return this.nextScreenStack(itemStack -> {
          if (itemStack.getItem() == Items.ENCHANTED_BOOK) {
-            Set<ResourceKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(itemStack);
+            Set<RegistryKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(itemStack);
             return bookEnchantMentSet.contains(needBook);
          } else {
             return false;
@@ -568,15 +563,14 @@ public class AutoEnchantment extends StepModule {
                return false;
             }
 
-            Component customName = itemStack.getCustomName();
+            Text customName = itemStack.getCustomName();
             boolean done = customName != null && ((String)this.newName.get()).equals(customName.getString());
             return !done;
          });
          if (nextStack.isEmpty()) {
             this.breakStep("改名完毕");
             this.closeScreen();
-            this.disable();
-            this.sendToggledMsg();
+            this.toggle();
          } else {
             this.setIndex1(this.getCurPlayerSlot());
             this.delayNext(Steps.USE);
@@ -586,17 +580,17 @@ public class AutoEnchantment extends StepModule {
          if (equipItemStack.isEmpty()) {
             this.delayNext(Steps.TAKE_ITEM);
          } else {
-            Set<ResourceKey<Enchantment>> targetEnchants = (Set<ResourceKey<Enchantment>>)this.selectedEnchantments.get();
-            Set<ResourceKey<Enchantment>> enchantmentSet = EnchantmentUtils.getEnchantment(equipItemStack);
+            Set<RegistryKey<Enchantment>> targetEnchants = (Set<RegistryKey<Enchantment>>)this.selectedEnchantments.get();
+            Set<RegistryKey<Enchantment>> enchantmentSet = EnchantmentUtils.getEnchantment(equipItemStack);
             if (!targetEnchants.containsAll(enchantmentSet)) {
                this.setIndex1(this.getCurPlayerSlot());
                this.delayNext(Steps.GRIND);
             } else {
-               Set<ResourceKey<Enchantment>> haveEnchantmentSet = EnchantmentUtils.getEnchantment(equipItemStack, true);
+               Set<RegistryKey<Enchantment>> haveEnchantmentSet = EnchantmentUtils.getEnchantment(equipItemStack, true);
                if (haveEnchantmentSet.containsAll(targetEnchants)) {
                   this.delayNext(Steps.PUT_ITEM);
                } else {
-                  Set<ResourceKey<Enchantment>> missEnchantmentSet = new HashSet<>(targetEnchants);
+                  Set<RegistryKey<Enchantment>> missEnchantmentSet = new HashSet<>(targetEnchants);
                   missEnchantmentSet.removeAll(haveEnchantmentSet);
                   EnchantmentMargeNode margeNode = EnchantmentUtils.bestStepSimple(equipItemStack, missEnchantmentSet);
                   this.getSlotOrMarge(margeNode);
@@ -683,24 +677,20 @@ public class AutoEnchantment extends StepModule {
    }
 
    private int getLevelCost(ItemStack itemStack, ItemStack itemStack2, String newName) {
-      this.anvilLevelHandler.getSlot(0).setByPlayer(itemStack);
+      this.anvilLevelHandler.getSlot(0).setStack(itemStack);
       if (!itemStack2.isEmpty()) {
-         this.anvilLevelHandler.getSlot(1).setByPlayer(itemStack2);
+         this.anvilLevelHandler.getSlot(1).setStack(itemStack2);
       }
 
       if (newName != null) {
-         this.anvilLevelHandler.setItemName(newName);
+         this.anvilLevelHandler.setNewItemName(newName);
       }
 
-      this.anvilLevelHandler.createResult();
-      return this.anvilLevelHandler.getCost();
+      this.anvilLevelHandler.updateResult();
+      return this.anvilLevelHandler.getLevelCost();
    }
 
    public void onDeactivate() {
-      if(!this.isActive()){
-          this.sendToggledMsg();
-      }
-      
       this.step = Steps.NONE;
       KillAura killAura = (KillAura)Modules.get().get(KillAura.class);
       if (killAura.isActive()) {

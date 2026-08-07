@@ -1,7 +1,7 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.block.entity.SignText;
 
 public class HeOpenScreenEvent extends Event {
    private static final HeOpenScreenEvent INSTANCE = new HeOpenScreenEvent();

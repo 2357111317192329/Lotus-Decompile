@@ -12,11 +12,11 @@ import meteordevelopment.meteorclient.settings.IntSetting.Builder;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.BlockPos.MutableBlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Direction.Axis;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.block.BlockState;
+import net.minecraft.util.math.BlockPos.Mutable;
+import net.minecraft.util.math.Direction.Axis;
 
 public class PortalEsp extends Module {
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
@@ -104,11 +104,11 @@ public class PortalEsp extends Module {
 
    private int findFrameLength(BlockPos start, Direction direction, Axis axis, int max) {
       int length = 0;
-      MutableBlockPos pos = start.mutable();
+      Mutable pos = start.mutableCopy();
 
       while (length < max) {
          pos.move(direction);
-         BlockState state = this.mc.level.getBlockState(pos);
+         BlockState state = this.mc.world.getBlockState(pos);
          length++;
       }
 

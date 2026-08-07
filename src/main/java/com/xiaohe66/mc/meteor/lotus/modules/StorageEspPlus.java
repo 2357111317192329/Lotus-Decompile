@@ -16,13 +16,13 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.BoolSetting.Builder;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.Block;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.BlockState;
 
 public class StorageEspPlus extends Module {
    private static final Cache<String, Boolean> storageStatusCache = CacheBuilder.newBuilder()
@@ -103,7 +103,7 @@ public class StorageEspPlus extends Module {
    }
 
    private boolean testInStructure(BlockEntity blockEntity) {
-      BlockPos originPos = blockEntity.getBlockPos();
+      BlockPos originPos = blockEntity.getPos();
       String key = originPos.getX() + "_" + originPos.getY() + "_" + originPos.getZ();
 
       try {
@@ -120,7 +120,7 @@ public class StorageEspPlus extends Module {
       Set<Item> blockItemSet = blocks.stream().<Item>map(Block::asItem).collect(Collectors.toSet());
       int count = 0;
       int storageCount = 0;
-      BlockPos originPos = blockEntity.getBlockPos();
+      BlockPos originPos = blockEntity.getPos();
       int startX = originPos.getX() - range;
       int endX = originPos.getX() + range;
       int startY = originPos.getY() - range;
@@ -132,7 +132,7 @@ public class StorageEspPlus extends Module {
          for (int y = startY; y <= endY; y++) {
             for (int z = startZ; z <= endZ; z++) {
                BlockPos blockPos = new BlockPos(x, y, z);
-               BlockState blockState = MeteorClient.mc.level.getBlockState(blockPos);
+               BlockState blockState = MeteorClient.mc.world.getBlockState(blockPos);
                Item item = blockState.getBlock().asItem();
                if (item == Items.CHEST || item == Items.TRAPPED_CHEST || item == Items.HOPPER) {
                   storageCount++;

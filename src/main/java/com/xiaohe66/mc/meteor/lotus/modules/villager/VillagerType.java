@@ -2,11 +2,11 @@ package com.xiaohe66.mc.meteor.lotus.modules.villager;
 
 import java.util.List;
 import java.util.Set;
-import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.entity.npc.villager.VillagerProfession;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+import net.minecraft.village.VillagerProfession;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.entry.RegistryEntry;
 
 public enum VillagerType {
    盔甲匠(
@@ -199,11 +199,11 @@ public enum VillagerType {
    );
 
    private final Item item;
-   private final ResourceKey<VillagerProfession> profession;
+   private final RegistryKey<VillagerProfession> profession;
    private final Set<Item> canVillagerItemSet;
    private final List<Item> defaultVillagerItemList;
 
-   VillagerType(Item item, ResourceKey<VillagerProfession> profession, Set<Item> canVillagerItemSet, List<Item> defaultVillagerItemList) {
+   VillagerType(Item item, RegistryKey<VillagerProfession> profession, Set<Item> canVillagerItemSet, List<Item> defaultVillagerItemList) {
       this.item = item;
       this.profession = profession;
       this.canVillagerItemSet = canVillagerItemSet;
@@ -214,7 +214,7 @@ public enum VillagerType {
       return this.item;
    }
 
-   public ResourceKey<VillagerProfession> getProfession() {
+   public RegistryKey<VillagerProfession> getProfession() {
       return this.profession;
    }
 
@@ -226,9 +226,9 @@ public enum VillagerType {
       return this.defaultVillagerItemList;
    }
 
-   public static VillagerType fromEntry(Holder<VillagerProfession> registryEntry) {
+   public static VillagerType fromEntry(RegistryEntry<VillagerProfession> registryEntry) {
       for (VillagerType type : values()) {
-         if (registryEntry.is(type.getProfession())) {
+         if (registryEntry.matchesKey(type.getProfession())) {
             return type;
          }
       }

@@ -25,17 +25,17 @@ import meteordevelopment.meteorclient.utils.render.MeteorToast;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.Vec3i;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.world.World;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.registry.RegistryKey;
 
 public class EntityList extends Module {
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
@@ -262,11 +262,11 @@ public class EntityList extends Module {
             Map<Item, ItemWarp> items2Map = new HashMap<>();
             Map<Item, ItemWarp> itemsMap = new HashMap<>();
             Map<EntityType<?>, Integer> entitysMap = new HashMap<>();
-            ResourceKey<Level> registryKey = this.mc.player.level().dimension();
+            RegistryKey<World> registryKey = this.mc.player.getEntityWorld().getRegistryKey();
 
-            for (Entity entity : this.mc.level.entitiesForRendering()) {
+            for (Entity entity : this.mc.world.getEntities()) {
                if (entity instanceof ItemEntity itemEntity) {
-                  ItemStack stack = itemEntity.getItem();
+                  ItemStack stack = itemEntity.getStack();
                   Item item = stack.getItem();
                   if (!blackListSet.contains(item)) {
                      Map<Item, ItemWarp> map;
@@ -274,7 +274,7 @@ public class EntityList extends Module {
                         map = items1Map;
                         if ((Boolean)this.item1Log.get()) {
                            String msg = "检测到物品 : " + Names.get(item);
-                           this.postLogEvent(entity, registryKey, entity.position(), msg);
+                           this.postLogEvent(entity, registryKey, entity.getEntityPos(), msg);
                         }
                      } else if (items2Set.contains(item)) {
                         map = items2Map;
@@ -293,9 +293,9 @@ public class EntityList extends Module {
                } else {
                   EntityType<?> entityType = entity.getType();
                   Set<EntityType<?>> entityTypes;
-                  if (registryKey == ServerLevel.NETHER) {
+                  if (registryKey == ServerWorld.NETHER) {
                      entityTypes = (Set<EntityType<?>>)this.netherEntitys.get();
-                  } else if (registryKey == ServerLevel.OVERWORLD) {
+                  } else if (registryKey == ServerWorld.OVERWORLD) {
                      entityTypes = (Set<EntityType<?>>)this.entitys.get();
                   } else {
                      entityTypes = Collections.emptySet();
@@ -306,14 +306,14 @@ public class EntityList extends Module {
                      entitysMap.put(entityType, qty + 1);
                      if ((Boolean)this.entityLog.get()) {
                         String msg = "检测到实体 : " + Names.get(entityType);
-                        this.postLogEvent(entity, registryKey, entity.position(), msg);
+                        this.postLogEvent(entity, registryKey, entity.getEntityPos(), msg);
                      }
                   }
                }
             }
 
             int y = (Integer)this.yOffset.get();
-            int screenWidth = this.mc.getWindow().getScreenWidth();
+            int screenWidth = this.mc.getWindow().getWidth();
             y = this.draw(items1Map, y, (Color)this.items1Color.get(), screenWidth);
             if ((Boolean)this.sendNotifications.get()) {
                long currentTimeMillis = System.currentTimeMillis();
@@ -328,7 +328,7 @@ public class EntityList extends Module {
                      .icon(Items.CHEST)
                      .text("捡东西啦~")
                      .build();
-                  this.mc.getToastManager().addToast(toast);
+                  this.mc.getToastManager().add(toast);
                   this.prevTime = currentTimeMillis;
                }
             }
@@ -340,11 +340,11 @@ public class EntityList extends Module {
       }
    }
 
-   private void postLogEvent(Entity entity, ResourceKey<Level> worldType, Vec3 pos, String msg) {
+   private void postLogEvent(Entity entity, RegistryKey<World> worldType, Vec3d pos, String msg) {
       LogEvent logEvent = new LogEvent();
       logEvent.setModuleName(super.name);
       logEvent.setWorldType(worldType);
-      logEvent.setPos(new Vec3i((int)pos.x(), (int)pos.y(), (int)pos.z()));
+      logEvent.setPos(new Vec3i((int)pos.getX(), (int)pos.getY(), (int)pos.getZ()));
       logEvent.setKey(String.valueOf(entity.getId()));
       logEvent.setMsg(msg);
       MeteorClient.EVENT_BUS.post(logEvent);

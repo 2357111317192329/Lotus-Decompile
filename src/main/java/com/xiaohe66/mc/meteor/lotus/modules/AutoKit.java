@@ -18,19 +18,19 @@ import meteordevelopment.meteorclient.settings.IntSetting.Builder;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.block.BlockState;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.util.hit.BlockHitResult;
 
 public class AutoKit extends WalkModule {
    private final Setting<Integer> scanRange = this.sgGeneral
@@ -97,7 +97,7 @@ public class AutoKit extends WalkModule {
    private void init(Boolean enabled) {
       if (Boolean.TRUE.equals(enabled)) {
          this.initBtn.set(false);
-         if (this.mc.player != null && this.mc.level != null) {
+         if (this.mc.player != null && this.mc.world != null) {
             this.clear();
             boolean scanPositionsSuccess = this.scanPositions();
             if (!scanPositionsSuccess) {
@@ -172,10 +172,10 @@ public class AutoKit extends WalkModule {
          }
       } else {
          List<ItemEntity> shulkerEntities = this.mc
-            .level
-            .getEntitiesOfClass(ItemEntity.class, this.mc.player.getBoundingBox().inflate(5.0), e -> HeItemUtils.isShulkerBox(e.getItem().getItem()));
+            .world
+            .getEntitiesByClass(ItemEntity.class, this.mc.player.getBoundingBox().expand(5.0), e -> HeItemUtils.isShulkerBox(e.getStack().getItem()));
          if (!shulkerEntities.isEmpty()) {
-            BlockPos targetPos = shulkerEntities.getFirst().blockPosition();
+            BlockPos targetPos = shulkerEntities.getFirst().getBlockPos();
             if (targetPos.getY() != this.mc.player.getBlockY()) {
                BlockPos testPos = new BlockPos(targetPos.getX(), this.mc.player.getBlockY(), targetPos.getZ());
                BlockPos canStandPos = HeBlockUtils.getCanStandPos(testPos, 1);
@@ -218,8 +218,8 @@ public class AutoKit extends WalkModule {
          this.gotoBtnPos(this.emptyKitPos, "<拿空盒>距离不够，尝试移动", Steps.TAKE_EMPTY_KIT);
       } else {
          this.openChest(this.emptyKitPos.getTakePos(), inventory -> {
-            for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-               ItemStack itemStack = inventory.getItem(slot);
+            for (int slot = 0; slot < inventory.size(); slot++) {
+               ItemStack itemStack = inventory.getStack(slot);
                if (HeItemUtils.isShulkerBox(itemStack.getItem())) {
                   ShulkerBoxReader reader = new ShulkerBoxReader(itemStack);
                   if (reader.isEmpty()) {
@@ -237,7 +237,7 @@ public class AutoKit extends WalkModule {
    }
 
    private void placeEmptyKit() {
-      BlockState finishedKiBlockState = this.mc.level.getBlockState(this.finishedKitPos.getKitPos());
+      BlockState finishedKiBlockState = this.mc.world.getBlockState(this.finishedKitPos.getKitPos());
       if (finishedKiBlockState.getBlock() instanceof ShulkerBoxBlock) {
          this.step = Steps.PUT_ITEM;
       } else if (!finishedKiBlockState.isAir()) {
@@ -270,7 +270,6 @@ public class AutoKit extends WalkModule {
                   ShulkerBoxReader reader = new ShulkerBoxReader(itemStack);
                   return reader.hasItem(this.currentItem);
                } else {
-                  //this.info("no kit");
                   return false;
                }
             });
@@ -286,7 +285,7 @@ public class AutoKit extends WalkModule {
    }
 
    private void placeKit() {
-      BlockState finishedKitBlockState = this.mc.level.getBlockState(this.curOperationPos.getKitPos());
+      BlockState finishedKitBlockState = this.mc.world.getBlockState(this.curOperationPos.getKitPos());
       if (!finishedKitBlockState.isAir()) {
          if (finishedKitBlockState.getBlock() instanceof ShulkerBoxBlock) {
             this.step = Steps.TAKE_ITEM;
@@ -309,7 +308,7 @@ public class AutoKit extends WalkModule {
 
    private void takeItem() {
       if (this.takeItemIndex < this.templateItemList.size() && this.takeItemIndex - this.putItemIndex < (Integer)this.qty.get()) {
-         BlockState finishedKitBlockState = this.mc.level.getBlockState(this.curOperationPos.getKitPos());
+         BlockState finishedKitBlockState = this.mc.world.getBlockState(this.curOperationPos.getKitPos());
          if (finishedKitBlockState.isAir()) {
             this.step = Steps.PLACE_KIT;
          } else if (!(finishedKitBlockState.getBlock() instanceof ShulkerBoxBlock)) {
@@ -321,7 +320,7 @@ public class AutoKit extends WalkModule {
                this.curOperationPos.getKitPos(),
                screenHandler -> {
                   ItemStack nextItemStack = this.nextScreenStack(
-                     itemStack -> this.currentItem.isSameItem(itemStack) && itemStack.getCount() == this.currentItem.getItem().getDefaultMaxStackSize()
+                     itemStack -> this.currentItem.isSameItem(itemStack) && itemStack.getCount() == this.currentItem.getItem().getMaxCount()
                   );
                   if (nextItemStack.isEmpty()) {
                      this.info("kit已空，挖掉重放: " + this.currentItem.getName(), new Object[0]);
@@ -348,7 +347,7 @@ public class AutoKit extends WalkModule {
 
    private void putItem() {
       ItemBo putItem = this.templateItemList.get(this.putItemIndex);
-      ItemStack nextItemStack = this.nextPlayerStack(itemStack -> putItem.isSameItem(itemStack) && itemStack.getCount() == itemStack.getMaxStackSize());
+      ItemStack nextItemStack = this.nextPlayerStack(itemStack -> putItem.isSameItem(itemStack) && itemStack.getCount() == itemStack.getMaxCount());
       if (nextItemStack.isEmpty()) {
          this.closeScreen();
          if (this.putItemIndex > this.takeItemIndex) {
@@ -357,7 +356,7 @@ public class AutoKit extends WalkModule {
 
          this.setTakeItem(putItem);
       } else {
-         BlockState finishedKitBlockState = this.mc.level.getBlockState(this.finishedKitPos.getKitPos());
+         BlockState finishedKitBlockState = this.mc.world.getBlockState(this.finishedKitPos.getKitPos());
          if (finishedKitBlockState.isAir()) {
             this.curOperationPos = this.finishedKitPos;
             this.closeScreen();
@@ -373,7 +372,7 @@ public class AutoKit extends WalkModule {
                if (this.hasScreenFull()) {
                   this.setBreakFullKit();
                } else {
-                  ItemStack itemStack = screenHandler.getSlot(this.putItemIndex).getItem();
+                  ItemStack itemStack = screenHandler.getSlot(this.putItemIndex).getStack();
                   if (itemStack.isEmpty()) {
                      InvUtils.shiftClick().slot(this.getCurPlayerSlot());
                   }
@@ -394,32 +393,32 @@ public class AutoKit extends WalkModule {
       if (this.notInOperationRange(this.curOperationPos)) {
          this.gotoBtnPos(this.curOperationPos, "<挖盒子>距离不够, 尝试移动", Steps.BREAK_KIT);
       } else {
-         Vec3 hitPos = Vec3.atCenterOf(this.curOperationPos.getBtnPos()).add(0.0, -0.5, 0.0);
+         Vec3d hitPos = Vec3d.ofCenter(this.curOperationPos.getBtnPos()).add(0.0, -0.5, 0.0);
          BlockHitResult hitResult = new BlockHitResult(hitPos, Direction.UP, this.curOperationPos.getBtnPos(), false);
-         ServerboundUseItemOnPacket packet = new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, hitResult, 0);
-         this.mc.getConnection().send(packet);
+         PlayerInteractBlockC2SPacket packet = new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, hitResult, 0);
+         this.mc.getNetworkHandler().sendPacket(packet);
          this.step = Steps.NEXT;
          this.setDelay(40);
       }
    }
 
    private boolean scanPositions() {
-      List<ItemFrame> itemFrames = this.mc
-         .level
-         .getEntitiesOfClass(
-            ItemFrame.class,
-            this.mc.player.getBoundingBox().inflate(((Integer)this.scanRange.get()).intValue()),
-            framex -> !framex.getItem().isEmpty()
+      List<ItemFrameEntity> itemFrames = this.mc
+         .world
+         .getEntitiesByClass(
+            ItemFrameEntity.class,
+            this.mc.player.getBoundingBox().expand(((Integer)this.scanRange.get()).intValue()),
+            framex -> !framex.getHeldItemStack().isEmpty()
          );
-      int playerY = this.mc.player.blockPosition().getY();
-      Vec3 playerPos = this.mc.player.position();
+      int playerY = this.mc.player.getBlockPos().getY();
+      Vec3d playerPos = this.mc.player.getEntityPos();
 
-      for (ItemFrame frame : itemFrames) {
-         BlockPos attachedBlockPos = frame.getPos();
+      for (ItemFrameEntity frame : itemFrames) {
+         BlockPos attachedBlockPos = frame.getAttachedBlockPos();
          if (attachedBlockPos.getY() >= playerY && attachedBlockPos.getY() <= playerY + 4) {
-            double distance = attachedBlockPos.getCenter().distanceTo(playerPos);
+            double distance = attachedBlockPos.toCenterPos().distanceTo(playerPos);
             if (!(distance > ((Integer)this.scanRange.get()).intValue())) {
-               ItemStack frameHeldItemStack = frame.getItem();
+               ItemStack frameHeldItemStack = frame.getHeldItemStack();
                ItemBo itemBo = new ItemBo(frameHeldItemStack);
                Item item = itemBo.getItem();
                StoragePos pos = this.checkAndBuildStoragePos(frame, StorageItem.valueOf(itemBo));
@@ -460,7 +459,7 @@ public class AutoKit extends WalkModule {
    }
 
    private boolean readTemplateFromMainHand() {
-      ItemStack mainHandStack = this.mc.player.getMainHandItem();
+      ItemStack mainHandStack = this.mc.player.getMainHandStack();
       if (!HeItemUtils.isShulkerBox(mainHandStack.getItem())) {
          this.warning("主手未持有潜影盒，请手持模板盒子后重新初始化", new Object[0]);
          return false;
@@ -488,13 +487,13 @@ public class AutoKit extends WalkModule {
       }
    }
 
-   private StoragePos keepNearer(StoragePos newPos, StoragePos oldPos, Vec3 playerPos) {
+   private StoragePos keepNearer(StoragePos newPos, StoragePos oldPos, Vec3d playerPos) {
       if (oldPos == null) {
          return newPos;
       }
 
-      double newDist = newPos.getBtnPos().distToCenterSqr(playerPos);
-      double oldDist = oldPos.getBtnPos().distToCenterSqr(playerPos);
+      double newDist = newPos.getBtnPos().getSquaredDistance(playerPos);
+      double oldDist = oldPos.getBtnPos().getSquaredDistance(playerPos);
       return newDist < oldDist ? newPos : oldPos;
    }
 

@@ -10,17 +10,17 @@ import meteordevelopment.meteorclient.events.packets.PacketEvent.Send;
 import meteordevelopment.meteorclient.events.world.TickEvent.Post;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.network.protocol.common.ClientboundPingPacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
-import net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket;
-import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.AxeItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.MaceItem;
-import net.minecraft.world.item.TridentItem;
-import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.AxeItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.TridentItem;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
+import net.minecraft.network.packet.s2c.play.UpdateSelectedSlotS2CPacket;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.network.packet.s2c.common.CommonPingS2CPacket;
+import net.minecraft.item.MaceItem;
 
 public class BepInventoryManager {
    private static BepInventoryManager INSTANCE;
@@ -49,9 +49,9 @@ public class BepInventoryManager {
    @EventHandler
    public void onPacketSend(Send event) {
       if (!this.sendingPacket) {
-         if (event.packet instanceof ServerboundSetCarriedItemPacket packet) {
-            int packetSlot = packet.getSlot();
-            if (!Inventory.isHotbarSlot(packetSlot) || this.serverSlot == packetSlot) {
+         if (event.packet instanceof UpdateSelectedSlotC2SPacket packet) {
+            int packetSlot = packet.getSelectedSlot();
+            if (!PlayerInventory.isValidHotbarIndex(packetSlot) || this.serverSlot == packetSlot) {
                event.cancel();
                return;
             }
@@ -63,21 +63,21 @@ public class BepInventoryManager {
 
    @EventHandler(priority = 200)
    public void onPacketReceive(Receive event) {
-      if (event.packet instanceof ClientboundSetHeldSlotPacket packet) {
+      if (event.packet instanceof UpdateSelectedSlotS2CPacket packet) {
          int slot = packet.slot();
          this.serverSlot = slot;
-      } else if (event.packet instanceof ClientboundPingPacket packet) {
+      } else if (event.packet instanceof CommonPingS2CPacket packet) {
          if (this.transactionIndex > 3) {
             return;
          }
 
-         int uid = packet.getId();
+         int uid = packet.getParameter();
          this.transactions[this.transactionIndex] = uid;
          this.transactionIndex++;
          if (this.transactionIndex == 4) {
             this.grimCheck();
          }
-      } else if (event.packet instanceof ClientboundPlayerPositionPacket) {
+      } else if (event.packet instanceof PlayerPositionLookS2CPacket) {
          this.lastSetbackTime = System.currentTimeMillis();
       }
    }
@@ -122,18 +122,18 @@ public class BepInventoryManager {
    }
 
    public void setSlot(int barSlot, boolean highPriority) {
-      if (MeteorClient.mc.player != null && MeteorClient.mc.getConnection() != null) {
+      if (MeteorClient.mc.player != null && MeteorClient.mc.getNetworkHandler() != null) {
          if (!this.isEating || highPriority) {
             if (this.serverSlot == -1) {
                this.serverSlot = MeteorClient.mc.player.getInventory().getSelectedSlot();
             }
 
-            if (this.serverSlot != barSlot && Inventory.isHotbarSlot(barSlot)) {
+            if (this.serverSlot != barSlot && PlayerInventory.isValidHotbarIndex(barSlot)) {
                this.setSlotForced(barSlot);
                ItemStack[] hotbarCopy = new ItemStack[9];
 
                for (int i = 0; i < 9; i++) {
-                  hotbarCopy[i] = MeteorClient.mc.player.getInventory().getItem(i);
+                  hotbarCopy[i] = MeteorClient.mc.player.getInventory().getStack(i);
                }
 
                this.swapData.add(new BepInventoryManager.PreSwapData(hotbarCopy, this.serverSlot, barSlot));
@@ -145,7 +145,7 @@ public class BepInventoryManager {
    public void setClientSlot(int barSlot) {
       if (MeteorClient.mc.player != null) {
          if (!this.isEating) {
-            if (MeteorClient.mc.player.getInventory().getSelectedSlot() != barSlot && Inventory.isHotbarSlot(barSlot)) {
+            if (MeteorClient.mc.player.getInventory().getSelectedSlot() != barSlot && PlayerInventory.isValidHotbarIndex(barSlot)) {
                MeteorClient.mc.player.getInventory().setSelectedSlot(barSlot);
                this.setSlotForced(barSlot);
             }
@@ -154,11 +154,11 @@ public class BepInventoryManager {
    }
 
    public void setSlotForced(int barSlot) {
-      if (MeteorClient.mc.getConnection() != null) {
+      if (MeteorClient.mc.getNetworkHandler() != null) {
          this.sendingPacket = true;
 
          try {
-            MeteorClient.mc.getConnection().send(new ServerboundSetCarriedItemPacket(barSlot));
+            MeteorClient.mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(barSlot));
             this.serverSlot = barSlot;
          } finally {
             this.sendingPacket = false;
@@ -196,7 +196,7 @@ public class BepInventoryManager {
 
    public ItemStack getServerItem() {
       return MeteorClient.mc.player != null && this.getServerSlot() != -1
-         ? MeteorClient.mc.player.getInventory().getItem(this.getServerSlot())
+         ? MeteorClient.mc.player.getInventory().getStack(this.getServerSlot())
          : ItemStack.EMPTY;
    }
 
@@ -213,7 +213,7 @@ public class BepInventoryManager {
       int bestSlot = -1;
 
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = MeteorClient.mc.player.getInventory().getItem(i);
+         ItemStack stack = MeteorClient.mc.player.getInventory().getStack(i);
          float damage = getWeaponDamage(stack);
          if (damage > bestDamage) {
             bestDamage = damage;
@@ -255,7 +255,7 @@ public class BepInventoryManager {
       int bestBreachLevel = 0;
 
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = MeteorClient.mc.player.getInventory().getItem(i);
+         ItemStack stack = MeteorClient.mc.player.getInventory().getStack(i);
          if (stack.getItem() instanceof MaceItem) {
             int breachLevel = Utils.getEnchantmentLevel(stack, Enchantments.BREACH);
             if (breachLevel > bestBreachLevel) {
@@ -269,17 +269,17 @@ public class BepInventoryManager {
    }
 
    public static boolean isHoldingWeapon() {
-      ItemStack mainHand = MeteorClient.mc.player.getMainHandItem();
+      ItemStack mainHand = MeteorClient.mc.player.getMainHandStack();
       Item item = mainHand.getItem();
       return item.toString().toLowerCase().contains("sword") || item instanceof AxeItem || item instanceof TridentItem || item instanceof MaceItem;
    }
 
    public static boolean isHoldingWeaponType(Class<? extends Item> weaponType) {
-      return weaponType.isInstance(MeteorClient.mc.player.getMainHandItem().getItem());
+      return weaponType.isInstance(MeteorClient.mc.player.getMainHandStack().getItem());
    }
 
    public static ItemStack getCurrentWeapon() {
-      ItemStack mainHand = MeteorClient.mc.player.getMainHandItem();
+      ItemStack mainHand = MeteorClient.mc.player.getMainHandStack();
       return isHoldingWeapon() ? mainHand : ItemStack.EMPTY;
    }
 
@@ -316,8 +316,8 @@ public class BepInventoryManager {
          return false;
       }
 
-      ItemStack mainHand = MeteorClient.mc.player.getMainHandItem();
-      ItemStack offHand = MeteorClient.mc.player.getOffhandItem();
+      ItemStack mainHand = MeteorClient.mc.player.getMainHandStack();
+      ItemStack offHand = MeteorClient.mc.player.getOffHandStack();
       return is32kWeapon(mainHand) || is32kWeapon(offHand);
    }
 

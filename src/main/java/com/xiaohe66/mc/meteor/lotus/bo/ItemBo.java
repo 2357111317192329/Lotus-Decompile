@@ -3,20 +3,20 @@ package com.xiaohe66.mc.meteor.lotus.bo;
 import com.xiaohe66.mc.meteor.lotus.util.EnchantmentUtils;
 import java.util.Objects;
 import meteordevelopment.meteorclient.utils.misc.Names;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.PotionContents;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.level.saveddata.maps.MapId;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.component.type.MapIdComponent;
+import net.minecraft.component.DataComponentTypes;
 
 public class ItemBo {
    private final Item item;
    private final String name;
-   private final ResourceKey<Enchantment> enchantment;
-   private final PotionContents potionContents;
+   private final RegistryKey<Enchantment> enchantment;
+   private final PotionContentsComponent potionContents;
    private final Integer mapId;
 
    public ItemBo(ItemStack itemStack) {
@@ -27,9 +27,9 @@ public class ItemBo {
       this.item = itemStack.getItem();
       this.name = haveName && itemStack.getCustomName() != null ? itemStack.getCustomName().getString() : null;
       this.enchantment = itemStack.getItem() == Items.ENCHANTED_BOOK ? EnchantmentUtils.getEnchantmentOne(itemStack) : null;
-      PotionContents potion = (PotionContents)itemStack.get(DataComponents.POTION_CONTENTS);
-      this.potionContents = potion != null && !potion.equals(PotionContents.EMPTY) ? potion : null;
-      MapId mapIdComponent = (MapId)itemStack.get(DataComponents.MAP_ID);
+      PotionContentsComponent potion = (PotionContentsComponent)itemStack.get(DataComponentTypes.POTION_CONTENTS);
+      this.potionContents = potion != null && !potion.equals(PotionContentsComponent.DEFAULT) ? potion : null;
+      MapIdComponent mapIdComponent = (MapIdComponent)itemStack.get(DataComponentTypes.MAP_ID);
       this.mapId = mapIdComponent != null ? mapIdComponent.id() : null;
    }
 
@@ -41,7 +41,7 @@ public class ItemBo {
       this.mapId = null;
    }
 
-   public ItemBo(Item item, ResourceKey<Enchantment> enchantment) {
+   public ItemBo(Item item, RegistryKey<Enchantment> enchantment) {
       this.item = item;
       this.name = null;
       this.enchantment = enchantment;
@@ -53,11 +53,11 @@ public class ItemBo {
       return this.item;
    }
 
-   public ResourceKey<Enchantment> getEnchantment() {
+   public RegistryKey<Enchantment> getEnchantment() {
       return this.enchantment;
    }
 
-   public PotionContents getPotionContents() {
+   public PotionContentsComponent getPotionContents() {
       return this.potionContents;
    }
 
@@ -77,17 +77,17 @@ public class ItemBo {
          }
 
          if (testItem == Items.ENCHANTED_BOOK) {
-            ResourceKey<Enchantment> testEnchantment = EnchantmentUtils.getEnchantmentOne(itemStack);
+            RegistryKey<Enchantment> testEnchantment = EnchantmentUtils.getEnchantmentOne(itemStack);
             return Objects.equals(this.enchantment, testEnchantment);
          }
 
-         PotionContents testPotion = (PotionContents)itemStack.get(DataComponents.POTION_CONTENTS);
-         PotionContents testPotionNormalized = testPotion != null && !testPotion.equals(PotionContents.EMPTY) ? testPotion : null;
+         PotionContentsComponent testPotion = (PotionContentsComponent)itemStack.get(DataComponentTypes.POTION_CONTENTS);
+         PotionContentsComponent testPotionNormalized = testPotion != null && !testPotion.equals(PotionContentsComponent.DEFAULT) ? testPotion : null;
          if (!Objects.equals(this.potionContents, testPotionNormalized)) {
             return false;
          }
 
-         MapId testMapIdComponent = (MapId)itemStack.get(DataComponents.MAP_ID);
+         MapIdComponent testMapIdComponent = (MapIdComponent)itemStack.get(DataComponentTypes.MAP_ID);
          Integer testMapId = testMapIdComponent != null ? testMapIdComponent.id() : null;
          return Objects.equals(this.mapId, testMapId);
       } else {

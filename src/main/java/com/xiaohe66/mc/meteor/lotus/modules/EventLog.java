@@ -18,9 +18,9 @@ import meteordevelopment.meteorclient.settings.StringSetting.Builder;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.ChatFormatting;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Formatting;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.sound.SoundCategory;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,9 +55,9 @@ public class EventLog extends Module {
             String time = LocalDateTime.now().format(dateTimeFormatter);
             String pos = logEvent.getPos() != null ? logEvent.getPos().toShortString() : "";
             String msgContext = String.format("[%s] [%s] - %s", pos, logEvent.getModuleName(), logEvent.getMsg());
-            ChatUtils.sendMsg(ChatFormatting.GRAY, msgContext, new Object[0]);
+            ChatUtils.sendMsg(Formatting.GRAY, msgContext, new Object[0]);
             String logContext = String.format("%s [%s] [%s] - %s\n", time, pos, logEvent.getModuleName(), logEvent.getMsg());
-            this.mc.level.playSound(this.mc.player, this.mc.player, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.AMBIENT, 3.0F, 1.0F);
+            this.mc.world.playSoundFromEntity(this.mc.player, this.mc.player, SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.AMBIENT, 3.0F, 1.0F);
             executorService.execute(() -> this.saveLog(logContext));
          }
 

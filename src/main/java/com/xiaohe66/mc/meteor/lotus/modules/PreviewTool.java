@@ -14,12 +14,12 @@ import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.BoolSetting.Builder;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import org.joml.Matrix3x2fStack;
 
 public class PreviewTool extends BaseModule {
@@ -118,17 +118,17 @@ public class PreviewTool extends BaseModule {
 
    @EventHandler
    private void onOpenScreen(ScreenRenderEvent event) {
-      if ((Boolean)this.kitSpread.get() && this.mc.screen instanceof AbstractContainerScreen) {
+      if ((Boolean)this.kitSpread.get() && this.mc.currentScreen instanceof HandledScreen) {
          List<ShulkerBoxReader> readerList = this.collectReaders();
          if (!readerList.isEmpty()) {
-            if (this.lastSyncId != this.mc.player.containerMenu.containerId) {
+            if (this.lastSyncId != this.mc.player.currentScreenHandler.syncId) {
                this.scrollOffset = 0;
-               this.lastSyncId = this.mc.player.containerMenu.containerId;
+               this.lastSyncId = this.mc.player.currentScreenHandler.syncId;
             }
 
-            GuiGraphicsExtractor drawContext = event.getDrawContext();
-            drawContext.nextStratum();
-            Matrix3x2fStack matrices = drawContext.pose();
+            DrawContext drawContext = event.getDrawContext();
+            drawContext.createNewRootLayer();
+            Matrix3x2fStack matrices = drawContext.getMatrices();
             matrices.pushMatrix();
             float scaleValue = ((Double)this.scale.get()).floatValue();
             matrices.scale(scaleValue, scaleValue);
@@ -147,7 +147,7 @@ public class PreviewTool extends BaseModule {
 
                int itemCount = this.compact.get() ? (int)stacks.stream().filter(s -> !s.isEmpty()).count() : stacks.size();
                int rows = Math.max(1, (itemCount - 1) / 9 + 1);
-               int cols = Mth.clamp(itemCount, 1, 9);
+               int cols = MathHelper.clamp(itemCount, 1, 9);
                int boxWidth = cols * 18 + 4;
                int boxHeight = rows * 18 + 4;
                int color = reader.getColor();
@@ -176,7 +176,7 @@ public class PreviewTool extends BaseModule {
                   String text = "x" + reader.getOriginItemStackCount();
                   int textX = startX + boxWidth + 2;
                   int textY = currentY + boxHeight - 9 - 2;
-                  drawContext.text(event.getTextRenderer(), text, textX, textY, Color.GREEN.getRGB(), true);
+                  drawContext.drawText(event.getTextRenderer(), text, textX, textY, Color.GREEN.getRGB(), true);
                }
 
                currentY += boxHeight + this.marge.get();
@@ -186,7 +186,7 @@ public class PreviewTool extends BaseModule {
                float invScale = 1.0F / scaleValue;
                matrices.pushMatrix();
                matrices.scale(invScale, invScale);
-               drawContext.setTooltipForNextFrame(event.getTextRenderer(), tooltipStack, event.getMouseX(), event.getMouseY());
+               drawContext.drawItemTooltip(event.getTextRenderer(), tooltipStack, event.getMouseX(), event.getMouseY());
                matrices.popMatrix();
             }
 
@@ -197,7 +197,7 @@ public class PreviewTool extends BaseModule {
 
    @EventHandler
    private void onMouseScroll(MouseScrollEvent event) {
-      if ((Boolean)this.kitSpread.get() && this.mc.screen instanceof AbstractContainerScreen) {
+      if ((Boolean)this.kitSpread.get() && this.mc.currentScreen instanceof HandledScreen) {
          List<ShulkerBoxReader> readerList = this.collectReaders();
          if (!readerList.isEmpty()) {
             float totalHeight = 0.0F;
@@ -211,8 +211,8 @@ public class PreviewTool extends BaseModule {
 
             totalHeight += ((Integer)this.marge.get()).intValue();
             float scaleValue = ((Double)this.scale.get()).floatValue();
-            float maxScroll = Math.min(-totalHeight + this.mc.getWindow().getGuiScaledHeight() / scaleValue, 0.0F);
-            this.scrollOffset = (int)Mth.clamp(this.scrollOffset + Math.ceil(event.getVerticalAmount()) * 15.0, maxScroll, 0.0);
+            float maxScroll = Math.min(-totalHeight + this.mc.getWindow().getScaledHeight() / scaleValue, 0.0F);
+            this.scrollOffset = (int)MathHelper.clamp(this.scrollOffset + Math.ceil(event.getVerticalAmount()) * 15.0, maxScroll, 0.0);
          }
       }
    }
@@ -230,14 +230,14 @@ public class PreviewTool extends BaseModule {
       return list;
    }
 
-   private void drawStack(GuiGraphicsExtractor ctx, Font textRenderer, ItemStack stack, int x, int y) {
+   private void drawStack(DrawContext ctx, TextRenderer textRenderer, ItemStack stack, int x, int y) {
       if (!stack.isEmpty()) {
-         ctx.item(stack, x, y);
+         ctx.drawItem(stack, x, y);
          if (stack.getCount() > 999) {
             String text = "%.1fk".formatted(stack.getCount() / 1000.0F);
-            ctx.itemDecorations(textRenderer, stack, x, y, text);
+            ctx.drawStackOverlay(textRenderer, stack, x, y, text);
          } else {
-            ctx.itemDecorations(textRenderer, stack, x, y);
+            ctx.drawStackOverlay(textRenderer, stack, x, y);
          }
       }
    }
@@ -250,9 +250,9 @@ public class PreviewTool extends BaseModule {
 
    @EventHandler
    private void onHandledScreenRenderEvent(HandledScreenRenderEvent event) {
-      if ((Boolean)this.kitIcon.get() && this.mc.screen instanceof AbstractContainerScreen screen) {
-         for (Slot slot : screen.getMenu().slots) {
-            ItemStack stack = slot.getItem();
+      if ((Boolean)this.kitIcon.get() && this.mc.currentScreen instanceof HandledScreen screen) {
+         for (Slot slot : screen.getScreenHandler().slots) {
+            ItemStack stack = slot.getStack();
             if (stack != null && HeItemUtils.isShulkerBox(stack.getItem())) {
                this.drawKitIcon(event.getDrawContext(), stack, slot.x, slot.y);
             }
@@ -262,41 +262,41 @@ public class PreviewTool extends BaseModule {
 
    @EventHandler
    private void onRender2D(Render2DEvent event) {
-      if ((Boolean)this.kitIcon.get() && !(this.mc.screen instanceof AbstractContainerScreen)) {
-         int scaledWidth = this.mc.getWindow().getGuiScaledWidth();
-         int scaledHeight = this.mc.getWindow().getGuiScaledHeight();
+      if ((Boolean)this.kitIcon.get() && !(this.mc.currentScreen instanceof HandledScreen)) {
+         int scaledWidth = this.mc.getWindow().getScaledWidth();
+         int scaledHeight = this.mc.getWindow().getScaledHeight();
          int hotbarWidth = 182;
          int hotbarHeight = 22;
          int startX = (scaledWidth - hotbarWidth) / 2 + 3;
          int startY = scaledHeight - hotbarHeight + 3;
 
          for (int i = 0; i < 9; i++) {
-            ItemStack stack = this.mc.player.getInventory().getItem(i);
+            ItemStack stack = this.mc.player.getInventory().getStack(i);
             if (stack != null && HeItemUtils.isShulkerBox(stack.getItem())) {
                int slotX = startX + i * 20;
                int slotY = startY;
-               this.drawKitIcon(event.graphics, stack, slotX, slotY);
+               this.drawKitIcon(event.drawContext, stack, slotX, slotY);
             }
          }
       }
    }
 
-   private void drawKitIcon(GuiGraphicsExtractor drawContext, ItemStack kitItemStack, int originX, int originY) {
+   private void drawKitIcon(DrawContext drawContext, ItemStack kitItemStack, int originX, int originY) {
       ShulkerBoxReader reader = new ShulkerBoxReader(kitItemStack);
       ItemStack maximumItemStack = reader.getMaximumItem();
       if (!maximumItemStack.isEmpty()) {
          float scaleValue = ((Double)this.iconScale.get()).floatValue();
-         Matrix3x2fStack matrices = drawContext.pose();
+         Matrix3x2fStack matrices = drawContext.getMatrices();
          matrices.pushMatrix();
          matrices.translate(originX + (Integer)this.iconOffsetX.get(), originY + (Integer)this.iconOffsetY.get());
          matrices.scale(scaleValue, scaleValue);
-         drawContext.item(maximumItemStack, 0, 0);
+         drawContext.drawItem(maximumItemStack, 0, 0);
          matrices.popMatrix();
          matrices.pushMatrix();
          matrices.translate(-2.0F, 0.0F);
          int beginY = 2;
          int maxHeight = 12;
-         int height = (int)(maximumItemStack.getCount() * 1.0 / maximumItemStack.getMaxStackSize() / 27.0 * maxHeight);
+         int height = (int)(maximumItemStack.getCount() * 1.0 / maximumItemStack.getMaxCount() / 27.0 * maxHeight);
          drawContext.fill(originX + 16, originY + beginY, originX + 17, originY + beginY + maxHeight, -1);
          drawContext.fill(originX + 16, originY + (16 - beginY - height), originX + 17, originY + (16 - beginY), -16711936);
          matrices.popMatrix();

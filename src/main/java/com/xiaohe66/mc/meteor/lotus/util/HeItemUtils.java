@@ -1,7 +1,7 @@
 package com.xiaohe66.mc.meteor.lotus.util;
 
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
 
 public class HeItemUtils {
    public static boolean isShulkerBox(Item item) {

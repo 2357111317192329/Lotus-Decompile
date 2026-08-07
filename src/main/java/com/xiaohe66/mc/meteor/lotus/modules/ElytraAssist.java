@@ -7,12 +7,12 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.BoolSetting.Builder;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.Rotations;
-import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
+import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
 
 public class ElytraAssist extends StepModule {
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
@@ -77,7 +77,7 @@ public class ElytraAssist extends StepModule {
    }
 
    private void monitor() {
-      if (this.mc.player.isFallFlying()) {
+      if (this.mc.player.isGliding()) {
          this.lastGlidingTime = this.mcTime();
       } else {
          if ((Boolean)this.autoTakeoff.get()) {
@@ -90,9 +90,9 @@ public class ElytraAssist extends StepModule {
    }
 
    private void equipElytra() {
-      ItemStack chestItem = this.mc.player.getItemBySlot(EquipmentSlot.CHEST);
+      ItemStack chestItem = this.mc.player.getEquippedStack(EquipmentSlot.CHEST);
       if (chestItem.getItem() == Items.ELYTRA) {
-         if (chestItem.getDamageValue() < chestItem.getMaxDamage() - (Integer)this.minDurability.get()) {
+         if (chestItem.getDamage() < chestItem.getMaxDamage() - (Integer)this.minDurability.get()) {
             this.step = Steps.SWITCH_FIREWORK;
             return;
          }
@@ -128,30 +128,30 @@ public class ElytraAssist extends StepModule {
    }
 
    private void deployElytra() {
-      ItemStack chestItem = this.mc.player.getItemBySlot(EquipmentSlot.CHEST);
+      ItemStack chestItem = this.mc.player.getEquippedStack(EquipmentSlot.CHEST);
       if (chestItem.getItem() != Items.ELYTRA) {
          this.warning("鞘翅装备失败，取消自动起飞", new Object[0]);
          this.step = Steps.MONITOR;
-      } else if (this.mc.player.isFallFlying()) {
+      } else if (this.mc.player.isGliding()) {
          this.step = Steps.USE_FIREWORK;
-      } else if (this.mc.player.onGround()) {
+      } else if (this.mc.player.isOnGround()) {
          this.tryJump();
       } else if (!(this.mc.player.fallDistance <= 0.0)) {
          this.tryJump();
-         this.mc.getConnection().send(new ServerboundPlayerCommandPacket(this.mc.player, Action.START_FALL_FLYING));
+         this.mc.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(this.mc.player, Mode.START_FALL_FLYING));
          this.step = Steps.USE_FIREWORK;
       }
    }
 
    private void useFirework() {
-      if (!this.mc.player.isFallFlying()) {
+      if (!this.mc.player.isGliding()) {
          this.info("鞘翅未展开，继续尝试", new Object[0]);
          this.deployElytra();
       } else {
          float targetPitch = ((Double)this.takeoffPitch.get()).floatValue();
-         float currentPitch = this.mc.player.getXRot();
+         float currentPitch = this.mc.player.getPitch();
          if (Math.abs(currentPitch - targetPitch) > 1.0F) {
-            Rotations.rotate(this.mc.player.getYRot(), targetPitch, this::useFireworkInternal);
+            Rotations.rotate(this.mc.player.getYaw(), targetPitch, this::useFireworkInternal);
          } else {
             this.useFireworkInternal();
          }
@@ -159,11 +159,11 @@ public class ElytraAssist extends StepModule {
    }
 
    private void useFireworkInternal() {
-      if (this.mc.gameMode != null) {
-         this.mc.gameMode.useItem(this.mc.player, InteractionHand.MAIN_HAND);
+      if (this.mc.interactionManager != null) {
+         this.mc.interactionManager.interactItem(this.mc.player, Hand.MAIN_HAND);
       }
 
-      this.info("自动起飞完成，角度：" + String.format("%.1f", this.mc.player.getXRot()), new Object[0]);
+      this.info("自动起飞完成，角度：" + String.format("%.1f", this.mc.player.getPitch()), new Object[0]);
       this.lastGlidingTime = this.mcTime();
       this.delayNext(Steps.MONITOR);
    }
@@ -172,15 +172,15 @@ public class ElytraAssist extends StepModule {
       long curTime = this.mcTime();
       if (curTime - this.lastJumpTime > 20L) {
          this.lastJumpTime = curTime;
-         this.mc.player.jumpFromGround();
+         this.mc.player.jump();
       }
    }
 
    private int findElytraWithDurability() {
       for (int i = 0; i < 36; i++) {
-         ItemStack stack = this.mc.player.getInventory().getItem(i);
+         ItemStack stack = this.mc.player.getInventory().getStack(i);
          if (stack.getItem() == Items.ELYTRA) {
-            int remainingDurability = stack.getMaxDamage() - stack.getDamageValue();
+            int remainingDurability = stack.getMaxDamage() - stack.getDamage();
             if (remainingDurability > (Integer)this.minDurability.get()) {
                return i;
             }
@@ -192,14 +192,14 @@ public class ElytraAssist extends StepModule {
 
    private int findFireworkRocket() {
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = this.mc.player.getInventory().getItem(i);
+         ItemStack stack = this.mc.player.getInventory().getStack(i);
          if (stack.getItem() == Items.FIREWORK_ROCKET) {
             return i;
          }
       }
 
       for (int i = 9; i < 36; i++) {
-         ItemStack stack = this.mc.player.getInventory().getItem(i);
+         ItemStack stack = this.mc.player.getInventory().getStack(i);
          if (stack.getItem() == Items.FIREWORK_ROCKET) {
             return i;
          }

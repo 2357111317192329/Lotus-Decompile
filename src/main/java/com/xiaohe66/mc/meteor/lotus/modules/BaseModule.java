@@ -13,24 +13,24 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.IntSetting.Builder;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
-import net.minecraft.world.Container;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.inventory.ShulkerBoxMenu;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.util.Hand;
+import net.minecraft.util.ActionResult;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.screen.ShulkerBoxScreenHandler;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.block.BlockState;
+import net.minecraft.util.hit.EntityHitResult;
 
 public abstract class BaseModule extends Module {
    protected final SettingGroup sgGeneral = this.settings.getDefaultGroup();
@@ -63,17 +63,17 @@ public abstract class BaseModule extends Module {
       }
    }
 
-   protected Inventory getPlayerInventory() {
+   protected PlayerInventory getPlayerInventory() {
       return this.mc.player.getInventory();
    }
 
    protected ItemStack getItemStack(int slot) {
-      return this.getPlayerInventory().getItem(slot);
+      return this.getPlayerInventory().getStack(slot);
    }
 
    protected ItemStack getItemStackBySlotId(int slotId) {
-      AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
-      return screenHandler.getSlot(slotId).getItem();
+      ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
+      return screenHandler.getSlot(slotId).getStack();
    }
 
    protected ItemStack nextPlayerStack(Predicate<ItemStack> predicate) {
@@ -97,7 +97,7 @@ public abstract class BaseModule extends Module {
    }
 
    protected ItemStack nextScreenStack(Predicate<ItemStack> predicate) {
-      AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
+      ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
       int max = this.getScreenMainSize() - 1;
       int startSlot = this.curScreenSlot;
 
@@ -108,7 +108,7 @@ public abstract class BaseModule extends Module {
             this.curScreenSlot++;
          }
 
-         ItemStack itemStack = screenHandler.getSlot(this.curScreenSlot).getItem();
+         ItemStack itemStack = screenHandler.getSlot(this.curScreenSlot).getStack();
          if (!itemStack.isEmpty() && predicate.test(itemStack)) {
             return itemStack;
          }
@@ -118,11 +118,11 @@ public abstract class BaseModule extends Module {
    }
 
    protected boolean hasScreenFull() {
-      AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
+      ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
       int size = this.getScreenMainSize();
 
       for (int i = 0; i < size; i++) {
-         ItemStack stack = screenHandler.getSlot(i).getItem();
+         ItemStack stack = screenHandler.getSlot(i).getStack();
          if (stack.isEmpty()) {
             return false;
          }
@@ -131,12 +131,12 @@ public abstract class BaseModule extends Module {
       return true;
    }
 
-   protected void openChest(BlockPos blockPos, Consumer<Container> inventoryConsumer) {
-      if (this.mc.player.containerMenu instanceof InventoryMenu) {
+   protected void openChest(BlockPos blockPos, Consumer<Inventory> inventoryConsumer) {
+      if (this.mc.player.currentScreenHandler instanceof PlayerScreenHandler) {
          this.tryRotateAndOpen(blockPos, null);
-      } else if (this.mc.player.containerMenu instanceof ChestMenu screenHandler) {
+      } else if (this.mc.player.currentScreenHandler instanceof GenericContainerScreenHandler screenHandler) {
          this.openStatus = Steps.IDLE;
-         Container inventory = screenHandler.getContainer();
+         Inventory inventory = screenHandler.getInventory();
          inventoryConsumer.accept(inventory);
       } else {
          this.openStatus = Steps.IDLE;
@@ -146,17 +146,17 @@ public abstract class BaseModule extends Module {
       }
    }
 
-   protected void openKit(BlockPos blockPos, Consumer<ShulkerBoxMenu> screenHandlerConsumer) {
+   protected void openKit(BlockPos blockPos, Consumer<ShulkerBoxScreenHandler> screenHandlerConsumer) {
       this.openKit(blockPos, null, screenHandlerConsumer);
    }
 
-   protected void openKit(BlockPos blockPos, Direction direction, Consumer<ShulkerBoxMenu> screenHandlerConsumer) {
-      if (this.mc.player.containerMenu instanceof InventoryMenu) {
-         BlockState blockState = this.mc.level.getBlockState(blockPos);
+   protected void openKit(BlockPos blockPos, Direction direction, Consumer<ShulkerBoxScreenHandler> screenHandlerConsumer) {
+      if (this.mc.player.currentScreenHandler instanceof PlayerScreenHandler) {
+         BlockState blockState = this.mc.world.getBlockState(blockPos);
          if (blockState.getBlock() instanceof ShulkerBoxBlock) {
             this.tryRotateAndOpen(blockPos, direction);
          }
-      } else if (this.mc.player.containerMenu instanceof ShulkerBoxMenu screenHandler) {
+      } else if (this.mc.player.currentScreenHandler instanceof ShulkerBoxScreenHandler screenHandler) {
          this.openStatus = Steps.IDLE;
          screenHandlerConsumer.accept(screenHandler);
       } else {
@@ -173,9 +173,9 @@ public abstract class BaseModule extends Module {
 
    protected void rotateAndOpen(BlockPos blockPos, Direction direction) {
       Direction finalDirection = direction == null ? BlockUtils.getDirection(blockPos) : direction;
-      Vec3i vector = finalDirection.getUnitVec3i();
+      Vec3i vector = finalDirection.getVector();
       double offset = 0.45;
-      Vec3 vec3d = new Vec3(
+      Vec3d vec3d = new Vec3d(
          blockPos.getX() + 0.5 + vector.getX() * offset,
          blockPos.getY() + 0.5 + vector.getY() * offset,
          blockPos.getZ() + 0.5 + vector.getZ() * offset
@@ -197,7 +197,7 @@ public abstract class BaseModule extends Module {
    }
 
    protected void rotateAndOpenWithOffset(BlockPos blockPos, Direction direction) {
-      Vec3 vec3d;
+      Vec3d vec3d;
       if (direction == Direction.UP) {
          double playerX = this.mc.player.getX();
          double playerZ = this.mc.player.getZ();
@@ -215,11 +215,11 @@ public abstract class BaseModule extends Module {
          }
 
          double hitY = blockPos.getY() + 0.95;
-         vec3d = new Vec3(blockPos.getX() + hitX, hitY, blockPos.getZ() + hitZ);
+         vec3d = new Vec3d(blockPos.getX() + hitX, hitY, blockPos.getZ() + hitZ);
       } else {
-         Vec3i vector = direction.getUnitVec3i();
+         Vec3i vector = direction.getVector();
          double offset = 0.5;
-         vec3d = new Vec3(
+         vec3d = new Vec3d(
             blockPos.getX() + 0.5 + vector.getX() * offset,
             blockPos.getY() + 0.5 + vector.getY() * offset,
             blockPos.getZ() + 0.5 + vector.getZ() * offset
@@ -230,20 +230,18 @@ public abstract class BaseModule extends Module {
    }
 
    protected void interactEntity(Entity entity) {
-      Vec3 playerPos = this.mc.player.position();
-      Vec3 entityPos = entity.position();
-      EntityHitResult entityHitResult = ProjectileUtil.getEntityHitResult(
-         this.mc.player, playerPos, entityPos, entity.getBoundingBox(), Entity::isPickable, playerPos.distanceToSqr(entityPos)
+      Vec3d playerPos = this.mc.player.getEntityPos();
+      Vec3d entityPos = entity.getEntityPos();
+      EntityHitResult entityHitResult = ProjectileUtil.raycast(
+         this.mc.player, playerPos, entityPos, entity.getBoundingBox(), Entity::canHit, playerPos.squaredDistanceTo(entityPos)
       );
       if (entityHitResult == null) {
-         EntityHitResult location = new EntityHitResult(entity, entity.getBoundingBox().getCenter());
-         HeRotationUtils.rotate(entity.getEyePosition(), () -> this.mc.gameMode.interact(this.mc.player, entity,location, InteractionHand.MAIN_HAND));
+         HeRotationUtils.rotate(entity.getEyePos(), () -> this.mc.interactionManager.interactEntity(this.mc.player, entity, Hand.MAIN_HAND));
       } else {
-         HeRotationUtils.rotate(entityHitResult.getLocation(), () -> {
-            InteractionResult actionResult = this.mc.gameMode.interact(this.mc.player, entity, entityHitResult, InteractionHand.MAIN_HAND);
-            if (!actionResult.consumesAction()) {
-               EntityHitResult location2 = new EntityHitResult(entity, entity.getBoundingBox().getCenter());
-               this.mc.gameMode.interact(this.mc.player, entity,location2, InteractionHand.MAIN_HAND);
+         HeRotationUtils.rotate(entityHitResult.getPos(), () -> {
+            ActionResult actionResult = this.mc.interactionManager.interactEntityAtLocation(this.mc.player, entity, entityHitResult, Hand.MAIN_HAND);
+            if (!actionResult.isAccepted()) {
+               this.mc.interactionManager.interactEntity(this.mc.player, entity, Hand.MAIN_HAND);
             }
          });
       }
@@ -264,19 +262,19 @@ public abstract class BaseModule extends Module {
    }
 
    protected boolean isReady() {
-      return this.mc.player != null && this.mc.level != null;
+      return this.mc.player != null && this.mc.world != null;
    }
 
    protected long mcTime() {
-      return this.mc.level.getGameTime();
+      return this.mc.world.getTimeOfDay();
    }
 
    protected long mcDay() {
-      return this.mc.level.getGameTime() / 24000L;
+      return this.mc.world.getTimeOfDay() / 24000L;
    }
 
    protected long mcTimeOfDay() {
-      return this.mc.level.getGameTime() % 24000L;
+      return this.mc.world.getTimeOfDay() % 24000L;
    }
 
    protected void setDelay() {
@@ -292,13 +290,13 @@ public abstract class BaseModule extends Module {
    }
 
    public int getPlayerMainSize() {
-      return this.mc.player.getInventory().getNonEquipmentItems().size();
+      return this.mc.player.getInventory().getMainStacks().size();
    }
 
    public int getScreenMainSize() {
-      return this.mc.player.containerMenu instanceof InventoryMenu
-         ? this.mc.player.containerMenu.slots.size() - this.getPlayerMainSize() - 1
-         : this.mc.player.containerMenu.slots.size() - this.getPlayerMainSize();
+      return this.mc.player.currentScreenHandler instanceof PlayerScreenHandler
+         ? this.mc.player.currentScreenHandler.slots.size() - this.getPlayerMainSize() - 1
+         : this.mc.player.currentScreenHandler.slots.size() - this.getPlayerMainSize();
    }
 
    public boolean isContainer(int slotId) {
@@ -307,10 +305,10 @@ public abstract class BaseModule extends Module {
 
    public boolean isContainerFull() {
       int n = this.getScreenMainSize();
-      AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
+      ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
 
       for (int i = 0; i < n; i++) {
-         ItemStack itemStack = screenHandler.getSlot(i).getItem();
+         ItemStack itemStack = screenHandler.getSlot(i).getStack();
          if (itemStack.isEmpty()) {
             return false;
          }
@@ -321,10 +319,10 @@ public abstract class BaseModule extends Module {
 
    public boolean isInvFull() {
       int n = this.getPlayerMainSize();
-      Inventory playerInventory = this.getPlayerInventory();
+      PlayerInventory playerInventory = this.getPlayerInventory();
 
       for (int i = 0; i < n; i++) {
-         ItemStack itemStack = playerInventory.getItem(i);
+         ItemStack itemStack = playerInventory.getStack(i);
          if (itemStack.isEmpty()) {
             return false;
          }

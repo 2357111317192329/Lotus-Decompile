@@ -9,34 +9,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import net.minecraft.world.item.component.ItemContainerContents;
+import meteordevelopment.meteorclient.mixin.ContainerComponentAccessor;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
-import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.Container;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.component.ComponentMap;
+import net.minecraft.component.DataComponentTypes;
 
 public class HeInvUtils {
-   public static final Minecraft mc = Minecraft.getInstance();
+   public static final MinecraftClient mc = MinecraftClient.getInstance();
    public static final int MAX_SLOT = 36;
 
    public static void closeCurScreen() {
-      if (!(mc.player.containerMenu instanceof InventoryMenu)) {
-         mc.player.connection.send(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
-         mc.player.closeContainer();
+      if (!(mc.player.currentScreenHandler instanceof PlayerScreenHandler)) {
+         mc.player.networkHandler.sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+         mc.player.closeHandledScreen();
       }
    }
 
@@ -82,20 +82,19 @@ public class HeInvUtils {
 
    public static List<ItemStack> findAndMargeShulkerBox() {
       List<ItemStack> kitItemStackList = mc.player
-         .containerMenu
+         .currentScreenHandler
          .slots
          .stream()
-         .<ItemStack>map(Slot::getItem)
+         .<ItemStack>map(Slot::getStack)
          .filter(Objects::nonNull)
          .filter(itemStackx -> HeItemUtils.isShulkerBox(itemStackx.getItem()))
          .toList();
       Map<String, ItemStack> map = new LinkedHashMap<>();
 
       for (ItemStack kitItemStack : kitItemStackList) {
-         DataComponentMap components = kitItemStack.getComponents();
-         ItemContainerContents container = components.get(DataComponents.CONTAINER);
-         NonNullList<ItemStack> stacks = NonNullList.create();
-         container.copyInto(stacks);
+         ComponentMap components = kitItemStack.getComponents();
+         ContainerComponentAccessor container = (ContainerComponentAccessor)(Object)components.get(DataComponentTypes.CONTAINER);
+         DefaultedList<ItemStack> stacks = container.meteor$getStacks();
          String key = stacks.toString();
          if (map.containsKey(key)) {
             ItemStack itemStack = map.get(key);
@@ -123,13 +122,13 @@ public class HeInvUtils {
       return slot >= 0 && slot <= 8;
    }
 
-   public static int findBookSlot(ResourceKey<Enchantment> enchantment) {
-      Inventory playerInventory = mc.player.getInventory();
+   public static int findBookSlot(RegistryKey<Enchantment> enchantment) {
+      PlayerInventory playerInventory = mc.player.getInventory();
 
       for (int i = 0; i < 36; i++) {
-         ItemStack bookItemStack = playerInventory.getItem(i);
+         ItemStack bookItemStack = playerInventory.getStack(i);
          if (bookItemStack != null && bookItemStack.getItem() == Items.ENCHANTED_BOOK) {
-            Set<ResourceKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
+            Set<RegistryKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
             if (bookEnchantMentSet.contains(enchantment)) {
                return i;
             }
@@ -139,13 +138,13 @@ public class HeInvUtils {
       return -1;
    }
 
-   public static int findBookSlot(ResourceKey<Enchantment> enchantment, ResourceKey<Enchantment> enchantment2) {
-      Inventory playerInventory = mc.player.getInventory();
+   public static int findBookSlot(RegistryKey<Enchantment> enchantment, RegistryKey<Enchantment> enchantment2) {
+      PlayerInventory playerInventory = mc.player.getInventory();
 
       for (int i = 0; i < 36; i++) {
-         ItemStack bookItemStack = playerInventory.getItem(i);
+         ItemStack bookItemStack = playerInventory.getStack(i);
          if (bookItemStack != null && bookItemStack.getItem() == Items.ENCHANTED_BOOK) {
-            Set<ResourceKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
+            Set<RegistryKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
             if (bookEnchantMentSet.contains(enchantment) && bookEnchantMentSet.contains(enchantment2)) {
                return i;
             }
@@ -155,21 +154,21 @@ public class HeInvUtils {
       return -1;
    }
 
-   public static int findBookSlot(ResourceKey<Enchantment>... enchantmentArr) {
-      Set<ResourceKey<Enchantment>> enchantmentSet = new HashSet<>(Arrays.asList(enchantmentArr));
+   public static int findBookSlot(RegistryKey<Enchantment>... enchantmentArr) {
+      Set<RegistryKey<Enchantment>> enchantmentSet = new HashSet<>(Arrays.asList(enchantmentArr));
       return findBookSlot(enchantmentSet);
    }
 
-   public static int findBookSlot(Set<ResourceKey<Enchantment>> enchantmentSet) {
-      Inventory playerInventory = mc.player.getInventory();
+   public static int findBookSlot(Set<RegistryKey<Enchantment>> enchantmentSet) {
+      PlayerInventory playerInventory = mc.player.getInventory();
 
       for (int i = 0; i < 36; i++) {
-         ItemStack bookItemStack = playerInventory.getItem(i);
+         ItemStack bookItemStack = playerInventory.getStack(i);
          if (bookItemStack != null && bookItemStack.getItem() == Items.ENCHANTED_BOOK) {
-            Set<ResourceKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
+            Set<RegistryKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
             boolean exist = true;
 
-            for (ResourceKey<Enchantment> enchantment : enchantmentSet) {
+            for (RegistryKey<Enchantment> enchantment : enchantmentSet) {
                if (!bookEnchantMentSet.contains(enchantment)) {
                   exist = false;
                   break;
@@ -185,14 +184,14 @@ public class HeInvUtils {
       return -1;
    }
 
-   public static int findBookSlotInChest(ChestMenu screenHandler, ResourceKey<Enchantment> enchantment) {
-      Container inventory = screenHandler.getContainer();
+   public static int findBookSlotInChest(GenericContainerScreenHandler screenHandler, RegistryKey<Enchantment> enchantment) {
+      Inventory inventory = screenHandler.getInventory();
       int slotId = 0;
 
-      for (int n = inventory.getContainerSize(); slotId < n; slotId++) {
-         ItemStack bookItemStack = screenHandler.getSlot(slotId).getItem();
+      for (int n = inventory.size(); slotId < n; slotId++) {
+         ItemStack bookItemStack = screenHandler.getSlot(slotId).getStack();
          if (bookItemStack != null && bookItemStack.getItem() == Items.ENCHANTED_BOOK) {
-            Set<ResourceKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
+            Set<RegistryKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
             if (bookEnchantMentSet.contains(enchantment)) {
                return slotId;
             }
@@ -202,13 +201,13 @@ public class HeInvUtils {
       return -1;
    }
 
-   public static int findEquipSlotInChest(Container inventory, Item item) {
+   public static int findEquipSlotInChest(Inventory inventory, Item item) {
       int slotId = 0;
 
-      for (int n = inventory.getContainerSize(); slotId < n; slotId++) {
-         ItemStack bookItemStack = inventory.getItem(slotId);
+      for (int n = inventory.size(); slotId < n; slotId++) {
+         ItemStack bookItemStack = inventory.getStack(slotId);
          if (bookItemStack != null && bookItemStack.getItem() == item) {
-            Set<ResourceKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
+            Set<RegistryKey<Enchantment>> bookEnchantMentSet = EnchantmentUtils.getEnchantment(bookItemStack);
             if (bookEnchantMentSet.isEmpty()) {
                return slotId;
             }
@@ -219,10 +218,10 @@ public class HeInvUtils {
    }
 
    public static int findItemSlot(Item item) {
-      Inventory inventory = mc.player.getInventory();
+      PlayerInventory inventory = mc.player.getInventory();
 
       for (int i = 0; i < 36; i++) {
-         ItemStack itemStack = inventory.getItem(i);
+         ItemStack itemStack = inventory.getStack(i);
          if (itemStack.getItem() == item) {
             return i;
          }
@@ -232,11 +231,11 @@ public class HeInvUtils {
    }
 
    public static int findFullItemSlot(Item item) {
-      Inventory inventory = mc.player.getInventory();
+      PlayerInventory inventory = mc.player.getInventory();
 
       for (int i = 0; i < 36; i++) {
-         ItemStack itemStack = inventory.getItem(i);
-         if (itemStack.getItem() == item && itemStack.getCount() == itemStack.getMaxStackSize()) {
+         ItemStack itemStack = inventory.getStack(i);
+         if (itemStack.getItem() == item && itemStack.getCount() == itemStack.getMaxCount()) {
             return i;
          }
       }
@@ -257,7 +256,7 @@ public class HeInvUtils {
    public static void swapToSlot(int slot) {
       if (mc.player.getInventory().getSelectedSlot() != slot) {
          mc.player.getInventory().setSelectedSlot(slot);
-         mc.getConnection().send(new ServerboundSetCarriedItemPacket(slot));
+         mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
       }
    }
 
@@ -277,7 +276,7 @@ public class HeInvUtils {
       if (isHotbar(formSlot)) {
          swapToSlot(formSlot);
       } else {
-         ItemStack itemStack = mc.player.getInventory().getItem(formSlot);
+         ItemStack itemStack = mc.player.getInventory().getStack(formSlot);
          boolean needSwap = !itemStack.isEmpty();
          InvUtils.move().from(formSlot).to(toSlot);
          if (needSwap) {

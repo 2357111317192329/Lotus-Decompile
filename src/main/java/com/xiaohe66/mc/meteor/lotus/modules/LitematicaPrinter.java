@@ -21,13 +21,13 @@ import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.Tuple;
-import net.minecraft.world.entity.player.Input;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.PlayerInput;
+import net.minecraft.item.Item;
+import net.minecraft.block.Block;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.BlockState;
+import net.minecraft.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,7 +136,7 @@ public class LitematicaPrinter extends BaseModule {
    private int lastUsedSlot = -1;
    private boolean isMoving;
    private final List<PlaceBlockHelper> needPlaceBlockList = new ArrayList<>();
-   private final List<Tuple<Integer, BlockPos>> renderPosList = new ArrayList<>();
+   private final List<Pair<Integer, BlockPos>> renderPosList = new ArrayList<>();
 
    public LitematicaPrinter() {
       super("投影打印", "grim可用，在不复杂场景下的使用, 适合建造刷怪塔、村民交易所等简单生电机器, 暂不支持楼梯、活板门等", 1);
@@ -148,7 +148,7 @@ public class LitematicaPrinter extends BaseModule {
 
    @EventHandler(priority = 100)
    public void onKeyboardInputTickEvent(KeyboardInputTickEvent event) {
-      Input playerInput = event.getPlayerInput();
+      PlayerInput playerInput = event.getPlayerInput();
       this.isMoving = playerInput.forward() || playerInput.backward() || playerInput.left() || playerInput.right() || playerInput.jump();
    }
 
@@ -157,8 +157,8 @@ public class LitematicaPrinter extends BaseModule {
       if (!this.isReady()) {
          this.renderPosList.clear();
       } else {
-         this.renderPosList.forEach(s -> s.setA((Integer)s.getA() - 1));
-         this.renderPosList.removeIf(s -> (Integer)s.getA() <= 0);
+         this.renderPosList.forEach(s -> s.setLeft((Integer)s.getLeft() - 1));
+         this.renderPosList.removeIf(s -> (Integer)s.getLeft() <= 0);
          WorldSchematic worldSchematic = SchematicWorldHandler.getSchematicWorld();
          if (worldSchematic == null) {
             this.warning("未加载投影", new Object[0]);
@@ -171,26 +171,26 @@ public class LitematicaPrinter extends BaseModule {
                this.needPlaceBlockList.clear();
 
                for (BlockPos schematicBlockPos : HeBlockUtils.listPosInSphere(
-                  (int)((Double)this.printingRange.get() + 1.0), (int)((Double)this.yPrintingRange.get() + 1.0), this.mc.player.blockPosition()
+                  (int)((Double)this.printingRange.get() + 1.0), (int)((Double)this.yPrintingRange.get() + 1.0), this.mc.player.getBlockPos()
                )) {
-                  BlockState targetCurBlockState = this.mc.level.getBlockState(schematicBlockPos);
+                  BlockState targetCurBlockState = this.mc.world.getBlockState(schematicBlockPos);
                   BlockState schematicBlockState = worldSchematic.getBlockState(schematicBlockPos);
                   Block targetBlock = targetCurBlockState.getBlock();
-                  boolean isNeedPlace = this.mc.player.blockPosition().closerThan(schematicBlockPos, (Double)this.printingRange.get())
-                     && targetCurBlockState.canBeReplaced()
-                     && !schematicBlockState.liquid()
+                  boolean isNeedPlace = this.mc.player.getBlockPos().isWithinDistance(schematicBlockPos, (Double)this.printingRange.get())
+                     && targetCurBlockState.isReplaceable()
+                     && !schematicBlockState.isLiquid()
                      && !schematicBlockState.isAir()
                      && targetBlock != schematicBlockState.getBlock()
                      && DataManager.getRenderLayerRange().isPositionWithinRange(schematicBlockPos)
                      && !this.mc
                         .player
                         .getBoundingBox()
-                        .intersects(Vec3.atLowerCornerOf(schematicBlockPos), Vec3.atLowerCornerOf(schematicBlockPos).add(1.0, 1.0, 1.0))
-                     && schematicBlockState.canSurvive(this.mc.level, schematicBlockPos)
+                        .intersects(Vec3d.of(schematicBlockPos), Vec3d.of(schematicBlockPos).add(1.0, 1.0, 1.0))
+                     && schematicBlockState.canPlaceAt(this.mc.world, schematicBlockPos)
                      && !((List)this.blacklist.get()).contains(schematicBlockState.getBlock());
 
-                  for (Tuple<Integer, BlockPos> posPair : this.renderPosList) {
-                     if (schematicBlockPos.equals(posPair.getB())) {
+                  for (Pair<Integer, BlockPos> posPair : this.renderPosList) {
+                     if (schematicBlockPos.equals(posPair.getRight())) {
                         isNeedPlace = false;
                         break;
                      }
@@ -220,7 +220,7 @@ public class LitematicaPrinter extends BaseModule {
                   Item item = placeBlockHelper.getSchematicBlock().asItem();
                   boolean placeSuccess = this.switchItemAndPlace(item, placeBlockHelper);
                   if (placeSuccess && (Boolean)this.renderBlocks.get()) {
-                     this.renderPosList.add(new Tuple((Integer)this.fadeTime.get(), new BlockPos(placeBlockHelper.getSchematicBlockPos())));
+                     this.renderPosList.add(new Pair((Integer)this.fadeTime.get(), new BlockPos(placeBlockHelper.getSchematicBlockPos())));
                   }
 
                   this.setDelay();
@@ -232,7 +232,7 @@ public class LitematicaPrinter extends BaseModule {
 
    private boolean switchItemAndPlace(Item item, PlaceBlockHelper placeBlockHelper) {
       int selectedSlot = this.getMainSlot();
-      if (this.mc.player.getMainHandItem().getItem() == item) {
+      if (this.mc.player.getMainHandStack().getItem() == item) {
          this.lastUsedSlot = selectedSlot;
          return placeBlockHelper.tryPlace();
       }
@@ -290,9 +290,9 @@ public class LitematicaPrinter extends BaseModule {
                   ((SettingColor)this.colour.get()).r,
                   ((SettingColor)this.colour.get()).g,
                   ((SettingColor)this.colour.get()).b,
-                  (int)((float)((Integer)s.getA()).intValue() / ((Integer)this.fadeTime.get()).intValue() * ((SettingColor)this.colour.get()).a)
+                  (int)((float)((Integer)s.getLeft()).intValue() / ((Integer)this.fadeTime.get()).intValue() * ((SettingColor)this.colour.get()).a)
                );
-               event.renderer.box((BlockPos)s.getB(), a, null, ShapeMode.Sides, 0);
+               event.renderer.box((BlockPos)s.getRight(), a, null, ShapeMode.Sides, 0);
             }
          );
    }

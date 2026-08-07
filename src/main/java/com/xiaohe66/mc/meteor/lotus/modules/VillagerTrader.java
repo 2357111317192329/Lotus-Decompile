@@ -23,51 +23,47 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
-import meteordevelopment.meteorclient.settings.BoolSetting;
+import meteordevelopment.meteorclient.settings.BoolSetting.Builder;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.protocol.game.ServerboundSelectTradePacket;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.entity.npc.villager.Villager;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
-import net.minecraft.world.inventory.MerchantMenu;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.trading.ItemCost;
-import net.minecraft.world.item.trading.MerchantOffer;
-import net.minecraft.world.item.trading.MerchantOffers;
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Hand;
+import net.minecraft.util.ActionResult;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.screen.MerchantScreenHandler;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.village.TradeOffer;
+import net.minecraft.village.TradeOfferList;
+import net.minecraft.world.GameMode;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.block.BlockState;
+import net.minecraft.network.packet.c2s.play.SelectMerchantTradeC2SPacket;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.village.TradedItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class VillagerTrader extends WalkModule implements AbstractGameEventListener {
    private static final Logger log = LoggerFactory.getLogger(VillagerTrader.class);
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
-   private final Setting<Boolean> debug = this.sgGeneral.add(new BoolSetting.Builder()
-      .name("调试模式")
-      .description("调试模式会将一些信息输出到log中")
-      .defaultValue(false)
-      .build()
-   );
+   private final Setting<Boolean> debug = this.sgGeneral
+      .add(((Builder)((Builder)((Builder)new Builder().name("调试模式")).description("调试模式会将一些信息输出到log中")).defaultValue(false)).build());
    public final Setting<Integer> supplyRange = this.sgGeneral
       .add(
          ((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)new meteordevelopment.meteorclient.settings.IntSetting.Builder()
@@ -105,13 +101,11 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                .defaultValue(2))
             .build()
       );
-   private final Setting<Boolean> initBtn = this.sgGeneral.add(new BoolSetting.Builder()
-      .name("初始化")
-      .description("使用前需要先初始化, 否则无法使用")
-      .defaultValue(false)
-      .onChanged(this::init)
-      .build()
-   );
+   private final Setting<Boolean> initBtn = this.sgGeneral
+      .add(
+         ((Builder)((Builder)((Builder)((Builder)new Builder().name("初始化")).description("使用前需要先初始化, 否则无法使用")).defaultValue(false)).onChanged(this::init))
+            .build()
+      );
    private static final int firstTraderTime = 2000;
    private static final int secondTraderTime = 9000;
    private final Map<VillagerType, VillagerSettingWarp> villagerSettingWarpMap;
@@ -155,8 +149,8 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
       if (!this.isReady()) {
          this.toggle();
       } else {
-         GameType currentGameMode = this.mc.gameMode.getPlayerMode();
-         if (currentGameMode == GameType.CREATIVE || currentGameMode == GameType.SURVIVAL) {
+         GameMode currentGameMode = this.mc.interactionManager.getCurrentGameMode();
+         if (currentGameMode == GameMode.CREATIVE || currentGameMode == GameMode.SURVIVAL) {
             super.onActivate();
             if (this.villagerList.isEmpty()) {
                this.warning("请先进行初始化", new Object[0]);
@@ -170,19 +164,16 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
 
    private void init(Boolean b) {
       if (Boolean.TRUE.equals(b)) {
-         //this.info("正在进行初始化");
          this.initBtn.set(false);
          this.villagerList.clear();
          List<VillagerEntityWarp> villagerList = this.getVillagerEntity();
          if (villagerList.isEmpty()) {
             this.warning("附近没有合适村民", new Object[0]);
          } else {
-            //this.info("附近有合适村民");
             Map<ItemBo, BlockPos> putPosMap = HePosUtils.getItemFrameKitPosMap((Integer)this.supplyRange.get());
             if (putPosMap.isEmpty()) {
                this.warning("找不到<卸货容器>", new Object[0]);
             } else {
-               //this.info("找得到<卸货容器>");
                if (this.villagerSettingWarp3.needBuyEnchantment() || this.villagerSettingWarp7.needBuyEnchantment()) {
                   BlockPos takeBookPos = this.getTakeBookPos();
                   if (takeBookPos == null) {
@@ -199,9 +190,9 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                for (BlockEntity blockEntity : Utils.blockEntities()) {
                   BlockEntityType<?> type = blockEntity.getType();
                   if (BlockEntityType.BARREL.equals(type)) {
-                     double distanceTo = this.mc.player.position().distanceTo(blockEntity.getBlockPos().getCenter());
+                     double distanceTo = this.mc.player.getEntityPos().distanceTo(blockEntity.getPos().toCenterPos());
                      if (distanceTo < ((Integer)this.supplyRange.get()).intValue() && distanceTo < min1) {
-                        moneyPos = blockEntity.getBlockPos();
+                        moneyPos = blockEntity.getPos();
                         min1 = distanceTo;
                      }
                   }
@@ -210,7 +201,6 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                if (moneyPos == null) {
                   this.warning("找不到<绿宝石>补给位置", new Object[0]);
                } else {
-                  //this.info("找得到<绿宝石>补给位置");
                   List<ItemBo> buyVillagerItemList = new ArrayList<>();
                   this.fillBuyItemList(buyVillagerItemList, this.villagerSettingWarp1);
                   this.fillBuyItemList(buyVillagerItemList, this.villagerSettingWarp2);
@@ -222,7 +212,6 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                   if (buyVillagerItemList.isEmpty()) {
                      this.warning("未配置<购买物>", new Object[0]);
                   } else {
-                     //this.info("已配置<购买物>");
                      for (ItemBo villagerItem : buyVillagerItemList) {
                         if (!putPosMap.containsKey(villagerItem)) {
                            this.warning("缺少卸货容器:" + villagerItem.getName(), new Object[0]);
@@ -246,12 +235,12 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
    }
 
    private BlockPos getTakeBookPos() {
-      for (ItemFrame itemFrame : this.mc
-         .level
-         .getEntitiesOfClass(
-            ItemFrame.class,
-            this.mc.player.getBoundingBox().inflate(((Integer)this.supplyRange.get()).intValue()),
-            frame -> frame.getItem().getItem() == Items.BOOK
+      for (ItemFrameEntity itemFrame : this.mc
+         .world
+         .getEntitiesByClass(
+            ItemFrameEntity.class,
+            this.mc.player.getBoundingBox().expand(((Integer)this.supplyRange.get()).intValue()),
+            frame -> frame.getHeldItemStack().getItem() == Items.BOOK
          )) {
          Optional<BlockPos> chestPos = HePosUtils.getOtherChestPos(itemFrame);
          if (chestPos.isPresent()) {
@@ -269,7 +258,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
          }
 
          if (villagerSettingWarp.getType() == VillagerType.图书管理员) {
-            for (ResourceKey<Enchantment> enchantment : villagerSettingWarp.getBuyEnchantment()) {
+            for (RegistryKey<Enchantment> enchantment : villagerSettingWarp.getBuyEnchantment()) {
                buyVillagerItemList.add(new ItemBo(Items.ENCHANTED_BOOK, enchantment));
             }
          }
@@ -308,8 +297,8 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
    private boolean needClean() {
       FindItemResult findItemResult = InvUtils.find(new Item[]{Items.EMERALD});
       int count = findItemResult.found() ? findItemResult.count() : 0;
-      if (this.mc.player.containerMenu instanceof MerchantMenu screenHandler) {
-         ItemStack itemStack = screenHandler.getSlot(0).getItem();
+      if (this.mc.player.currentScreenHandler instanceof MerchantScreenHandler screenHandler) {
+         ItemStack itemStack = screenHandler.getSlot(0).getStack();
          this.printLog("needClear itemStack : " + itemStack);
          if (itemStack.getItem() == Items.EMERALD) {
             count += itemStack.getCount();
@@ -329,11 +318,11 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
             return true;
          }
 
-         Inventory playerInventory = this.mc.player.getInventory();
+         PlayerInventory playerInventory = this.mc.player.getInventory();
          int emptyQty = 0;
 
          for (int i = 0; i < 36; i++) {
-            ItemStack itemStack = playerInventory.getItem(i);
+            ItemStack itemStack = playerInventory.getStack(i);
             if (itemStack.isEmpty()) {
                emptyQty++;
             }
@@ -346,10 +335,10 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
             return true;
          }
 
-         Inventory playerInventory = this.mc.player.getInventory();
+         PlayerInventory playerInventory = this.mc.player.getInventory();
 
          for (int i = 0; i < 36; i++) {
-            ItemStack itemStack = playerInventory.getItem(i);
+            ItemStack itemStack = playerInventory.getStack(i);
             if (itemStack.isEmpty()) {
                return false;
             }
@@ -360,16 +349,15 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
    }
 
    private void executeTrade() {
-      //this.info("執行交易");
-      if (!(this.mc.player.containerMenu instanceof MerchantMenu handler)) {
+      if (!(this.mc.player.currentScreenHandler instanceof MerchantScreenHandler handler)) {
          this.setDelay();
          this.step = Steps.OPEN_TRADE;
       } else {
-         for (MerchantOffers tradeOfferList = handler.getOffers(); this.tradeIndex < tradeOfferList.size(); this.tradeIndex++) {
-            MerchantOffer trade = (MerchantOffer)tradeOfferList.get(this.tradeIndex);
-            ItemStack sellItemStack = trade.getResult();
+         for (TradeOfferList tradeOfferList = handler.getRecipes(); this.tradeIndex < tradeOfferList.size(); this.tradeIndex++) {
+            TradeOffer trade = (TradeOffer)tradeOfferList.get(this.tradeIndex);
+            ItemStack sellItemStack = trade.getSellItem();
             Item sellItemValue = sellItemStack.getItem();
-            ItemCost firstBuyItem = trade.getItemCostA();
+            TradedItem firstBuyItem = trade.getFirstBuyItem();
             if (trade.getMaxUses() > trade.getUses()) {
                ItemStack firstBuyItemStamp = firstBuyItem.itemStack();
                Item firstBuyItemValue = firstBuyItemStamp.getItem();
@@ -378,23 +366,23 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                   if (this.curVillagerSettingWarp.getBuyItem().contains(sellItemValue)) {
                      need = true;
                   } else if (this.curVillagerSettingWarp.getType() == VillagerType.图书管理员 && sellItemValue == Items.ENCHANTED_BOOK) {
-                     ResourceKey<Enchantment> enchantmentOne = EnchantmentUtils.getEnchantmentOne(sellItemStack);
+                     RegistryKey<Enchantment> enchantmentOne = EnchantmentUtils.getEnchantmentOne(sellItemStack);
                      need = this.curVillagerSettingWarp.getBuyEnchantment().contains(enchantmentOne);
                   }
                }
 
                if (need) {
-                  int originCount = trade.getBaseCostA().getCount();
-                  int sellCount = originCount + trade.getSpecialPriceDiff();
-                  if (trade.getDemand() > 0) {
-                     sellCount = (int)(sellCount + originCount * trade.getPriceMultiplier() * trade.getDemand());
+                  int originCount = trade.getOriginalFirstBuyItem().getCount();
+                  int sellCount = originCount + trade.getSpecialPrice();
+                  if (trade.getDemandBonus() > 0) {
+                     sellCount = (int)(sellCount + originCount * trade.getPriceMultiplier() * trade.getDemandBonus());
                   }
 
                   this.printLog("priceMultiplier : " + trade.getPriceMultiplier());
-                  this.printLog("demandBonus : " + trade.getDemand());
+                  this.printLog("demandBonus : " + trade.getDemandBonus());
                   this.printLog("firstBuyItemCount : " + firstBuyItem.count());
                   this.printLog("originCount : " + originCount);
-                  this.printLog("specialPrice : " + trade.getSpecialPriceDiff());
+                  this.printLog("specialPrice : " + trade.getSpecialPrice());
                   this.printLog("sellCount : " + sellCount);
                   if (sellCount <= this.curVillagerSettingWarp.getMaxMoney()) {
                      if (this.needClean()) {
@@ -402,9 +390,9 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                         return;
                      }
 
-                     handler.setSelectionHint(this.tradeIndex);
-                     handler.tryMoveItems(this.tradeIndex);
-                     Minecraft.getInstance().getConnection().send(new ServerboundSelectTradePacket(this.tradeIndex));
+                     handler.setRecipeIndex(this.tradeIndex);
+                     handler.switchTo(this.tradeIndex);
+                     MinecraftClient.getInstance().getNetworkHandler().sendPacket(new SelectMerchantTradeC2SPacket(this.tradeIndex));
                      InvUtils.shiftClick().slotId(2);
                      this.setDelay();
                      return;
@@ -422,13 +410,13 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
    }
 
    private void openTrade() {
-      Villager villager = this.currentVillager.getVillager();
+      VillagerEntity villager = this.currentVillager.getVillager();
       if (villager == null) {
          this.currentVillager.setLastTradeTime(this.mcTime());
          this.next();
       } else {
-         Vec3 villagerPos = villager.position();
-         Vec3 playerPos = this.mc.player.position();
+         Vec3d villagerPos = villager.getEntityPos();
+         Vec3d playerPos = this.mc.player.getEntityPos();
          double distance = villagerPos.distanceTo(playerPos);
          if (distance > ((Integer)this.minDistance.get()).intValue() + 0.5) {
             this.printLog("distance false");
@@ -440,17 +428,16 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
             this.next();
          } else {
             this.printLog("openTrade");
-            EntityHitResult entityHitResult = ProjectileUtil.getEntityHitResult(
-               this.mc.player, playerPos, villagerPos, villager.getBoundingBox(), Entity::isPickable, playerPos.distanceToSqr(villagerPos)
+            EntityHitResult entityHitResult = ProjectileUtil.raycast(
+               this.mc.player, playerPos, villagerPos, villager.getBoundingBox(), Entity::canHit, playerPos.squaredDistanceTo(villagerPos)
             );
             if (entityHitResult == null) {
                if ((Boolean)this.debug.get()) {
                   this.info("射线检测不通过", new Object[0]);
                }
 
-               HeRotationUtils.rotate(villager.getEyePosition(), () -> {
-                  EntityHitResult location = new EntityHitResult(villager, villager.getBoundingBox().getCenter());
-                  this.mc.gameMode.interact(this.mc.player, villager,location, InteractionHand.MAIN_HAND);
+               HeRotationUtils.rotate(villager.getEyePos(), () -> {
+                  this.mc.interactionManager.interactEntity(this.mc.player, villager, Hand.MAIN_HAND);
                   this.step = Steps.EXECUTE_TRADE;
                });
             } else {
@@ -458,15 +445,12 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                   this.info("射线检测通过", new Object[0]);
                }
 
-               HeRotationUtils.rotate(entityHitResult.getLocation(), () -> {
-                  InteractionResult actionResult = this.mc.gameMode.interact(this.mc.player, villager, entityHitResult, InteractionHand.MAIN_HAND);
-                  if (actionResult.consumesAction()) {
-                     //ChatUtils.info("已打开交易界面");
-                     EntityHitResult location2 = new EntityHitResult(villager, villager.getBoundingBox().getCenter());
-                     this.mc.gameMode.interact(this.mc.player, villager,location2, InteractionHand.MAIN_HAND);
+               HeRotationUtils.rotate(entityHitResult.getPos(), () -> {
+                  ActionResult actionResult = this.mc.interactionManager.interactEntityAtLocation(this.mc.player, villager, entityHitResult, Hand.MAIN_HAND);
+                  if (!actionResult.isAccepted()) {
+                     this.mc.interactionManager.interactEntity(this.mc.player, villager, Hand.MAIN_HAND);
                      this.step = Steps.EXECUTE_TRADE;
                   } else {
-                     //this.warning("actionResult = "+actionResult.toString());
                      ChatUtils.error("无法打开交易界面，重试中...", new Object[0]);
                   }
                });
@@ -532,7 +516,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
       }
 
       VillagerEntityWarp best = null;
-      Vec3 playerPos = this.mc.player.position();
+      Vec3d playerPos = this.mc.player.getEntityPos();
       double minDistance = Double.MAX_VALUE;
 
       for (VillagerEntityWarp warp : validVillagerList) {
@@ -552,7 +536,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
          this.printLog("find next : {}", best.getOperatePosCenter());
          this.currentVillager = best;
          BlockPos targetPos = this.currentVillager.getOperatePos();
-         if (!targetPos.closerToCenterThan(this.mc.player.position(), 300.0)) {
+         if (!targetPos.isWithinDistance(this.mc.player.getEntityPos(), 300.0)) {
             this.warning("寻路距离过远", new Object[0]);
             this.toggle();
          } else {
@@ -614,7 +598,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
    }
 
    private boolean tryPut() {
-      Vec3 playerPos = this.mc.player.position();
+      Vec3d playerPos = this.mc.player.getEntityPos();
       ItemBo best = null;
       double minDis = Double.MAX_VALUE;
 
@@ -622,7 +606,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
          ItemStack nextPlayerStack = this.nextPlayerStack(buyVillagerItem::isSameItem);
          if (!nextPlayerStack.isEmpty()) {
             BlockPos putPos = this.putPosMap.get(buyVillagerItem);
-            double distance = putPos.getCenter().distanceTo(playerPos);
+            double distance = putPos.toCenterPos().distanceTo(playerPos);
             if (distance < minDis) {
                best = buyVillagerItem;
                minDis = distance;
@@ -670,15 +654,12 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
 
    private List<VillagerEntityWarp> getVillagerEntity() {
       List<VillagerEntityWarp> villagerList = new ArrayList<>();
-      if(this.mc.level==null){
-          this.initBtn.set(false);
-          return villagerList;
-      }
-      for (Entity entity : this.mc.level.entitiesForRendering()) {
+
+      for (Entity entity : this.mc.world.getEntities()) {
          if (EntityType.VILLAGER.equals(entity.getType())) {
-            double y = entity.position().y() - this.mc.player.getY();
+            double y = entity.getEntityPos().getY() - this.mc.player.getY();
             if (y >= -2.0 && y <= 2.0) {
-               Villager villager = (Villager)entity;
+               VillagerEntity villager = (VillagerEntity)entity;
                VillagerType currentType = VillagerType.fromEntry(villager.getVillagerData().profession());
                if (currentType != null) {
                   VillagerSettingWarp villagerSettingWarp = this.villagerSettingWarpMap.getOrDefault(currentType, this.villagerSettingWarp7);
@@ -697,7 +678,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
                      }
 
                      if (pos != null) {
-                        villagerList.add(new VillagerEntityWarp(currentType, villager.getUUID(), pos));
+                        villagerList.add(new VillagerEntityWarp(currentType, villager.getUuid(), pos));
                      }
                   }
                }
@@ -708,13 +689,13 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
       return villagerList;
    }
 
-   private BlockPos getOperatePos(Villager villager, VillagerType currentType, Direction direction) {
-      BlockPos blockPos = villager.blockPosition().relative(direction);
-      BlockState blockState = this.mc.level.getBlockState(blockPos);
+   private BlockPos getOperatePos(VillagerEntity villager, VillagerType currentType, Direction direction) {
+      BlockPos blockPos = villager.getBlockPos().offset(direction);
+      BlockState blockState = this.mc.world.getBlockState(blockPos);
       if (blockState.getBlock().asItem() == currentType.getItem()) {
-         BlockPos pos = blockPos.relative(direction);
-         BlockPos checkPos = pos.offset(0, 1, 0);
-         if (this.mc.level.getBlockState(checkPos).isAir()) {
+         BlockPos pos = blockPos.offset(direction);
+         BlockPos checkPos = pos.add(0, 1, 0);
+         if (this.mc.world.getBlockState(checkPos).isAir()) {
             return pos;
          }
       }
@@ -727,9 +708,9 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
          this.restartFuture.cancel(false);
       }
 
-      GameType gameMode = this.mc.gameMode.getPlayerMode();
+      GameMode gameMode = this.mc.interactionManager.getCurrentGameMode();
       this.printLog("gameMode : " + gameMode);
-      if (gameMode != GameType.SPECTATOR && gameMode != GameType.ADVENTURE) {
+      if (gameMode != GameMode.SPECTATOR && gameMode != GameMode.ADVENTURE) {
          this.restartFuture = TaskUtils.run(() -> {
             this.info("启动", new Object[0]);
             this.step = Steps.NEXT;

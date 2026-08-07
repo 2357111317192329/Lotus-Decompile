@@ -23,36 +23,36 @@ import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
-import net.minecraft.network.protocol.game.ClientboundBundlePacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
-import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
-import net.minecraft.tags.FluidTags;
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.effect.MobEffectUtil;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.effect.StatusEffectUtil;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.world.BlockView;
+import net.minecraft.block.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.text.Text;
+import net.minecraft.util.shape.VoxelShapes;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.block.BlockState;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
+import net.minecraft.registry.tag.FluidTags;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.network.packet.s2c.play.BundleS2CPacket;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
 
 public class PacketMinePlus extends BaseModule {
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
@@ -124,7 +124,7 @@ public class PacketMinePlus extends BaseModule {
                   .visible(() -> this.modeConfig.get() == PacketMinePlus.SpeedmineMode.PACKET))
                .onChanged(enabled -> {
                   if (enabled && this.mc.player != null) {
-                     this.mc.player.sendSystemMessage(Component.literal("§7[§bBepMine§7] §a持久模式已启用！除非你关闭此模式或断开连接，否则模块无法被禁用。"));
+                     this.mc.player.sendMessage(Text.literal("§7[§bBepMine§7] §a持久模式已启用！除非你关闭此模式或断开连接，否则模块无法被禁用。"), false);
                   }
                }))
             .build()
@@ -286,7 +286,7 @@ public class PacketMinePlus extends BaseModule {
    private long lastBreak;
    private boolean instantTogglePressed = false;
    private boolean autoMineTogglePressed = false;
-   private Player currentTarget = null;
+   private PlayerEntity currentTarget = null;
    private BlockPos lastAutoMineBlock = null;
    private long lastAutoMineTime = 0L;
    private BlockPos lastAntiCrawlBlock = null;
@@ -311,11 +311,16 @@ public class PacketMinePlus extends BaseModule {
    }
 
    public void toggle() {
-      if (this.isActive() && (Boolean)this.persistentConfig.get() && this.mc.getConnection() != null) {
+      if (this.isActive() && (Boolean)this.persistentConfig.get() && this.mc.getNetworkHandler() != null) {
          if (this.mc.player != null) {
             this.mc
                .player
-               .sendSystemMessage(Component.literal("§7[§bBepMine§7] §cCannot disable while Persistent mode is active! Disable Persistent first or disconnect from server."));
+               .sendMessage(
+                  Text.literal(
+                     "§7[§bBepMine§7] §cCannot disable while Persistent mode is active! Disable Persistent first or disconnect from server."
+                  ),
+                  false
+               );
          }
       } else {
          super.toggle();
@@ -343,7 +348,7 @@ public class PacketMinePlus extends BaseModule {
    }
 
    public void onDeactivate() {
-      if (!(Boolean)this.persistentConfig.get() || this.mc.getConnection() == null) {
+      if (!(Boolean)this.persistentConfig.get() || this.mc.getNetworkHandler() == null) {
          if (this.miningQueue != null) {
             this.miningQueue.clear();
          }
@@ -393,18 +398,18 @@ public class PacketMinePlus extends BaseModule {
             }
          }
 
-         if (!((Keybind)this.autoMineKey.get()).isPressed() || this.mc.screen != null) {
+         if (!((Keybind)this.autoMineKey.get()).isPressed() || this.mc.currentScreen != null) {
             this.autoMineTogglePressed = false;
          } else if (!this.autoMineTogglePressed) {
             this.autoMineTogglePressed = true;
             this.autoMine.set(!(Boolean)this.autoMine.get());
             if (this.mc.player != null) {
                String status = this.autoMine.get() ? "§aenabled" : "§cdisabled";
-               this.mc.player.sendSystemMessage(Component.literal("§7[§bBepMine§7] §fAuto-mine " + status));
+               this.mc.player.sendMessage(Text.literal("§7[§bBepMine§7] §fAuto-mine " + status), false);
             }
          }
 
-         if (!((Keybind)this.instantToggleKey.get()).isPressed() || this.mc.screen != null) {
+         if (!((Keybind)this.instantToggleKey.get()).isPressed() || this.mc.currentScreen != null) {
             this.instantTogglePressed = false;
          } else if (!this.instantTogglePressed) {
             this.instantTogglePressed = true;
@@ -415,7 +420,7 @@ public class PacketMinePlus extends BaseModule {
 
             if (this.mc.player != null) {
                String status = this.instantConfig.get() ? "§aenabled" : "§cdisabled";
-               this.mc.player.sendSystemMessage(Component.literal("§7[§bBepMine§7] §fInstant mining " + status));
+               this.mc.player.sendMessage(Text.literal("§7[§bBepMine§7] §fInstant mining " + status), false);
             }
          }
 
@@ -424,14 +429,14 @@ public class PacketMinePlus extends BaseModule {
                int maxQueueSize = this.doubleBreakConfig.get() ? 2 : 1;
                long currentTime = System.currentTimeMillis();
                if ((Boolean)this.antiCrawl.get()
-                  && this.mc.player.getPose() == Pose.SWIMMING
+                  && this.mc.player.getPose() == EntityPose.SWIMMING
                   && this.miningQueue.size() < maxQueueSize
                   && currentTime - this.lastAntiCrawlTime >= 100L) {
                   BlockPos crawlBlock = this.getAntiCrawlBlock();
                   if (crawlBlock != null && !this.isMiningBlock(crawlBlock)) {
                      Direction direction = Direction.DOWN;
                      if ((Boolean)this.autoRotate.get() && (Boolean)this.rotateConfig.get()) {
-                        float[] rotations = getRotationsTo(this.mc.player.getEyePosition(), crawlBlock.getCenter());
+                        float[] rotations = getRotationsTo(this.mc.player.getEyePos(), crawlBlock.toCenterPos());
                         if ((Boolean)this.grimConfig.get()) {
                            BepRotationUtils.getInstance().setRotationSilent(rotations[0], rotations[1]);
                         } else {
@@ -461,7 +466,7 @@ public class PacketMinePlus extends BaseModule {
                            }
 
                            if ((Boolean)this.autoRotate.get() && (Boolean)this.rotateConfig.get()) {
-                              float[] rotations = getRotationsTo(this.mc.player.getEyePosition(), targetBlock.getCenter());
+                              float[] rotations = getRotationsTo(this.mc.player.getEyePos(), targetBlock.toCenterPos());
                               if ((Boolean)this.grimConfig.get()) {
                                  BepRotationUtils.getInstance().setRotationSilent(rotations[0], rotations[1]);
                               } else {
@@ -490,7 +495,7 @@ public class PacketMinePlus extends BaseModule {
                   }
 
                   if (!this.isDataPacketMine(data) || !data.getState().isAir() && (!data.hasAttemptedBreak() || !data.passedAttemptedBreakTime(500L))) {
-                     float damageDelta = this.calcBlockBreakingDelta(data.getState(), this.mc.level, data.getPos());
+                     float damageDelta = this.calcBlockBreakingDelta(data.getState(), this.mc.world, data.getPos());
                      data.damage(damageDelta);
                      if (this.isDataPacketMine(data) && data.getBlockDamage() >= 1.0F && data.getSlot() != -1) {
                         if (this.mc.player.isUsingItem() && !(Boolean)this.multitaskConfig.get()) {
@@ -509,7 +514,7 @@ public class PacketMinePlus extends BaseModule {
                this.miningQueue.removeAll(toRemove);
                PacketMinePlus.MiningData miningData2 = this.miningQueue.getFirst();
                if (miningData2 != null) {
-                  double distance = this.mc.player.getEyePosition().distanceToSqr(miningData2.getPos().getCenter());
+                  double distance = this.mc.player.getEyePos().squaredDistanceTo(miningData2.getPos().toCenterPos());
                   if (distance > (Double)this.rangeConfig.get() * (Double)this.rangeConfig.get()) {
                      this.miningQueue.remove(miningData2);
                   } else if (!miningData2.getState().isAir()) {
@@ -545,24 +550,24 @@ public class PacketMinePlus extends BaseModule {
    public void onAttackBlock(StartBreakingBlockEvent event) {
       if (!this.mc.player.isCreative() && !this.mc.player.isSpectator() && this.modeConfig.get() == PacketMinePlus.SpeedmineMode.PACKET) {
          event.cancel();
-         BlockState blockState = this.mc.level.getBlockState(event.blockPos);
-         if (blockState.getDestroySpeed(this.mc.level, event.blockPos) != -1.0F && !blockState.isAir()) {
+         BlockState blockState = this.mc.world.getBlockState(event.blockPos);
+         if (blockState.getHardness(this.mc.world, event.blockPos) != -1.0F && !blockState.isAir()) {
             this.startManualMine(event.blockPos, event.direction);
-            this.mc.player.swing(InteractionHand.MAIN_HAND);
+            this.mc.player.swingHand(Hand.MAIN_HAND);
          }
       }
    }
 
    @EventHandler
    public void onPacketOutbound(Send event) {
-      if (event.packet instanceof ServerboundPlayerActionPacket packet
+      if (event.packet instanceof PlayerActionC2SPacket packet
          && packet.getAction() == Action.STOP_DESTROY_BLOCK
          && this.modeConfig.get() == PacketMinePlus.SpeedmineMode.DAMAGE
          && (Boolean)this.grimConfig.get()) {
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, packet.getPos().above(500), packet.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.ABORT_DESTROY_BLOCK, packet.getPos().up(500), packet.getDirection()));
       }
 
-      if (event.packet instanceof ServerboundSetCarriedItemPacket && (Boolean)this.switchResetConfig.get() && this.modeConfig.get() == PacketMinePlus.SpeedmineMode.PACKET) {
+      if (event.packet instanceof UpdateSelectedSlotC2SPacket && (Boolean)this.switchResetConfig.get() && this.modeConfig.get() == PacketMinePlus.SpeedmineMode.PACKET) {
          for (PacketMinePlus.MiningData data : this.miningQueue) {
             data.resetDamage();
          }
@@ -572,11 +577,11 @@ public class PacketMinePlus extends BaseModule {
    @EventHandler
    public void onPacketInbound(Receive event) {
       if (this.mc.player != null && this.modeConfig.get() == PacketMinePlus.SpeedmineMode.PACKET) {
-         if (event.packet instanceof ClientboundBlockUpdatePacket packet) {
+         if (event.packet instanceof BlockUpdateS2CPacket packet) {
             this.handleBlockUpdatePacket(packet);
-         } else if (event.packet instanceof ClientboundBundlePacket packet) {
-            for (Packet<?> packet1 : packet.subPackets()) {
-               if (packet1 instanceof ClientboundBlockUpdatePacket packet2) {
+         } else if (event.packet instanceof BundleS2CPacket packet) {
+            for (Packet<?> packet1 : packet.getPackets()) {
+               if (packet1 instanceof BlockUpdateS2CPacket packet2) {
                   this.handleBlockUpdatePacket(packet2);
                }
             }
@@ -584,8 +589,8 @@ public class PacketMinePlus extends BaseModule {
       }
    }
 
-   private void handleBlockUpdatePacket(ClientboundBlockUpdatePacket packet) {
-      if (packet.getBlockState().isAir()) {
+   private void handleBlockUpdatePacket(BlockUpdateS2CPacket packet) {
+      if (packet.getState().isAir()) {
          for (PacketMinePlus.MiningData data : this.miningQueue) {
             if (data.hasAttemptedBreak() && data.getPos().equals(packet.getPos())) {
                data.setAttemptedBreak(false);
@@ -622,10 +627,10 @@ public class PacketMinePlus extends BaseModule {
             boxColor = boxColor & 16777215 | boxAlpha << 24;
             lineColor = lineColor & 16777215 | lineAlpha << 24;
             BlockPos mining = data.getPos();
-            VoxelShape outlineShape = data.getState().getShape(this.mc.level, mining);
-            outlineShape = outlineShape.isEmpty() ? Shapes.block() : outlineShape;
-            AABB render1 = outlineShape.bounds();
-            AABB render = new AABB(
+            VoxelShape outlineShape = data.getState().getOutlineShape(this.mc.world, mining);
+            outlineShape = outlineShape.isEmpty() ? VoxelShapes.fullCube() : outlineShape;
+            Box render1 = outlineShape.getBoundingBox();
+            Box render = new Box(
                mining.getX() + render1.minX,
                mining.getY() + render1.minY,
                mining.getZ() + render1.minZ,
@@ -633,15 +638,15 @@ public class PacketMinePlus extends BaseModule {
                mining.getY() + render1.maxY,
                mining.getZ() + render1.maxZ
             );
-            Vec3 center = render.getCenter();
+            Vec3d center = render.getCenter();
             float total = this.isDataPacketMine(data) ? 1.0F : ((Double)this.speedConfig.get()).floatValue();
             float scale = data.getState().isAir()
                ? 1.0F
-               : Mth.clamp((data.getBlockDamage() + (data.getBlockDamage() - data.getLastDamage()) * event.tickDelta) / total, 0.0F, 1.0F);
+               : MathHelper.clamp((data.getBlockDamage() + (data.getBlockDamage() - data.getLastDamage()) * event.tickDelta) / total, 0.0F, 1.0F);
             double dx = (render1.maxX - render1.minX) / 2.0;
             double dy = (render1.maxY - render1.minY) / 2.0;
             double dz = (render1.maxZ - render1.minZ) / 2.0;
-            AABB scaled = new AABB(center, center).inflate(dx * scale, dy * scale, dz * scale);
+            Box scaled = new Box(center, center).expand(dx * scale, dy * scale, dz * scale);
             event.renderer
                .box(
                   scaled.minX,
@@ -692,41 +697,41 @@ public class PacketMinePlus extends BaseModule {
       data.setStarted();
       if ((Boolean)this.grimNewConfig.get()) {
          if (!(Boolean)this.miningFix.get()) {
-            this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-            this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-            this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+            this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+            this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+            this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
          } else {
-            this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+            this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
          }
 
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-         this.mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
-         this.mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
-         this.mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+         this.mc.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+         this.mc.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
          return true;
       } else {
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-         this.mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-         this.mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
          return true;
       }
    }
 
    private void abortMining(PacketMinePlus.MiningData data) {
       if (data.isStarted() && !data.getState().isAir()) {
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
       }
    }
 
    private void stopMining(PacketMinePlus.MiningData data) {
       if (data.isStarted() && !data.getState().isAir()) {
          if ((Boolean)this.rotateConfig.get()) {
-            float[] rotations = getRotationsTo(this.mc.player.getEyePosition(), data.getPos().getCenter());
+            float[] rotations = getRotationsTo(this.mc.player.getEyePos(), data.getPos().toCenterPos());
             if ((Boolean)this.grimConfig.get()) {
                Rotations.rotate(rotations[0], rotations[1]);
             } else {
@@ -758,7 +763,7 @@ public class PacketMinePlus extends BaseModule {
       switch ((PacketMinePlus.Swap)this.swapConfig.get()) {
          case NORMAL:
             this.mc.player.getInventory().setSelectedSlot(slot);
-            this.mc.getConnection().send(new ServerboundSetCarriedItemPacket(slot));
+            this.mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
             break;
          case SILENT:
             if (this.inventoryManager == null) {
@@ -773,7 +778,7 @@ public class PacketMinePlus extends BaseModule {
       switch ((PacketMinePlus.Swap)this.swapConfig.get()) {
          case NORMAL:
             this.mc.player.getInventory().setSelectedSlot(originalSlot);
-            this.mc.getConnection().send(new ServerboundSetCarriedItemPacket(originalSlot));
+            this.mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(originalSlot));
             break;
          case SILENT:
             if (this.inventoryManager == null) {
@@ -785,8 +790,8 @@ public class PacketMinePlus extends BaseModule {
    }
 
    private void stopMiningInternal(PacketMinePlus.MiningData data) {
-      this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
-      this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+      this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, data.getPos(), data.getDirection()));
+      this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.ABORT_DESTROY_BLOCK, data.getPos(), data.getDirection()));
    }
 
    public boolean isBlockDelayGrim() {
@@ -797,12 +802,12 @@ public class PacketMinePlus extends BaseModule {
       return this.miningQueue.size() == 2 && data == this.miningQueue.getLast();
    }
 
-   public float calcBlockBreakingDelta(BlockState state, BlockGetter world, BlockPos pos) {
+   public float calcBlockBreakingDelta(BlockState state, BlockView world, BlockPos pos) {
       if (this.swapConfig.get() == PacketMinePlus.Swap.OFF) {
-         return state.getDestroyProgress(this.mc.player, this.mc.level, pos);
+         return state.calcBlockBreakingDelta(this.mc.player, this.mc.world, pos);
       }
 
-      float f = state.getDestroySpeed(world, pos);
+      float f = state.getHardness(world, pos);
       if (f == -1.0F) {
          return 0.0F;
       }
@@ -813,14 +818,14 @@ public class PacketMinePlus extends BaseModule {
 
    private float getBlockBreakingSpeed(BlockState block) {
       int tool = this.getBestTool(block);
-      float f = this.mc.player.getInventory().getItem(tool).getDestroySpeed(block);
+      float f = this.mc.player.getInventory().getStack(tool).getMiningSpeedMultiplier(block);
       if (f > 1.0F) {
-         ItemStack stack = this.mc.player.getInventory().getItem(tool);
+         ItemStack stack = this.mc.player.getInventory().getStack(tool);
          int i = 0;
-         ItemEnchantments enchantments = stack.getEnchantments();
+         ItemEnchantmentsComponent enchantments = stack.getEnchantments();
 
-         for (it.unimi.dsi.fastutil.objects.Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments.entrySet()) {
-            if (((Holder)entry.getKey()).is(Enchantments.EFFICIENCY)) {
+         for (it.unimi.dsi.fastutil.objects.Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments.getEnchantmentEntries()) {
+            if (((RegistryEntry)entry.getKey()).matchesKey(Enchantments.EFFICIENCY)) {
                i = entry.getIntValue();
                break;
             }
@@ -831,12 +836,12 @@ public class PacketMinePlus extends BaseModule {
          }
       }
 
-      if (MobEffectUtil.hasDigSpeed(this.mc.player)) {
-         f *= 1.0F + (MobEffectUtil.getDigSpeedAmplification(this.mc.player) + 1) * 0.2F;
+      if (StatusEffectUtil.hasHaste(this.mc.player)) {
+         f *= 1.0F + (StatusEffectUtil.getHasteAmplifier(this.mc.player) + 1) * 0.2F;
       }
 
-      if (this.mc.player.hasEffect(MobEffects.MINING_FATIGUE)) {
-         float g = switch (this.mc.player.getEffect(MobEffects.MINING_FATIGUE).getAmplifier()) {
+      if (this.mc.player.hasStatusEffect(StatusEffects.MINING_FATIGUE)) {
+         float g = switch (this.mc.player.getStatusEffect(StatusEffects.MINING_FATIGUE).getAmplifier()) {
             case 0 -> 0.3F;
             case 1 -> 0.09F;
             case 2 -> 0.0027F;
@@ -845,14 +850,14 @@ public class PacketMinePlus extends BaseModule {
          f *= g;
       }
 
-      if (this.mc.player.isEyeInFluid(FluidTags.WATER)) {
+      if (this.mc.player.isSubmergedIn(FluidTags.WATER)) {
          boolean hasAquaAffinity = false;
-         ItemStack helmet = this.mc.player.getItemBySlot(EquipmentSlot.HEAD);
+         ItemStack helmet = this.mc.player.getEquippedStack(EquipmentSlot.HEAD);
          if (!helmet.isEmpty()) {
-            ItemEnchantments enchantments = helmet.getEnchantments();
+            ItemEnchantmentsComponent enchantments = helmet.getEnchantments();
 
-            for (it.unimi.dsi.fastutil.objects.Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments.entrySet()) {
-               if (((Holder)entry.getKey()).is(Enchantments.AQUA_AFFINITY)) {
+            for (it.unimi.dsi.fastutil.objects.Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments.getEnchantmentEntries()) {
+               if (((RegistryEntry)entry.getKey()).matchesKey(Enchantments.AQUA_AFFINITY)) {
                   hasAquaAffinity = true;
                   break;
                }
@@ -864,7 +869,7 @@ public class PacketMinePlus extends BaseModule {
          }
       }
 
-      if (!this.mc.player.onGround()) {
+      if (!this.mc.player.isOnGround()) {
          f /= 5.0F;
       }
 
@@ -872,9 +877,9 @@ public class PacketMinePlus extends BaseModule {
    }
 
    private boolean canHarvest(BlockState state) {
-      if (state.requiresCorrectToolForDrops()) {
+      if (state.isToolRequired()) {
          int tool = this.getBestTool(state);
-         return this.mc.player.getInventory().getItem(tool).isCorrectToolForDrops(state);
+         return this.mc.player.getInventory().getStack(tool).isSuitableFor(state);
       } else {
          return true;
       }
@@ -885,8 +890,8 @@ public class PacketMinePlus extends BaseModule {
       float bestSpeed = 0.0F;
 
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = this.mc.player.getInventory().getItem(i);
-         float speed = stack.getDestroySpeed(state);
+         ItemStack stack = this.mc.player.getInventory().getStack(i);
+         float speed = stack.getMiningSpeedMultiplier(state);
          if (speed > bestSpeed) {
             bestSpeed = speed;
             bestSlot = i;
@@ -900,12 +905,12 @@ public class PacketMinePlus extends BaseModule {
       return !this.miningQueue.isEmpty();
    }
 
-   private static float[] getRotationsTo(Vec3 src, Vec3 dest) {
+   private static float[] getRotationsTo(Vec3d src, Vec3d dest) {
       float yaw = (float)(Math.toDegrees(Math.atan2(dest.subtract(src).z, dest.subtract(src).x)) - 90.0);
       float pitch = (float)Math.toDegrees(
          -Math.atan2(dest.subtract(src).y, Math.hypot(dest.subtract(src).x, dest.subtract(src).z))
       );
-      return new float[]{Mth.wrapDegrees(yaw), Mth.wrapDegrees(pitch)};
+      return new float[]{MathHelper.wrapDegrees(yaw), MathHelper.wrapDegrees(pitch)};
    }
 
    private SettingColor interpolateColor(float value, SettingColor start, SettingColor end) {
@@ -925,14 +930,14 @@ public class PacketMinePlus extends BaseModule {
       );
    }
 
-   private Player getClosestEnemy() {
-      if (this.mc.level != null && this.mc.player != null) {
-         Player closest = null;
+   private PlayerEntity getClosestEnemy() {
+      if (this.mc.world != null && this.mc.player != null) {
+         PlayerEntity closest = null;
          double closestDist = (Double)this.enemyRange.get() * (Double)this.enemyRange.get();
 
-         for (Player player : this.mc.level.players()) {
-            if (player != this.mc.player && !player.isSpectator() && !player.isDeadOrDying() && !Friends.get().isFriend(player)) {
-               double dist = this.mc.player.distanceToSqr(player);
+         for (PlayerEntity player : this.mc.world.getPlayers()) {
+            if (player != this.mc.player && !player.isSpectator() && !player.isDead() && !Friends.get().isFriend(player)) {
+               double dist = this.mc.player.squaredDistanceTo(player);
                if (dist < closestDist) {
                   closestDist = dist;
                   closest = player;
@@ -946,15 +951,15 @@ public class PacketMinePlus extends BaseModule {
       }
    }
 
-   private BlockPos findBestEnemyBlock(Player enemy) {
+   private BlockPos findBestEnemyBlock(PlayerEntity enemy) {
       if (enemy == null) {
          return null;
       }
 
-      BlockPos enemyPos = enemy.blockPosition();
-      BlockState feetState = this.mc.level.getBlockState(enemyPos);
-      if (!feetState.isAir() && feetState.getDestroySpeed(this.mc.level, enemyPos) != -1.0F) {
-         double feetDist = this.mc.player.getEyePosition().distanceToSqr(enemyPos.getCenter());
+      BlockPos enemyPos = enemy.getBlockPos();
+      BlockState feetState = this.mc.world.getBlockState(enemyPos);
+      if (!feetState.isAir() && feetState.getHardness(this.mc.world, enemyPos) != -1.0F) {
+         double feetDist = this.mc.player.getEyePos().squaredDistanceTo(enemyPos.toCenterPos());
          if (feetDist <= (Double)this.rangeConfig.get() * (Double)this.rangeConfig.get()
             && !this.isMiningBlock(enemyPos)
             && this.isResistantBlock(feetState)
@@ -974,10 +979,10 @@ public class PacketMinePlus extends BaseModule {
       }
 
       if ((Boolean)this.targetHead.get()) {
-         BlockPos aboveHead = enemyPos.above(2);
-         BlockState aboveState = this.mc.level.getBlockState(aboveHead);
-         if (!aboveState.isAir() && aboveState.getDestroySpeed(this.mc.level, aboveHead) != -1.0F) {
-            double dist = this.mc.player.getEyePosition().distanceToSqr(aboveHead.getCenter());
+         BlockPos aboveHead = enemyPos.up(2);
+         BlockState aboveState = this.mc.world.getBlockState(aboveHead);
+         if (!aboveState.isAir() && aboveState.getHardness(this.mc.world, aboveHead) != -1.0F) {
+            double dist = this.mc.player.getEyePos().squaredDistanceTo(aboveHead.toCenterPos());
             if (dist <= (Double)this.rangeConfig.get() * (Double)this.rangeConfig.get()
                && !this.isMiningBlock(aboveHead)
                && this.isResistantBlock(aboveState)
@@ -995,11 +1000,11 @@ public class PacketMinePlus extends BaseModule {
       double bestDist = (Double)this.rangeConfig.get() * (Double)this.rangeConfig.get();
 
       for (BlockPos pos : positions) {
-         double dist = this.mc.player.getEyePosition().distanceToSqr(pos.getCenter());
+         double dist = this.mc.player.getEyePos().squaredDistanceTo(pos.toCenterPos());
          if (!(dist > (Double)this.rangeConfig.get() * (Double)this.rangeConfig.get())) {
-            BlockState state = this.mc.level.getBlockState(pos);
+            BlockState state = this.mc.world.getBlockState(pos);
             if (!state.isAir()
-               && state.getDestroySpeed(this.mc.level, pos) != -1.0F
+               && state.getHardness(this.mc.world, pos) != -1.0F
                && !this.isMiningBlock(pos)
                && !this.isOwnSurroundBlock(pos)
                && this.isResistantBlock(state)
@@ -1014,16 +1019,16 @@ public class PacketMinePlus extends BaseModule {
    }
 
    private BlockPos getAntiCrawlBlock() {
-      if (this.mc.player != null && this.mc.level != null) {
-         BlockPos playerPos = this.mc.player.blockPosition();
-         BlockPos blockAbove = playerPos.above();
-         BlockState state = this.mc.level.getBlockState(blockAbove);
+      if (this.mc.player != null && this.mc.world != null) {
+         BlockPos playerPos = this.mc.player.getBlockPos();
+         BlockPos blockAbove = playerPos.up();
+         BlockState state = this.mc.world.getBlockState(blockAbove);
          if (!state.isAir()
-            && state.getDestroySpeed(this.mc.level, blockAbove) != -1.0F
-            && !state.is(Blocks.BEDROCK)
-            && !state.is(Blocks.REINFORCED_DEEPSLATE)
-            && !state.is(Blocks.BARRIER)) {
-            double dist = this.mc.player.getEyePosition().distanceToSqr(blockAbove.getCenter());
+            && state.getHardness(this.mc.world, blockAbove) != -1.0F
+            && !state.isOf(Blocks.BEDROCK)
+            && !state.isOf(Blocks.REINFORCED_DEEPSLATE)
+            && !state.isOf(Blocks.BARRIER)) {
+            double dist = this.mc.player.getEyePos().squaredDistanceTo(blockAbove.toCenterPos());
             if (dist <= (Double)this.rangeConfig.get() * (Double)this.rangeConfig.get()) {
                return blockAbove;
             }
@@ -1050,38 +1055,38 @@ public class PacketMinePlus extends BaseModule {
    }
 
    private boolean isOwnSurroundBlock(BlockPos pos) {
-      BlockPos playerPos = this.mc.player.blockPosition();
+      BlockPos playerPos = this.mc.player.getBlockPos();
       return pos.equals(playerPos.north())
             || pos.equals(playerPos.south())
             || pos.equals(playerPos.east())
             || pos.equals(playerPos.west())
          ? true
-         : pos.equals(playerPos.above()) || pos.equals(playerPos.above(2));
+         : pos.equals(playerPos.up()) || pos.equals(playerPos.up(2));
    }
 
    private boolean isResistantBlock(BlockState state) {
-      return !state.is(Blocks.BEDROCK)
-            && !state.is(Blocks.REINFORCED_DEEPSLATE)
-            && !state.is(Blocks.BARRIER)
-            && !state.is(Blocks.COMMAND_BLOCK)
-            && !state.is(Blocks.STRUCTURE_BLOCK)
-         ? state.is(Blocks.OBSIDIAN)
-            || state.is(Blocks.CRYING_OBSIDIAN)
-            || state.is(Blocks.ENDER_CHEST)
-            || state.is(Blocks.ANCIENT_DEBRIS)
-            || state.is(Blocks.RESPAWN_ANCHOR)
+      return !state.isOf(Blocks.BEDROCK)
+            && !state.isOf(Blocks.REINFORCED_DEEPSLATE)
+            && !state.isOf(Blocks.BARRIER)
+            && !state.isOf(Blocks.COMMAND_BLOCK)
+            && !state.isOf(Blocks.STRUCTURE_BLOCK)
+         ? state.isOf(Blocks.OBSIDIAN)
+            || state.isOf(Blocks.CRYING_OBSIDIAN)
+            || state.isOf(Blocks.ENDER_CHEST)
+            || state.isOf(Blocks.ANCIENT_DEBRIS)
+            || state.isOf(Blocks.RESPAWN_ANCHOR)
          : false;
    }
 
    private Direction getInteractDirection(BlockPos pos) {
-      Vec3 eyePos = this.mc.player.getEyePosition();
-      Vec3 posVec = Vec3.atCenterOf(pos);
+      Vec3d eyePos = this.mc.player.getEyePos();
+      Vec3d posVec = Vec3d.ofCenter(pos);
       Direction bestDir = null;
       double bestDot = -1.0;
 
       for (Direction dir : Direction.values()) {
-         Vec3 dirVec = Vec3.atLowerCornerOf(dir.getUnitVec3i());
-         double dot = eyePos.subtract(posVec).normalize().dot(dirVec);
+         Vec3d dirVec = Vec3d.of(dir.getVector());
+         double dot = eyePos.subtract(posVec).normalize().dotProduct(dirVec);
          if (dot > bestDot) {
             bestDot = dot;
             bestDir = dir;
@@ -1216,7 +1221,7 @@ public class PacketMinePlus extends BaseModule {
       }
 
       public BlockState getState() {
-         return PacketMinePlus.this.mc.level.getBlockState(this.pos);
+         return PacketMinePlus.this.mc.world.getBlockState(this.pos);
       }
 
       public float getBlockDamage() {
@@ -1240,8 +1245,8 @@ public class PacketMinePlus extends BaseModule {
          float bestSpeed = 0.0F;
 
          for (int i = 0; i < 9; i++) {
-            ItemStack stack = PacketMinePlus.this.mc.player.getInventory().getItem(i);
-            float speed = stack.getDestroySpeed(state);
+            ItemStack stack = PacketMinePlus.this.mc.player.getInventory().getStack(i);
+            float speed = stack.getMiningSpeedMultiplier(state);
             if (speed > bestSpeed) {
                bestSpeed = speed;
                bestSlot = i;

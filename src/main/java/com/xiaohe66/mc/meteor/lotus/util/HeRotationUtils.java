@@ -2,12 +2,12 @@ package com.xiaohe66.mc.meteor.lotus.util;
 
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.utils.player.Rotations;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.Full;
 
 public class HeRotationUtils {
-   public static void rotate(Vec3 vec3d) {
+   public static void rotate(Vec3d vec3d) {
       double yaw = Rotations.getYaw(vec3d);
       double pitch = Rotations.getPitch(vec3d);
       Rotations.rotate(yaw, pitch);
@@ -19,7 +19,7 @@ public class HeRotationUtils {
       Rotations.rotate(yaw, pitch);
    }
 
-   public static void rotate(Vec3 vec3d, Runnable runnable) {
+   public static void rotate(Vec3d vec3d, Runnable runnable) {
       double yaw = Rotations.getYaw(vec3d);
       double pitch = Rotations.getPitch(vec3d);
       Rotations.rotate(yaw, pitch, 6666, runnable);
@@ -33,15 +33,15 @@ public class HeRotationUtils {
 
    public static void rotateSilent(float yaw, float pitch) {
       MeteorClient.mc
-         .getConnection()
-         .send(
-            new PosRot(
+         .getNetworkHandler()
+         .sendPacket(
+            new Full(
                MeteorClient.mc.player.getX(),
                MeteorClient.mc.player.getY(),
                MeteorClient.mc.player.getZ(),
                yaw,
                pitch,
-               MeteorClient.mc.player.onGround(),
+               MeteorClient.mc.player.isOnGround(),
                false
             )
          );

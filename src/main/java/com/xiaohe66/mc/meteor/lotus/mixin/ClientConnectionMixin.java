@@ -2,14 +2,14 @@ package com.xiaohe66.mc.meteor.lotus.mixin;
 
 import com.xiaohe66.mc.meteor.lotus.util.TestPacketUtils;
 import io.netty.channel.ChannelHandlerContext;
-import net.minecraft.network.Connection;
-import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.ClientConnection;
+import net.minecraft.network.packet.Packet;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Connection.class)
+@Mixin(ClientConnection.class)
 public class ClientConnectionMixin {
    @Inject(method = "send", at = @At("TAIL"))
    private void onSetupPacketHandler(Packet<?> packet, CallbackInfo ci) {

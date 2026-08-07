@@ -8,13 +8,13 @@ import meteordevelopment.meteorclient.systems.modules.combat.KillAura;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.Holder;
-import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.registry.entry.RegistryEntry;
 
 public class RaidHelper extends BaseModule {
    private final Setting<Integer> before = this.sgGeneral
@@ -120,7 +120,7 @@ public class RaidHelper extends BaseModule {
    }
 
    private void setPressed(boolean pressed) {
-      this.mc.options.keyUse.setDown(pressed);
+      this.mc.options.useKey.setPressed(pressed);
    }
 
    private void changeSlot(int slot) {
@@ -129,17 +129,17 @@ public class RaidHelper extends BaseModule {
    }
 
    private int findSlot() {
-      Inventory inv = this.mc.player.getInventory();
+      PlayerInventory inv = this.mc.player.getInventory();
 
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = inv.getItem(i);
+         ItemStack stack = inv.getStack(i);
          if (stack.getItem() == Items.OMINOUS_BOTTLE && (!(Boolean)this.one.get() || stack.getCount() > 1)) {
             return i;
          }
       }
 
       for (int i = 9; i < 36; i++) {
-         ItemStack stack = inv.getItem(i);
+         ItemStack stack = inv.getStack(i);
          if (stack.getItem() == Items.OMINOUS_BOTTLE && (!(Boolean)this.one.get() || stack.getCount() > 1)) {
             int emptySlot = this.findEmptyHotbarSlot();
             if (emptySlot != -1) {
@@ -153,10 +153,10 @@ public class RaidHelper extends BaseModule {
    }
 
    private int findEmptyHotbarSlot() {
-      Inventory inv = this.mc.player.getInventory();
+      PlayerInventory inv = this.mc.player.getInventory();
 
       for (int i = 0; i < 9; i++) {
-         if (inv.getItem(i).isEmpty()) {
+         if (inv.getStack(i).isEmpty()) {
             return i;
          }
       }
@@ -165,9 +165,9 @@ public class RaidHelper extends BaseModule {
    }
 
    private boolean hasBadOmen() {
-      for (MobEffectInstance effect : this.mc.player.getActiveEffects()) {
-         Holder<MobEffect> effectType = effect.getEffect();
-         if (effectType == MobEffects.BAD_OMEN) {
+      for (StatusEffectInstance effect : this.mc.player.getStatusEffects()) {
+         RegistryEntry<StatusEffect> effectType = effect.getEffectType();
+         if (effectType == StatusEffects.BAD_OMEN) {
             return true;
          }
       }
@@ -176,9 +176,9 @@ public class RaidHelper extends BaseModule {
    }
 
    private boolean hasRaidOmen() {
-      for (MobEffectInstance effect : this.mc.player.getActiveEffects()) {
-         Holder<MobEffect> effectType = effect.getEffect();
-         if (effectType == MobEffects.RAID_OMEN) {
+      for (StatusEffectInstance effect : this.mc.player.getStatusEffects()) {
+         RegistryEntry<StatusEffect> effectType = effect.getEffectType();
+         if (effectType == StatusEffects.RAID_OMEN) {
             return effect.getDuration() >= (Integer)this.before.get();
          }
       }

@@ -11,13 +11,13 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.StringSetting.Builder;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
-import net.minecraft.world.item.DyeColor;
-import net.minecraft.world.level.block.entity.SignBlockEntity;
-import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.util.DyeColor;
+import net.minecraft.text.Text;
+import net.minecraft.block.entity.SignBlockEntity;
+import net.minecraft.network.packet.c2s.play.UpdateSignC2SPacket;
+import net.minecraft.text.MutableText;
+import net.minecraft.client.gui.screen.ingame.AbstractSignEditScreen;
+import net.minecraft.block.entity.SignText;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,10 +47,10 @@ public class AutoSignPlus extends Module {
 
    @EventHandler
    private void onSendPacket(Send event) {
-      if (event.packet instanceof ServerboundSignUpdatePacket packet) {
+      if (event.packet instanceof UpdateSignC2SPacket packet) {
          log.info("UpdateSignC2SPacket : {}", packet);
-         if (packet.isFrontText()) {
-            String[] lineArr = packet.getLines();
+         if (packet.isFront()) {
+            String[] lineArr = packet.getText();
             this.updateLine(this.line1, lineArr, 0);
             this.updateLine(this.line2, lineArr, 1);
             this.updateLine(this.line3, lineArr, 2);
@@ -79,9 +79,9 @@ public class AutoSignPlus extends Module {
       SignBlockEntity sign = ((AbstractSignEditScreenAccessor)screen).meteor$getSign();
       boolean isAllBlank = true;
       SignText frontText = sign.getFrontText();
-      Component[] originMessageArr = frontText.getMessages(false);
+      Text[] originMessageArr = frontText.getMessages(false);
 
-      for (Component text : originMessageArr) {
+      for (Text text : originMessageArr) {
          String lineText = text.getString();
          if (StringUtils.isNotBlank(lineText)) {
             isAllBlank = false;
@@ -89,7 +89,7 @@ public class AutoSignPlus extends Module {
       }
 
       if (!(Boolean)this.onlyEmpty.get() || isAllBlank) {
-         Component[] lines = new Component[]{
+         Text[] lines = new Text[]{
             this.formatText((String)this.line1.get()),
             this.formatText((String)this.line2.get()),
             this.formatText((String)this.line3.get()),
@@ -100,8 +100,8 @@ public class AutoSignPlus extends Module {
       }
    }
 
-   private MutableComponent formatText(String text) {
-      return Component.literal(this.format(text));
+   private MutableText formatText(String text) {
+      return Text.literal(this.format(text));
    }
 
    private String format(String text) {

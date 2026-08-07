@@ -11,18 +11,17 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import net.minecraft.world.item.component.ItemContainerContents;
-import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import meteordevelopment.meteorclient.mixin.ContainerComponentAccessor;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.component.ComponentMap;
+import net.minecraft.component.DataComponentTypes;
 
 public class ShulkerBoxReader implements Iterable<ItemStack> {
-   private static final Minecraft mc = Minecraft.getInstance();
+   private static final MinecraftClient mc = MinecraftClient.getInstance();
    private final ItemStack boxItemStack;
    private ItemStack[] cacheItemStackArr;
    private boolean empty = true;
@@ -113,7 +112,7 @@ public class ShulkerBoxReader implements Iterable<ItemStack> {
 
       for (Entry<ItemBo, Integer> entry : itemQtyMap.entrySet()) {
          ItemBo newItemBo = entry.getKey();
-         double value = entry.getValue().doubleValue() / newItemBo.getItem().getDefaultMaxStackSize();
+         double value = entry.getValue().doubleValue() / newItemBo.getItem().getMaxCount();
          if (value > max) {
             max = value;
             maxentry = entry;
@@ -121,7 +120,7 @@ public class ShulkerBoxReader implements Iterable<ItemStack> {
       }
 
       if (maxentry == null) {
-         return Items.AIR.getDefaultInstance();
+         return Items.AIR.getDefaultStack();
       }
 
       ItemBo targetItemBo = maxentry.getKey();
@@ -134,7 +133,7 @@ public class ShulkerBoxReader implements Iterable<ItemStack> {
          }
       }
 
-      return Items.AIR.getDefaultInstance();
+      return Items.AIR.getDefaultStack();
    }
 
    public List<ItemStack> getCondensed() {
@@ -144,9 +143,9 @@ public class ShulkerBoxReader implements Iterable<ItemStack> {
 
          for (ItemStack itemStack : itemStackArr) {
             if (!itemStack.isEmpty()) {
-               DataComponentMap nbtElement = itemStack.getComponents();
+               ComponentMap nbtElement = itemStack.getComponents();
                String key = itemStack + "_" + nbtElement.toString();
-               ItemStack mapItemStack = map.computeIfAbsent(key, k -> itemStack.copyAndClear());
+               ItemStack mapItemStack = map.computeIfAbsent(key, k -> itemStack.copyAndEmpty());
                int count = mapItemStack.getCount() + itemStack.getCount();
                mapItemStack.setCount(count);
             }
@@ -175,20 +174,15 @@ public class ShulkerBoxReader implements Iterable<ItemStack> {
 
    private ItemStack[] readItemStackArr() {
       if (this.cacheItemStackArr == null) {
-         //ChatUtils.info("no cache");
          ItemStack[] itemStackArr = new ItemStack[27];
-         Arrays.fill(itemStackArr, Items.AIR.getDefaultInstance());
-         DataComponentMap components = this.boxItemStack.getComponents();
-         //ChatUtils.info("components.size() = "+components.size());
-         if (components.has(DataComponents.CONTAINER)) {
-            //ChatUtils.info("components.has(DataComponents.CONTAINER)");
-            ItemContainerContents container = components.get(DataComponents.CONTAINER);
-            List<ItemStack> stacks = container.allItemsCopyStream().toList();
-            //ChatUtils.info("stacks.size() = "+stacks.size());
+         Arrays.fill(itemStackArr, Items.AIR.getDefaultStack());
+         ComponentMap components = this.boxItemStack.getComponents();
+         if (components.contains(DataComponentTypes.CONTAINER)) {
+            ContainerComponentAccessor container = (ContainerComponentAccessor)(Object)components.get(DataComponentTypes.CONTAINER);
+            DefaultedList<ItemStack> stacks = container.meteor$getStacks();
 
             for (int i = 0; i < stacks.size(); i++) {
-               ItemStack stack = stacks.get(i);
-               //ChatUtils.info("stack "+i+" = "+stack.getItemName().toString());
+               ItemStack stack = (ItemStack)stacks.get(i);
                itemStackArr[i] = stack.copy();
                this.empty = false;
             }

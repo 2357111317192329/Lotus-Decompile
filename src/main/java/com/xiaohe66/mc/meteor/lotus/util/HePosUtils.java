@@ -6,72 +6,67 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Direction.Axis;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.ChestBlock;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.block.entity.ChestBlockEntity;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.enums.ChestType;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.math.Direction.Axis;
 
 public class HePosUtils {
-   public static final Minecraft mc = Minecraft.getInstance();
+   public static final MinecraftClient mc = MinecraftClient.getInstance();
 
    public static Map<ItemBo, BlockPos> getItemFrameKitPosMap(int range) {
-      List<ItemFrame> itemFrames = mc.level.getEntitiesOfClass(ItemFrame.class, mc.player.getBoundingBox().inflate(range), framex -> true);
-      //ChatUtils.info("itemFrames number: " + itemFrames.size());
+      List<ItemFrameEntity> itemFrames = mc.world.getEntitiesByClass(ItemFrameEntity.class, mc.player.getBoundingBox().expand(range), framex -> true);
       Map<ItemBo, BlockPos> kitPosMap = new HashMap<>();
 
-      for (ItemFrame frame : itemFrames) {
-         //ChatUtils.info("kitPosMap.size() = " + kitPosMap.size());
-         ItemStack frameHeldItemStack = frame.getItem();
+      for (ItemFrameEntity frame : itemFrames) {
+         ItemStack frameHeldItemStack = frame.getHeldItemStack();
          if (!frameHeldItemStack.isEmpty()) {
-            BlockPos frameBlockPos = frame.blockPosition();
-            BlockPos putPos = frameBlockPos.relative(Axis.Y, -2);
-            BlockState putPosState = mc.level.getBlockState(putPos);
+            BlockPos frameBlockPos = frame.getBlockPos();
+            BlockPos putPos = frameBlockPos.offset(Axis.Y, -2);
+            BlockState putPosState = mc.world.getBlockState(putPos);
             if (HeItemUtils.isShulkerBox(putPosState.getBlock().asItem())) {
                ItemBo key = new ItemBo(frameHeldItemStack);
                kitPosMap.put(key, putPos);
             }
          }
       }
-      //ChatUtils.info("kitPosMap.size() = " + kitPosMap.size());
 
-      String s = "";
-      //ChatUtils.info("kitPosMap.keySet() = " + kitPosMap.keySet().toString());
-      //ChatUtils.info("kitPosMap.keySet().size() = " + kitPosMap.keySet().size());
+      StringBuilder stringBuilder = new StringBuilder();
+
       for (ItemBo villagerItem : kitPosMap.keySet()) {
-         s=s+","+villagerItem.getName();
-         //ChatUtils.info("s = "+ s);
+         stringBuilder.append(',').append(villagerItem.getName());
       }
 
-      ChatUtils.info("成功识别: " + s);
+      ChatUtils.info("成功识别: " + stringBuilder.substring(1), new Object[0]);
       return kitPosMap;
    }
 
-   public static Optional<BlockPos> getOtherChestPos(ItemFrame itemFrame) {
-      BlockPos attachedPos = itemFrame.getPos();
+   public static Optional<BlockPos> getOtherChestPos(ItemFrameEntity itemFrame) {
+      BlockPos attachedPos = itemFrame.getAttachedBlockPos();
       if (attachedPos == null) {
          return Optional.empty();
       }
 
-      BlockPos chestPos = attachedPos.relative(itemFrame.getNearestViewDirection().getOpposite());
-      BlockState chestState = mc.level.getBlockState(chestPos);
+      BlockPos chestPos = attachedPos.offset(itemFrame.getFacing().getOpposite());
+      BlockState chestState = mc.world.getBlockState(chestPos);
       if (chestState.getBlock() != Blocks.CHEST) {
          return Optional.empty();
       }
 
-      ChestType chestType = (ChestType)chestState.getValue(ChestBlock.TYPE);
+      ChestType chestType = (ChestType)chestState.get(ChestBlock.CHEST_TYPE);
       if (chestType == ChestType.SINGLE) {
          return Optional.empty();
       }
 
-      if (mc.level.getBlockEntity(chestPos) instanceof ChestBlockEntity chestEntity) {
-         Direction facing = (Direction)chestState.getValue(ChestBlock.FACING);
+      if (mc.world.getBlockEntity(chestPos) instanceof ChestBlockEntity chestEntity) {
+         Direction facing = (Direction)chestState.get(ChestBlock.FACING);
          BlockPos otherPos = null;
          if (chestType == ChestType.LEFT) {
             otherPos = getRightChestPos(chestPos, facing);
@@ -83,17 +78,17 @@ public class HePosUtils {
             return Optional.empty();
          }
 
-         BlockState otherState = mc.level.getBlockState(otherPos);
+         BlockState otherState = mc.world.getBlockState(otherPos);
          if (otherState.getBlock() != Blocks.CHEST) {
             return Optional.empty();
          }
 
-         ChestType otherChestType = (ChestType)otherState.getValue(ChestBlock.TYPE);
+         ChestType otherChestType = (ChestType)otherState.get(ChestBlock.CHEST_TYPE);
          if (otherChestType == ChestType.SINGLE) {
             return Optional.empty();
          }
 
-         Direction otherFacing = (Direction)otherState.getValue(ChestBlock.FACING);
+         Direction otherFacing = (Direction)otherState.get(ChestBlock.FACING);
          if (facing != otherFacing) {
             return Optional.empty();
          }

@@ -16,47 +16,47 @@ import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Direction.Plane;
-import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.protocol.game.ServerboundSelectTradePacket;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.npc.villager.Villager;
-import net.minecraft.world.entity.npc.villager.VillagerProfession;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
-import net.minecraft.world.inventory.MerchantMenu;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.item.trading.ItemCost;
-import net.minecraft.world.item.trading.MerchantOffer;
-import net.minecraft.world.item.trading.MerchantOffers;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.LecternBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.util.Hand;
+import net.minecraft.util.ActionResult;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.screen.MerchantScreenHandler;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.village.TradeOffer;
+import net.minecraft.village.TradeOfferList;
+import net.minecraft.block.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.BlockState;
+import net.minecraft.network.packet.c2s.play.SelectMerchantTradeC2SPacket;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.block.LecternBlock;
+import net.minecraft.village.VillagerProfession;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
+import net.minecraft.village.TradedItem;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.util.math.Direction.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class VillagerBookRoller extends WalkModule {
    private static final Logger log = LoggerFactory.getLogger(VillagerBookRoller.class);
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
-   private final Setting<Set<ResourceKey<Enchantment>>> targetEnchants = this.sgGeneral
+   private final Setting<Set<RegistryKey<Enchantment>>> targetEnchants = this.sgGeneral
       .add(
          ((Builder)((Builder)new Builder().name("目标附魔")).description("想要刷取的附魔书类型（等级自动使用最高等级），默认排除消失诅咒、绑定诅咒、冰霜行者"))
             .defaultValue(
-               new ResourceKey[]{
+               new RegistryKey[]{
                   Enchantments.PROTECTION,
                   Enchantments.FEATHER_FALLING,
                   Enchantments.BLAST_PROTECTION,
@@ -182,7 +182,7 @@ public class VillagerBookRoller extends WalkModule {
       if (this.currentTarget == null) {
          this.step = Steps.FINDING_TARGET;
       } else {
-         double distance = this.mc.player.position().distanceTo(this.currentTarget.getOperatePos().getCenter());
+         double distance = this.mc.player.getEntityPos().distanceTo(this.currentTarget.getOperatePos().toCenterPos());
          if (distance <= 1.5) {
             this.delayNext(Steps.PLACE_LECTERN);
          } else {
@@ -193,7 +193,7 @@ public class VillagerBookRoller extends WalkModule {
 
    private void placeLectern() {
       if (this.currentTarget != null && this.currentTarget.getWorkPos() != null) {
-         BlockState workPosState = this.mc.level.getBlockState(this.currentTarget.getWorkPos());
+         BlockState workPosState = this.mc.world.getBlockState(this.currentTarget.getWorkPos());
          if (!workPosState.isAir()) {
             if (workPosState.getBlock() instanceof LecternBlock) {
                this.step = Steps.WAIT_PROFESSION;
@@ -207,7 +207,7 @@ public class VillagerBookRoller extends WalkModule {
                this.toggle();
             } else {
                BlockPos lecternPos = this.currentTarget.getWorkPos();
-               Vec3 lecternCenter = lecternPos.getCenter();
+               Vec3d lecternCenter = lecternPos.toCenterPos();
                HeRotationUtils.rotate(lecternCenter, () -> {
                   if (BlockUtils.place(lecternPos, lecternResult, true, 5)) {
                      this.printLog("放置讲台成功");
@@ -229,14 +229,14 @@ public class VillagerBookRoller extends WalkModule {
       if (this.currentTarget == null) {
          this.step = Steps.FINDING_TARGET;
       } else {
-         Villager villager = this.currentTarget.getVillager();
+         VillagerEntity villager = this.currentTarget.getVillager();
          if (villager == null) {
             this.step = Steps.FINDING_TARGET;
          } else if (System.currentTimeMillis() - this.professionWaitStartTime > ((Integer)this.professionTimeout.get()).intValue()) {
             this.warning("等待村民获得职业超时，挖掉讲台重试", new Object[0]);
             this.delayNext(Steps.BREAK_LECTERN);
          } else {
-            Optional<ResourceKey<VillagerProfession>> professionOpt = villager.getVillagerData().profession().unwrapKey();
+            Optional<RegistryKey<VillagerProfession>> professionOpt = villager.getVillagerData().profession().getKey();
             if (professionOpt.isPresent() && professionOpt.get() == VillagerProfession.LIBRARIAN) {
                this.printLog("村民已成为图书管理员");
                this.delayNext(Steps.OPEN_TRADE);
@@ -251,30 +251,28 @@ public class VillagerBookRoller extends WalkModule {
       if (this.currentTarget == null) {
          this.step = Steps.FINDING_TARGET;
       } else {
-         Villager villager = this.currentTarget.getVillager();
+         VillagerEntity villager = this.currentTarget.getVillager();
          if (villager == null) {
             this.step = Steps.FINDING_TARGET;
          } else if (!villager.isAlive()) {
             this.warning("村民已死亡", new Object[0]);
             this.delayCloseNext(Steps.FINDING_TARGET);
          } else {
-            Vec3 playerPos = this.mc.player.getEyePosition();
-            Vec3 villagerPos = villager.getEyePosition();
-            EntityHitResult entityHitResult = ProjectileUtil.getEntityHitResult(
-               this.mc.player, playerPos, villagerPos, villager.getBoundingBox(), Entity::isPickable, playerPos.distanceToSqr(villagerPos)
+            Vec3d playerPos = this.mc.player.getEyePos();
+            Vec3d villagerPos = villager.getEyePos();
+            EntityHitResult entityHitResult = ProjectileUtil.raycast(
+               this.mc.player, playerPos, villagerPos, villager.getBoundingBox(), Entity::canHit, playerPos.squaredDistanceTo(villagerPos)
             );
             if (entityHitResult == null) {
-               HeRotationUtils.rotate(villager.getEyePosition(), () -> {
-                  EntityHitResult location = new EntityHitResult(villager, villager.getBoundingBox().getCenter());
-                  this.mc.gameMode.interact(this.mc.player, villager,location, InteractionHand.MAIN_HAND);
+               HeRotationUtils.rotate(villager.getEyePos(), () -> {
+                  this.mc.interactionManager.interactEntity(this.mc.player, villager, Hand.MAIN_HAND);
                   this.step = Steps.CHECK_TRADES;
                });
             } else {
-               HeRotationUtils.rotate(entityHitResult.getLocation(), () -> {
-                  InteractionResult actionResult = this.mc.gameMode.interact(this.mc.player, villager, entityHitResult, InteractionHand.MAIN_HAND);
-                  if (!actionResult.consumesAction()) {
-                     EntityHitResult location2 = new EntityHitResult(villager, villager.getBoundingBox().getCenter());
-                     this.mc.gameMode.interact(this.mc.player, villager, location2 ,InteractionHand.MAIN_HAND);
+               HeRotationUtils.rotate(entityHitResult.getPos(), () -> {
+                  ActionResult actionResult = this.mc.interactionManager.interactEntityAtLocation(this.mc.player, villager, entityHitResult, Hand.MAIN_HAND);
+                  if (!actionResult.isAccepted()) {
+                     this.mc.interactionManager.interactEntity(this.mc.player, villager, Hand.MAIN_HAND);
                   }
 
                   this.step = Steps.CHECK_TRADES;
@@ -285,35 +283,35 @@ public class VillagerBookRoller extends WalkModule {
    }
 
    private void checkTrades() {
-      if (!(this.mc.player.containerMenu instanceof MerchantMenu handler)) {
+      if (!(this.mc.player.currentScreenHandler instanceof MerchantScreenHandler handler)) {
          this.delayNext(Steps.OPEN_TRADE);
       } else {
-         MerchantOffers var17 = handler.getOffers();
+         TradeOfferList var17 = handler.getRecipes();
          Set targets = (Set)this.targetEnchants.get();
 
          for (int i = 0; i < var17.size(); i++) {
-            MerchantOffer offer = (MerchantOffer)var17.get(i);
-            ItemStack sellItem = offer.getResult();
-            if (sellItem.is(Items.ENCHANTED_BOOK) && offer.getUses() < offer.getMaxUses()) {
-               ItemEnchantments storedEnchants = (ItemEnchantments)sellItem.get(DataComponents.STORED_ENCHANTMENTS);
+            TradeOffer offer = (TradeOffer)var17.get(i);
+            ItemStack sellItem = offer.getSellItem();
+            if (sellItem.isOf(Items.ENCHANTED_BOOK) && offer.getUses() < offer.getMaxUses()) {
+               ItemEnchantmentsComponent storedEnchants = (ItemEnchantmentsComponent)sellItem.get(DataComponentTypes.STORED_ENCHANTMENTS);
                if (storedEnchants != null) {
-                  for (Entry<Holder<Enchantment>> entry : storedEnchants.entrySet()) {
-                     Holder<Enchantment> enchantEntry = (Holder<Enchantment>)entry.getKey();
+                  for (Entry<RegistryEntry<Enchantment>> entry : storedEnchants.getEnchantmentEntries()) {
+                     RegistryEntry<Enchantment> enchantEntry = (RegistryEntry<Enchantment>)entry.getKey();
                      int level = entry.getIntValue();
-                     Optional<ResourceKey<Enchantment>> enchantKeyOpt = enchantEntry.unwrapKey();
+                     Optional<RegistryKey<Enchantment>> enchantKeyOpt = enchantEntry.getKey();
                      if (!enchantKeyOpt.isEmpty()) {
-                        ResourceKey<Enchantment> enchantKey = enchantKeyOpt.get();
+                        RegistryKey<Enchantment> enchantKey = enchantKeyOpt.get();
                         if (targets.contains(enchantKey)) {
                            int maxLevel = ((Enchantment)enchantEntry.value()).getMaxLevel();
                            if (level < maxLevel) {
-                              this.printLog("找到附魔但等级不足: " + enchantKey.identifier() + " " + level + "/" + maxLevel);
+                              this.printLog("找到附魔但等级不足: " + enchantKey.getValue() + " " + level + "/" + maxLevel);
                            } else {
-                              int cost = offer.getBaseCostA().getCount();
+                              int cost = offer.getOriginalFirstBuyItem().getCount();
                               if (cost <= (Integer)this.maxCost.get()) {
                                  String enchantmentName = Names.get(enchantKey);
                                  this.info("§a找到目标附魔书: §f" + enchantmentName + " §a价格: §f" + cost, new Object[0]);
                                  if ((Boolean)this.playSound.get()) {
-                                    this.mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.AMETHYST_CLUSTER_BREAK, 1.0F, 1.0F));
+                                    this.mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_AMETHYST_CLUSTER_BREAK, 1.0F, 1.0F));
                                  }
 
                                  if ((Boolean)this.removeWhenFound.get()) {
@@ -341,17 +339,17 @@ public class VillagerBookRoller extends WalkModule {
    }
 
    private void executeTrade() {
-      if (this.mc.player.containerMenu instanceof MerchantMenu handler) {
-         MerchantOffers var10 = handler.getOffers();
+      if (this.mc.player.currentScreenHandler instanceof MerchantScreenHandler handler) {
+         TradeOfferList var10 = handler.getRecipes();
          if (this.tradeIndex >= var10.size()) {
             this.delayCloseNext(Steps.BREAK_LECTERN);
          } else {
-            MerchantOffer offer = (MerchantOffer)var10.get(this.tradeIndex);
+            TradeOffer offer = (TradeOffer)var10.get(this.tradeIndex);
             FindItemResult emeraldResult = InvUtils.find(new Item[]{Items.EMERALD});
-            int needEmerald = offer.getBaseCostA().getCount();
+            int needEmerald = offer.getOriginalFirstBuyItem().getCount();
             int hasEmerald = emeraldResult.found() ? emeraldResult.count() : 0;
-            ItemStack slot0 = handler.getSlot(0).getItem();
-            if (slot0.is(Items.EMERALD)) {
+            ItemStack slot0 = handler.getSlot(0).getStack();
+            if (slot0.isOf(Items.EMERALD)) {
                hasEmerald += slot0.getCount();
             }
 
@@ -359,9 +357,9 @@ public class VillagerBookRoller extends WalkModule {
                this.warning("绿宝石不足，需要 " + needEmerald + " 个", new Object[0]);
                this.toggle();
             } else {
-               if (offer.getItemCostB().isPresent()) {
-                  ItemStack secondItem = ((ItemCost)offer.getItemCostB().get()).itemStack();
-                  if (secondItem.is(Items.BOOK)) {
+               if (offer.getSecondBuyItem().isPresent()) {
+                  ItemStack secondItem = ((TradedItem)offer.getSecondBuyItem().get()).itemStack();
+                  if (secondItem.isOf(Items.BOOK)) {
                      FindItemResult bookResult = InvUtils.find(new Item[]{Items.BOOK});
                      if (!bookResult.found()) {
                         this.warning("需要书作为交易材料，但背包中没有", new Object[0]);
@@ -371,9 +369,9 @@ public class VillagerBookRoller extends WalkModule {
                   }
                }
 
-               handler.setSelectionHint(this.tradeIndex);
-               handler.tryMoveItems(this.tradeIndex);
-               this.mc.getConnection().send(new ServerboundSelectTradePacket(this.tradeIndex));
+               handler.setRecipeIndex(this.tradeIndex);
+               handler.switchTo(this.tradeIndex);
+               this.mc.getNetworkHandler().sendPacket(new SelectMerchantTradeC2SPacket(this.tradeIndex));
                FindItemResult emptyResult = InvUtils.findEmpty();
                if (!emptyResult.found()) {
                   this.warning("背包没有格子了", new Object[0]);
@@ -393,8 +391,8 @@ public class VillagerBookRoller extends WalkModule {
    private void breakLectern() {
       if (this.currentTarget != null && this.currentTarget.getWorkPos() != null) {
          BlockPos lecternPos = this.currentTarget.getWorkPos();
-         BlockState state = this.mc.level.getBlockState(lecternPos);
-         if (!state.is(Blocks.LECTERN)) {
+         BlockState state = this.mc.world.getBlockState(lecternPos);
+         if (!state.isOf(Blocks.LECTERN)) {
             this.clearProfessionWaitStartTime = System.currentTimeMillis();
             this.delayNext(Steps.WAIT_PROFESSION_CLEAR);
          } else {
@@ -410,14 +408,14 @@ public class VillagerBookRoller extends WalkModule {
       if (this.currentTarget == null) {
          this.delayCloseNext(Steps.FINDING_TARGET);
       } else {
-         Villager villager = this.currentTarget.getVillager();
+         VillagerEntity villager = this.currentTarget.getVillager();
          if (villager == null) {
             this.delayCloseNext(Steps.FINDING_TARGET);
          } else if (System.currentTimeMillis() - this.clearProfessionWaitStartTime > ((Integer)this.professionTimeout.get()).intValue()) {
             this.printLog("等待失业超时，继续下一步");
             this.delayCloseNext(Steps.FINDING_TARGET);
          } else {
-            Optional<ResourceKey<VillagerProfession>> professionOpt = villager.getVillagerData().profession().unwrapKey();
+            Optional<RegistryKey<VillagerProfession>> professionOpt = villager.getVillagerData().profession().getKey();
             if (professionOpt.isPresent() && professionOpt.get() == VillagerProfession.NONE) {
                this.printLog("村民已失业，继续刷取");
                this.delayNext(Steps.PLACE_LECTERN);
@@ -432,25 +430,25 @@ public class VillagerBookRoller extends WalkModule {
       VillagerEntityWarp nearest = null;
       double minDistance = Double.MAX_VALUE;
 
-      for (Villager villager : this.mc
-         .level
-         .getEntitiesOfClass(Villager.class, this.mc.player.getBoundingBox().inflate(((Integer)this.searchRange.get()).intValue()), frame -> true)) {
-         Optional<ResourceKey<VillagerProfession>> professionOpt = villager.getVillagerData().profession().unwrapKey();
+      for (VillagerEntity villager : this.mc
+         .world
+         .getEntitiesByClass(VillagerEntity.class, this.mc.player.getBoundingBox().expand(((Integer)this.searchRange.get()).intValue()), frame -> true)) {
+         Optional<RegistryKey<VillagerProfession>> professionOpt = villager.getVillagerData().profession().getKey();
          if (!professionOpt.isEmpty() && professionOpt.get() == VillagerProfession.NONE) {
-            BlockPos villagerPos = villager.blockPosition();
+            BlockPos villagerPos = villager.getBlockPos();
             Direction validDirection = null;
             BlockPos workPos = null;
 
-            for (Direction dir : Plane.HORIZONTAL) {
-               BlockPos lecternPos = villagerPos.relative(dir);
-               BlockPos magmaPos = lecternPos.below();
-               BlockState magmaState = this.mc.level.getBlockState(magmaPos);
-               if (magmaState.is(Blocks.MAGMA_BLOCK)) {
-                  BlockState lecternState = this.mc.level.getBlockState(lecternPos);
+            for (Direction dir : Type.HORIZONTAL) {
+               BlockPos lecternPos = villagerPos.offset(dir);
+               BlockPos magmaPos = lecternPos.down();
+               BlockState magmaState = this.mc.world.getBlockState(magmaPos);
+               if (magmaState.isOf(Blocks.MAGMA_BLOCK)) {
+                  BlockState lecternState = this.mc.world.getBlockState(lecternPos);
                   if (lecternState.isAir()) {
-                     BlockPos opPos = lecternPos.relative(dir);
-                     BlockState opState = this.mc.level.getBlockState(opPos);
-                     BlockState opUpState = this.mc.level.getBlockState(opPos.above());
+                     BlockPos opPos = lecternPos.offset(dir);
+                     BlockState opState = this.mc.world.getBlockState(opPos);
+                     BlockState opUpState = this.mc.world.getBlockState(opPos.up());
                      if (opState.isAir() && opUpState.isAir()) {
                         validDirection = dir;
                         workPos = lecternPos;
@@ -461,11 +459,11 @@ public class VillagerBookRoller extends WalkModule {
             }
 
             if (validDirection != null) {
-               double distance = this.mc.player.position().distanceTo(villagerPos.getCenter());
+               double distance = this.mc.player.getEntityPos().distanceTo(villagerPos.toCenterPos());
                if (distance < minDistance) {
                   minDistance = distance;
-                  BlockPos operatePos = workPos.relative(validDirection);
-                  nearest = new VillagerEntityWarp(VillagerType.图书管理员, villager.getUUID(), operatePos, validDirection, workPos);
+                  BlockPos operatePos = workPos.offset(validDirection);
+                  nearest = new VillagerEntityWarp(VillagerType.图书管理员, villager.getUuid(), operatePos, validDirection, workPos);
                }
             }
          }

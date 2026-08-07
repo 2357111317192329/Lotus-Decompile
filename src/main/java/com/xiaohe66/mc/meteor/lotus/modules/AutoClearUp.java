@@ -34,23 +34,23 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.block.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.block.BlockState;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.util.hit.BlockHitResult;
 
 public class AutoClearUp extends WalkModule {
    private final Setting<Integer> scanRange = this.sgGeneral
@@ -723,9 +723,9 @@ public class AutoClearUp extends WalkModule {
          );
    }
 
-   public CompoundTag toTag() {
-      CompoundTag tag = super.toTag();
-      ListTag list = new ListTag();
+   public NbtCompound toTag() {
+      NbtCompound tag = super.toTag();
+      NbtList list = new NbtList();
 
       for (ClearUpMapping mapping : this.clearUpMappings.values()) {
          list.add(mapping.toTag());
@@ -735,15 +735,15 @@ public class AutoClearUp extends WalkModule {
       return tag;
    }
 
-   public Module fromTag(CompoundTag tag) {
+   public Module fromTag(NbtCompound tag) {
       super.fromTag(tag);
       if (tag.contains("clearUpMappings")) {
-         ListTag list = tag.getListOrEmpty("clearUpMappings");
+         NbtList list = tag.getListOrEmpty("clearUpMappings");
          this.clearUpMappings.clear();
 
-         for (Tag e : list) {
-            if (e.getId() == 10) {
-               ClearUpMapping mapping = new ClearUpMapping().fromTag((CompoundTag)e);
+         for (NbtElement e : list) {
+            if (e.getType() == 10) {
+               ClearUpMapping mapping = new ClearUpMapping().fromTag((NbtCompound)e);
                this.clearUpMappings.put(mapping.getTargetItem(), mapping);
             }
          }
@@ -764,7 +764,7 @@ public class AutoClearUp extends WalkModule {
 
       for (ClearUpMapping mapping : new ArrayList<>(this.clearUpMappings.values())) {
          Item oldTarget = mapping.getTargetItem();
-         ItemStack targetStack = mapping.getTargetItem().getDefaultInstance();
+         ItemStack targetStack = mapping.getTargetItem().getDefaultStack();
          table.add(theme.item(targetStack));
          WButton changeTarget = (WButton)table.add(theme.button(Names.get(mapping.getTargetItem()))).expandX().widget();
          changeTarget.action = () -> {
@@ -829,7 +829,7 @@ public class AutoClearUp extends WalkModule {
    private void init(Boolean enabled) {
       if (Boolean.TRUE.equals(enabled)) {
          this.initBtn.set(false);
-         if (this.mc.player != null && this.mc.level != null) {
+         if (this.mc.player != null && this.mc.world != null) {
             this.clear();
             boolean scanPositionsSuccess = this.scanPositions();
             if (!scanPositionsSuccess) {
@@ -892,10 +892,10 @@ public class AutoClearUp extends WalkModule {
       ItemStack nextKit = this.nextPlayerStack(itemStackx -> HeItemUtils.isShulkerBox(itemStackx.getItem()));
       if (nextKit.isEmpty()) {
          List<ItemEntity> shulkerEntities = this.mc
-            .level
-            .getEntitiesOfClass(ItemEntity.class, this.mc.player.getBoundingBox().inflate(5.0), e -> HeItemUtils.isShulkerBox(e.getItem().getItem()));
+            .world
+            .getEntitiesByClass(ItemEntity.class, this.mc.player.getBoundingBox().expand(5.0), e -> HeItemUtils.isShulkerBox(e.getStack().getItem()));
          if (!shulkerEntities.isEmpty()) {
-            BlockPos targetPos = shulkerEntities.getFirst().blockPosition();
+            BlockPos targetPos = shulkerEntities.getFirst().getBlockPos();
             if (targetPos.getY() != this.mc.player.getBlockY()) {
                BlockPos testPos = new BlockPos(targetPos.getX(), this.mc.player.getBlockY(), targetPos.getZ());
                BlockPos canStandPos = HeBlockUtils.getCanStandPos(testPos, 1);
@@ -974,8 +974,8 @@ public class AutoClearUp extends WalkModule {
          this.gotoBtnPos(this.emptyKitPos, "<拿空盒>距离不够, 尝试移动", Steps.TAKE_EMPTY_KIT);
       } else {
          this.openChest(this.emptyKitPos.getTakePos(), inventory -> {
-            for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-               ItemStack kitItemStack = inventory.getItem(slot);
+            for (int slot = 0; slot < inventory.size(); slot++) {
+               ItemStack kitItemStack = inventory.getStack(slot);
                if (HeItemUtils.isShulkerBox(kitItemStack.getItem())) {
                   ShulkerBoxReader reader = new ShulkerBoxReader(kitItemStack);
                   if (reader.isEmpty()) {
@@ -993,7 +993,7 @@ public class AutoClearUp extends WalkModule {
    }
 
    private void placeEmptyKit() {
-      BlockState emptyKitState = this.mc.level.getBlockState(this.curOperationPos.getKitPos());
+      BlockState emptyKitState = this.mc.world.getBlockState(this.curOperationPos.getKitPos());
       if (emptyKitState.getBlock() instanceof ShulkerBoxBlock) {
          this.step = Steps.PUT_ITEM;
       } else if (!emptyKitState.isAir()) {
@@ -1046,7 +1046,7 @@ public class AutoClearUp extends WalkModule {
    }
 
    private void placeKit() {
-      BlockState finishedKitBlockState = this.mc.level.getBlockState(this.takeKitPos.getKitPos());
+      BlockState finishedKitBlockState = this.mc.world.getBlockState(this.takeKitPos.getKitPos());
       if (!finishedKitBlockState.isAir()) {
          if (finishedKitBlockState.getBlock() instanceof ShulkerBoxBlock) {
             this.step = Steps.TAKE_ITEM;
@@ -1098,7 +1098,7 @@ public class AutoClearUp extends WalkModule {
       if (this.takeQty >= (Integer)this.qty.get()) {
          this.step = Steps.PUT_ITEM;
       } else {
-         BlockState takeKitPosState = this.mc.level.getBlockState(this.takeKitPos.getKitPos());
+         BlockState takeKitPosState = this.mc.world.getBlockState(this.takeKitPos.getKitPos());
          if (takeKitPosState.isAir()) {
             this.step = Steps.PLACE_KIT;
          } else if (!(takeKitPosState.getBlock() instanceof ShulkerBoxBlock)) {
@@ -1162,13 +1162,13 @@ public class AutoClearUp extends WalkModule {
    }
 
    private void putKitItem(Set<Item> needItemSet) {
-      Vec3 playerPos = this.mc.player.position();
+      Vec3d playerPos = this.mc.player.getEntityPos();
       double minDistance = Double.MAX_VALUE;
       Item putItem = Items.AIR;
 
       for (Item item : needItemSet) {
          StoragePos storagePos = this.needPosMap.get(item);
-         double newDistance = playerPos.distanceTo(storagePos.getBtnPos().getCenter());
+         double newDistance = playerPos.distanceTo(storagePos.getBtnPos().toCenterPos());
          if (newDistance < minDistance) {
             minDistance = newDistance;
             putItem = item;
@@ -1176,7 +1176,7 @@ public class AutoClearUp extends WalkModule {
       }
 
       StoragePos storagePos = this.needPosMap.get(putItem);
-      BlockState putItemKitPos = this.mc.level.getBlockState(storagePos.getKitPos());
+      BlockState putItemKitPos = this.mc.world.getBlockState(storagePos.getKitPos());
       if (putItemKitPos.isAir()) {
          this.curOperationPos = storagePos;
          this.closeScreen();
@@ -1209,7 +1209,7 @@ public class AutoClearUp extends WalkModule {
    }
 
    private void putMultiItem(Set<Item> multiItemSet) {
-      Vec3 playerPos = this.mc.player.position();
+      Vec3d playerPos = this.mc.player.getEntityPos();
       double minDistance = Double.MAX_VALUE;
       Item putItem = Items.AIR;
       StoragePos targetPos = null;
@@ -1218,7 +1218,7 @@ public class AutoClearUp extends WalkModule {
          Item targetItem = this.relatedToTargetMap.get(item);
          StoragePos storagePos = this.multiItemPosMap.get(targetItem);
          if (storagePos != null) {
-            double newDistance = playerPos.distanceTo(storagePos.getBtnPos().getCenter());
+            double newDistance = playerPos.distanceTo(storagePos.getBtnPos().toCenterPos());
             if (newDistance < minDistance) {
                minDistance = newDistance;
                putItem = item;
@@ -1236,7 +1236,7 @@ public class AutoClearUp extends WalkModule {
             this.closeScreen();
             this.gotoBtnPos(targetPos, "放<" + Names.get(finalPutItem) + ">距离不够, 尝试移动", Steps.PUT_ITEM);
          } else {
-            BlockState putPosState = this.mc.level.getBlockState(targetPos.getPutPos());
+            BlockState putPosState = this.mc.world.getBlockState(targetPos.getPutPos());
             if (putPosState.getBlock() != Blocks.CHEST) {
                this.closeScreen();
                this.breakStep("<" + Names.get(finalPutItem) + "位置>箱子不存在");
@@ -1259,32 +1259,32 @@ public class AutoClearUp extends WalkModule {
       if (this.notInOperationRange(this.curOperationPos)) {
          this.gotoBtnPos(this.curOperationPos, "<挖盒子>距离不够, 尝试移动", Steps.BREAK_KIT);
       } else {
-         Vec3 hitPos = Vec3.atCenterOf(this.curOperationPos.getBtnPos()).add(0.0, -0.5, 0.0);
+         Vec3d hitPos = Vec3d.ofCenter(this.curOperationPos.getBtnPos()).add(0.0, -0.5, 0.0);
          BlockHitResult hitResult = new BlockHitResult(hitPos, Direction.UP, this.curOperationPos.getBtnPos(), false);
-         ServerboundUseItemOnPacket packet = new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, hitResult, 0);
-         this.mc.getConnection().send(packet);
+         PlayerInteractBlockC2SPacket packet = new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, hitResult, 0);
+         this.mc.getNetworkHandler().sendPacket(packet);
          this.step = Steps.NEXT;
          this.setDelay(40);
       }
    }
 
    private boolean scanPositions() {
-      List<ItemFrame> itemFrames = this.mc
-         .level
-         .getEntitiesOfClass(
-            ItemFrame.class,
-            this.mc.player.getBoundingBox().inflate(((Integer)this.scanRange.get()).intValue()),
-            framex -> !framex.getItem().isEmpty()
+      List<ItemFrameEntity> itemFrames = this.mc
+         .world
+         .getEntitiesByClass(
+            ItemFrameEntity.class,
+            this.mc.player.getBoundingBox().expand(((Integer)this.scanRange.get()).intValue()),
+            framex -> !framex.getHeldItemStack().isEmpty()
          );
-      int playerY = this.mc.player.blockPosition().getY();
-      Vec3 playerPos = this.mc.player.position();
+      int playerY = this.mc.player.getBlockPos().getY();
+      Vec3d playerPos = this.mc.player.getEntityPos();
 
-      for (ItemFrame frame : itemFrames) {
-         BlockPos attachedBlockPos = frame.getPos();
+      for (ItemFrameEntity frame : itemFrames) {
+         BlockPos attachedBlockPos = frame.getAttachedBlockPos();
          if (attachedBlockPos.getY() >= playerY && attachedBlockPos.getY() <= playerY + 4) {
-            double distance = attachedBlockPos.getCenter().distanceTo(playerPos);
+            double distance = attachedBlockPos.toCenterPos().distanceTo(playerPos);
             if (!(distance > ((Integer)this.scanRange.get()).intValue())) {
-               ItemStack frameHeldItemStack = frame.getItem();
+               ItemStack frameHeldItemStack = frame.getHeldItemStack();
                Item item = frameHeldItemStack.getItem();
                StoragePos pos = this.checkAndBuildStoragePos(frame, StorageItem.valueOf(new ItemBo(frameHeldItemStack)));
                if (pos != null) {
@@ -1323,13 +1323,13 @@ public class AutoClearUp extends WalkModule {
       }
    }
 
-   private StoragePos keepNearer(StoragePos newPos, StoragePos oldPos, Vec3 playerPos) {
+   private StoragePos keepNearer(StoragePos newPos, StoragePos oldPos, Vec3d playerPos) {
       if (oldPos == null) {
          return newPos;
       }
 
-      double newDist = newPos.getBtnPos().distToCenterSqr(playerPos);
-      double oldDist = oldPos.getBtnPos().distToCenterSqr(playerPos);
+      double newDist = newPos.getBtnPos().getSquaredDistance(playerPos);
+      double oldDist = oldPos.getBtnPos().getSquaredDistance(playerPos);
       return newDist < oldDist ? newPos : oldPos;
    }
 

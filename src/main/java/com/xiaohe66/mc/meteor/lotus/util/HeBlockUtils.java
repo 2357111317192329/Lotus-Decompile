@@ -4,26 +4,26 @@ import java.util.ArrayList;
 import java.util.List;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Direction.Axis;
-import net.minecraft.core.Direction.AxisDirection;
-import net.minecraft.core.Vec3i;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.Block;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.BlockState;
+import net.minecraft.state.property.Properties;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.Direction.Axis;
+import net.minecraft.util.math.Direction.AxisDirection;
 
 public class HeBlockUtils {
-   public static final Minecraft mc = Minecraft.getInstance();
+   public static final MinecraftClient mc = MinecraftClient.getInstance();
 
    public static void open(BlockPos pos) {
       Direction clickSide = BlockUtils.getDirection(pos);
@@ -31,9 +31,9 @@ public class HeBlockUtils {
    }
 
    public static void open(BlockPos pos, Direction side) {
-      Vec3i vector = side.getUnitVec3i();
+      Vec3i vector = side.getVector();
       double offset = 0.45;
-      Vec3 directionVec = new Vec3(
+      Vec3d directionVec = new Vec3d(
          pos.getX() + 0.5 + vector.getX() * offset,
          pos.getY() + 0.5 + vector.getY() * offset,
          pos.getZ() + 0.5 + vector.getZ() * offset
@@ -41,16 +41,16 @@ public class HeBlockUtils {
       open(pos, side, directionVec);
    }
 
-   public static void open(BlockPos pos, Direction side, Vec3 directionVec) {
+   public static void open(BlockPos pos, Direction side, Vec3d directionVec) {
       BlockHitResult result = new BlockHitResult(directionVec, side, pos, false);
-      mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, result);
+      mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, result);
    }
 
    public static boolean place(BlockPos blockPos, int slot, boolean checkEntities, Direction side) {
       if (slot >= 0 && slot <= 8) {
          Block toPlace = Blocks.OBSIDIAN;
-         Inventory inventory = mc.player.getInventory();
-         ItemStack itemStack = inventory.getItem(slot);
+         PlayerInventory inventory = mc.player.getInventory();
+         ItemStack itemStack = inventory.getStack(slot);
          if (itemStack.getItem() instanceof BlockItem blockItem) {
             toPlace = blockItem.getBlock();
          }
@@ -59,10 +59,10 @@ public class HeBlockUtils {
             return false;
          }
 
-         BlockPos neighbour = blockPos.relative(side);
-         Vec3i vector = side.getOpposite().getUnitVec3i();
+         BlockPos neighbour = blockPos.offset(side);
+         Vec3i vector = side.getOpposite().getVector();
          double offset = 0.45;
-         Vec3 directionVec = new Vec3(
+         Vec3d directionVec = new Vec3d(
             neighbour.getX() + 0.5 + vector.getX() * offset,
             neighbour.getY() + 0.5 + vector.getY() * offset,
             neighbour.getZ() + 0.5 + vector.getZ() * offset
@@ -72,7 +72,7 @@ public class HeBlockUtils {
             InvUtils.swap(slot, false);
          }
 
-         HeRotationUtils.rotate(directionVec, () -> BlockUtils.interact(bhr, InteractionHand.MAIN_HAND, true));
+         HeRotationUtils.rotate(directionVec, () -> BlockUtils.interact(bhr, Hand.MAIN_HAND, true));
          return true;
       } else {
          return false;
@@ -80,14 +80,14 @@ public class HeBlockUtils {
    }
 
    public static List<BlockPos> listPosInSphere(int range, BlockPos pos) {
-      Vec3 centerPos = pos.getCenter();
+      Vec3d centerPos = pos.toCenterPos();
       List<BlockPos> list = new ArrayList<>();
 
       for (int x = pos.getX() - range; x < pos.getX() + range; x++) {
          for (int z = pos.getZ() - range; z < pos.getZ() + range; z++) {
             for (int y = pos.getY() - range; y < pos.getY() + range; y++) {
                BlockPos curPos = new BlockPos(x, y, z);
-               if (!(curPos.getCenter().distanceTo(centerPos) > range) && !list.contains(curPos)) {
+               if (!(curPos.toCenterPos().distanceTo(centerPos) > range) && !list.contains(curPos)) {
                   list.add(curPos);
                }
             }
@@ -113,27 +113,27 @@ public class HeBlockUtils {
    }
 
    public static Direction getBlockFacingDirection(BlockState state) {
-      if (state.hasProperty(BlockStateProperties.FACING)) {
-         return (Direction)state.getValue(BlockStateProperties.FACING);
-      } else if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
-         return (Direction)state.getValue(BlockStateProperties.HORIZONTAL_FACING);
-      } else if (state.hasProperty(BlockStateProperties.AXIS)) {
-         Axis axis = (Axis)state.getValue(BlockStateProperties.AXIS);
-         return Direction.fromAxisAndDirection(axis, AxisDirection.POSITIVE);
+      if (state.contains(Properties.FACING)) {
+         return (Direction)state.get(Properties.FACING);
+      } else if (state.contains(Properties.HORIZONTAL_FACING)) {
+         return (Direction)state.get(Properties.HORIZONTAL_FACING);
+      } else if (state.contains(Properties.AXIS)) {
+         Axis axis = (Axis)state.get(Properties.AXIS);
+         return Direction.from(axis, AxisDirection.POSITIVE);
       } else {
          return null;
       }
    }
 
-   public static Vec3 getFaceCenter(BlockPos pos, Direction direction) {
-      AABB box = mc.level.getBlockState(pos).getShape(mc.level, pos).bounds();
+   public static Vec3d getFaceCenter(BlockPos pos, Direction direction) {
+      Box box = mc.world.getBlockState(pos).getOutlineShape(mc.world, pos).getBoundingBox();
       double x = pos.getX() + box.minX + (box.maxX - box.minX) * 0.5;
       double y = pos.getY() + box.minY + (box.maxY - box.minY) * 0.5;
       double z = pos.getZ() + box.minZ + (box.maxZ - box.minZ) * 0.5;
-      return new Vec3(
-         x + direction.getStepX() * (box.maxX - box.minX) * 0.5,
-         y + direction.getStepY() * (box.maxY - box.minY) * 0.5,
-         z + direction.getStepZ() * (box.maxZ - box.minZ) * 0.5
+      return new Vec3d(
+         x + direction.getOffsetX() * (box.maxX - box.minX) * 0.5,
+         y + direction.getOffsetY() * (box.maxY - box.minY) * 0.5,
+         z + direction.getOffsetZ() * (box.maxZ - box.minZ) * 0.5
       );
    }
 
@@ -151,6 +151,6 @@ public class HeBlockUtils {
    }
 
    public static boolean canStand(BlockPos blockPos) {
-      return mc.level.getBlockState(blockPos).isAir() && mc.level.getBlockState(blockPos.above()).isAir();
+      return mc.world.getBlockState(blockPos).isAir() && mc.world.getBlockState(blockPos.up()).isAir();
    }
 }

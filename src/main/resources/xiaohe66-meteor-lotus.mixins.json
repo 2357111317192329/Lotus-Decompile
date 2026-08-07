@@ -1,7 +1,7 @@
 {
   "required": true,
   "package": "com.xiaohe66.mc.meteor.lotus.mixin",
-  "compatibilityLevel": "JAVA_25",
+  "compatibilityLevel": "JAVA_21",
   "client": [
     "MixinAbstractSignEditScreen",
     "MixinKeyboardInput",

@@ -15,22 +15,22 @@ import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ShulkerBoxMenu;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.EnderChestBlock;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.ShulkerBoxScreenHandler;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.block.Block;
+import net.minecraft.block.EnderChestBlock;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Box;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,8 +47,8 @@ public class HunterSupply extends Module {
       .add(((Builder)((Builder)((Builder)new Builder().name("鞘翅数量")).description("鞘翅的补货量")).defaultValue(3)).range(0, 27).build());
    private final Setting<Integer> elytraDamaged = this.sgGeneral
       .add(((Builder)((Builder)((Builder)new Builder().name("鞘翅损坏阈值")).description("剩余多少耐久被视为损坏")).defaultValue(5)).range(0, 20).build());
-   private final VoxelShape enderChestShape = Block.box(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
-   private final VoxelShape kitShape = Block.box(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
+   private final VoxelShape enderChestShape = Block.createCuboidShape(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
+   private final VoxelShape kitShape = Block.createCuboidShape(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
    private BlockPos enderChestPos = null;
    private BlockPos kitPos = null;
    private HunterSupply.Stage stage = HunterSupply.Stage.PlaceEnderChest;
@@ -123,17 +123,17 @@ public class HunterSupply extends Module {
       BlockPos bestPos = null;
       double distance = 100.0;
 
-      for (BlockPos blockPos : HeBlockUtils.listPosInSphere(rangeValue, this.mc.player.blockPosition())) {
-         if (this.mc.level.isEmptyBlock(blockPos.above())) {
-            if (this.mc.level.getBlockState(blockPos).getBlock() instanceof EnderChestBlock) {
+      for (BlockPos blockPos : HeBlockUtils.listPosInSphere(rangeValue, this.mc.player.getBlockPos())) {
+         if (this.mc.world.isAir(blockPos.up())) {
+            if (this.mc.world.getBlockState(blockPos).getBlock() instanceof EnderChestBlock) {
                this.enderChestPos = blockPos;
                this.stage = HunterSupply.Stage.OpenEnderChest;
                return;
             }
 
             if (BlockUtils.canPlace(blockPos, true)
-               && (bestPos == null || Mth.sqrt((float)this.mc.player.distanceToSqr(blockPos.getCenter())) < distance)) {
-               distance = Mth.sqrt((float)this.mc.player.distanceToSqr(blockPos.getCenter()));
+               && (bestPos == null || MathHelper.sqrt((float)this.mc.player.squaredDistanceTo(blockPos.toCenterPos())) < distance)) {
+               distance = MathHelper.sqrt((float)this.mc.player.squaredDistanceTo(blockPos.toCenterPos()));
                bestPos = blockPos;
             }
          }
@@ -163,7 +163,7 @@ public class HunterSupply extends Module {
    }
 
    private void openEnderChest() {
-      if (!(this.mc.level.getBlockState(this.enderChestPos).getBlock() instanceof EnderChestBlock)) {
+      if (!(this.mc.world.getBlockState(this.enderChestPos).getBlock() instanceof EnderChestBlock)) {
          this.error("末影箱放置失败", new Object[0]);
          this.stage = HunterSupply.Stage.PlaceEnderChest;
       } else {
@@ -172,10 +172,10 @@ public class HunterSupply extends Module {
    }
 
    private void takeKit() {
-      if (this.mc.player.containerMenu instanceof ChestMenu screenHandler) {
+      if (this.mc.player.currentScreenHandler instanceof GenericContainerScreenHandler screenHandler) {
          for (int slotIndex = 0; slotIndex < 27; slotIndex++) {
             Slot slotObj = screenHandler.getSlot(slotIndex);
-            ItemStack stack = slotObj.getItem();
+            ItemStack stack = slotObj.getStack();
             if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ShulkerBoxBlock && this.containsElytra(stack, false)) {
                FindItemResult emptyItemResult = InvUtils.findEmpty();
                if (!emptyItemResult.found()) {
@@ -213,8 +213,8 @@ public class HunterSupply extends Module {
    private void findKit() {
       int rangeValue = (Integer)this.range.get();
 
-      for (BlockPos blockPos : HeBlockUtils.listPosInSphere(rangeValue, this.mc.player.blockPosition())) {
-         if (this.mc.level.getBlockState(blockPos).getBlock() instanceof ShulkerBoxBlock) {
+      for (BlockPos blockPos : HeBlockUtils.listPosInSphere(rangeValue, this.mc.player.getBlockPos())) {
+         if (this.mc.world.getBlockState(blockPos).getBlock() instanceof ShulkerBoxBlock) {
             this.kitPos = blockPos;
             this.next(HunterSupply.Stage.OpenKit);
             return;
@@ -245,9 +245,9 @@ public class HunterSupply extends Module {
          BlockPos bestPos = null;
          double distance = 100.0;
 
-         for (BlockPos blockPos : HeBlockUtils.listPosInSphere(rangeValue, this.mc.player.blockPosition())) {
-            if (this.mc.level.isEmptyBlock(blockPos.above())) {
-               if (this.mc.level.getBlockState(blockPos).getBlock() instanceof ShulkerBoxBlock) {
+         for (BlockPos blockPos : HeBlockUtils.listPosInSphere(rangeValue, this.mc.player.getBlockPos())) {
+            if (this.mc.world.isAir(blockPos.up())) {
+               if (this.mc.world.getBlockState(blockPos).getBlock() instanceof ShulkerBoxBlock) {
                   this.info("地上已存在kit", new Object[0]);
                   this.kitPos = blockPos;
                   this.next(HunterSupply.Stage.OpenKit);
@@ -255,8 +255,8 @@ public class HunterSupply extends Module {
                }
 
                if (BlockUtils.canPlace(blockPos, true)
-                  && (bestPos == null || Mth.sqrt((float)this.mc.player.distanceToSqr(blockPos.getCenter())) < distance)) {
-                  distance = Mth.sqrt((float)this.mc.player.distanceToSqr(blockPos.getCenter()));
+                  && (bestPos == null || MathHelper.sqrt((float)this.mc.player.squaredDistanceTo(blockPos.toCenterPos())) < distance)) {
+                  distance = MathHelper.sqrt((float)this.mc.player.squaredDistanceTo(blockPos.toCenterPos()));
                   bestPos = blockPos;
                }
             }
@@ -277,7 +277,7 @@ public class HunterSupply extends Module {
    }
 
    private void openKit() {
-      if (!(this.mc.level.getBlockState(this.kitPos).getBlock() instanceof ShulkerBoxBlock)) {
+      if (!(this.mc.world.getBlockState(this.kitPos).getBlock() instanceof ShulkerBoxBlock)) {
          this.error("kit放置失败", new Object[0]);
          this.next(HunterSupply.Stage.PlaceKit);
       } else {
@@ -288,11 +288,11 @@ public class HunterSupply extends Module {
    }
 
    private void takeItems() {
-      if (!(this.mc.player.containerMenu instanceof ShulkerBoxMenu)) {
+      if (!(this.mc.player.currentScreenHandler instanceof ShulkerBoxScreenHandler)) {
          log.error("打开kit失败");
          this.next(HunterSupply.Stage.OpenKit);
       } else if (this.takeIndex < 27 && this.needElytraQty > 0) {
-         ItemStack stack = this.mc.player.containerMenu.getSlot(this.takeIndex).getItem();
+         ItemStack stack = this.mc.player.currentScreenHandler.getSlot(this.takeIndex).getStack();
          if (stack.getItem() == Items.ELYTRA) {
             FindItemResult damagedElytraResult = this.findElytra(true);
             if (damagedElytraResult.found()) {
@@ -338,7 +338,7 @@ public class HunterSupply extends Module {
                return;
             }
 
-            this.progress = (float)(this.progress + BlockUtils.getBreakDelta(this.pickResult.slot(), this.mc.level.getBlockState(this.kitPos)));
+            this.progress = (float)(this.progress + BlockUtils.getBreakDelta(this.pickResult.slot(), this.mc.world.getBlockState(this.kitPos)));
             if (this.progress < 1.0F) {
                return;
             }
@@ -359,10 +359,10 @@ public class HunterSupply extends Module {
       HeRotationUtils.rotate(this.kitPos);
       Direction direction = BlockUtils.getDirection(this.kitPos);
       if (!done) {
-         this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, this.kitPos, direction));
+         this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, this.kitPos, direction));
       }
 
-      this.mc.getConnection().send(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, this.kitPos, direction));
+      this.mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, this.kitPos, direction));
    }
 
    private boolean containsElytra(ItemStack itemStack, boolean isDamaged) {
@@ -372,7 +372,7 @@ public class HunterSupply extends Module {
    private FindItemResult findElytra(boolean isDamaged) {
       return InvUtils.find(itemStack -> {
          if (itemStack.getItem() == Items.ELYTRA) {
-            int surplusDamage = itemStack.getMaxDamage() - itemStack.getDamageValue();
+            int surplusDamage = itemStack.getMaxDamage() - itemStack.getDamage();
             return isDamaged == surplusDamage <= (Integer)this.elytraDamaged.get();
          } else {
             return false;
@@ -396,7 +396,7 @@ public class HunterSupply extends Module {
 
    private void onRender(Render3DEvent event) {
       if (this.enderChestPos != null) {
-         AABB box = (AABB)this.enderChestShape.toAabbs().getFirst();
+         Box box = (Box)this.enderChestShape.getBoundingBoxes().getFirst();
          event.renderer
             .box(
                this.enderChestPos.getX() + box.minX,
@@ -413,7 +413,7 @@ public class HunterSupply extends Module {
       }
 
       if (this.kitPos != null) {
-         AABB box = (AABB)this.kitShape.toAabbs().getFirst();
+         Box box = (Box)this.kitShape.getBoundingBoxes().getFirst();
          event.renderer
             .box(
                this.kitPos.getX() + box.minX,

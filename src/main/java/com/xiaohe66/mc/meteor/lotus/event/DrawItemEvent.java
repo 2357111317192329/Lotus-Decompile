@@ -1,16 +1,16 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
+import net.minecraft.client.gui.DrawContext;
 
 public class DrawItemEvent extends Event {
    private static final DrawItemEvent INSTANCE = new DrawItemEvent();
-   private GuiGraphicsExtractor drawContext;
+   private DrawContext drawContext;
    private ItemStack itemStack;
    private int x;
    private int y;
 
-   public static DrawItemEvent get(GuiGraphicsExtractor drawContext, ItemStack stack, int x, int y) {
+   public static DrawItemEvent get(DrawContext drawContext, ItemStack stack, int x, int y) {
       INSTANCE.drawContext = drawContext;
       INSTANCE.itemStack = stack;
       INSTANCE.x = x;
@@ -22,7 +22,7 @@ public class DrawItemEvent extends Event {
       super(Event.Stage.Post);
    }
 
-   public GuiGraphicsExtractor getDrawContext() {
+   public DrawContext getDrawContext() {
       return this.drawContext;
    }
 

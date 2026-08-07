@@ -1,12 +1,12 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
 
 public class ScreenRenderEvent extends Event {
    private static final ScreenRenderEvent INSTANCE = new ScreenRenderEvent();
-   private GuiGraphicsExtractor drawContext;
-   private Font textRenderer;
+   private DrawContext drawContext;
+   private TextRenderer textRenderer;
    private int mouseX;
    private int mouseY;
 
@@ -14,7 +14,7 @@ public class ScreenRenderEvent extends Event {
       super(Event.Stage.Post);
    }
 
-   public static ScreenRenderEvent get(GuiGraphicsExtractor drawContext, Font textRenderer, int mouseX, int mouseY) {
+   public static ScreenRenderEvent get(DrawContext drawContext, TextRenderer textRenderer, int mouseX, int mouseY) {
       INSTANCE.drawContext = drawContext;
       INSTANCE.textRenderer = textRenderer;
       INSTANCE.mouseX = mouseX;
@@ -22,11 +22,11 @@ public class ScreenRenderEvent extends Event {
       return INSTANCE;
    }
 
-   public GuiGraphicsExtractor getDrawContext() {
+   public DrawContext getDrawContext() {
       return this.drawContext;
    }
 
-   public Font getTextRenderer() {
+   public TextRenderer getTextRenderer() {
       return this.textRenderer;
    }
 

@@ -3,8 +3,8 @@ package com.xiaohe66.mc.meteor.lotus.modules.printer;
 import java.util.Comparator;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.utils.Utils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
 
 public enum SortAlgorithm {
    None(false, (a, b) -> 0),

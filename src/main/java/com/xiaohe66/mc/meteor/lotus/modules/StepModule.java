@@ -10,12 +10,12 @@ import java.util.Map;
 import java.util.function.BooleanSupplier;
 import meteordevelopment.meteorclient.events.world.TickEvent.Pre;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ButtonBlock;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.ButtonBlock;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.block.BlockState;
 
 public class StepModule extends BaseModule {
    protected Step step = Steps.NONE;
@@ -47,7 +47,7 @@ public class StepModule extends BaseModule {
 
    @EventHandler
    protected void onTick(Pre event) {
-      if (this.mc.player != null && this.mc.level != null) {
+      if (this.mc.player != null && this.mc.world != null) {
          if (this.checkAndDecrement()) {
             Runnable runnable = this.stepDispatch.get(this.step);
             if (runnable != null) {
@@ -122,35 +122,35 @@ public class StepModule extends BaseModule {
    }
 
    protected boolean notInOperationRange(StoragePos pos) {
-      return this.mc.player.position().distanceTo(pos.getBtnPos().getCenter()) > 1.0;
+      return this.mc.player.getEntityPos().distanceTo(pos.getBtnPos().toCenterPos()) > 1.0;
    }
 
-   protected StoragePos checkAndBuildStoragePos(ItemFrame frame, StorageItem storageItem) {
-      BlockPos framePos = frame.blockPosition();
-      BlockPos attachedBlockPos = frame.getPos();
-      BlockPos putPos = attachedBlockPos.offset(0, 1, 0).relative(frame.getNearestViewDirection().getOpposite());
-      if (this.mc.level.getBlockState(putPos).getBlock() != Blocks.CHEST) {
+   protected StoragePos checkAndBuildStoragePos(ItemFrameEntity frame, StorageItem storageItem) {
+      BlockPos framePos = frame.getBlockPos();
+      BlockPos attachedBlockPos = frame.getAttachedBlockPos();
+      BlockPos putPos = attachedBlockPos.add(0, 1, 0).offset(frame.getFacing().getOpposite());
+      if (this.mc.world.getBlockState(putPos).getBlock() != Blocks.CHEST) {
          return null;
       }
 
-      BlockPos kitPos = framePos.offset(0, -2, 0);
-      BlockState kitPosBlockState = this.mc.level.getBlockState(kitPos);
+      BlockPos kitPos = framePos.add(0, -2, 0);
+      BlockState kitPosBlockState = this.mc.world.getBlockState(kitPos);
       if (!kitPosBlockState.isAir() && !(kitPosBlockState.getBlock() instanceof ShulkerBoxBlock)) {
          return null;
       }
 
-      BlockPos pistonPos = kitPos.offset(0, -1, 0);
-      if (this.mc.level.getBlockState(pistonPos).getBlock() != Blocks.PISTON) {
+      BlockPos pistonPos = kitPos.add(0, -1, 0);
+      if (this.mc.world.getBlockState(pistonPos).getBlock() != Blocks.PISTON) {
          return null;
       }
 
-      if (kitPos.getY() != this.mc.player.blockPosition().getY()) {
+      if (kitPos.getY() != this.mc.player.getBlockPos().getY()) {
          return null;
       }
 
-      BlockPos btnPos = kitPos.relative(frame.getNearestViewDirection());
-      BlockPos takePos = putPos.offset(0, -2, 0);
-      return !(this.mc.level.getBlockState(btnPos).getBlock() instanceof ButtonBlock)
+      BlockPos btnPos = kitPos.offset(frame.getFacing());
+      BlockPos takePos = putPos.add(0, -2, 0);
+      return !(this.mc.world.getBlockState(btnPos).getBlock() instanceof ButtonBlock)
          ? null
          : new StoragePos(storageItem, framePos, putPos, takePos, kitPos, btnPos);
    }

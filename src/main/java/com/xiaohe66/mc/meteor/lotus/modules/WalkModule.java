@@ -10,7 +10,7 @@ import baritone.api.process.ICustomGoalProcess;
 import com.xiaohe66.mc.meteor.lotus.bo.StoragePos;
 import com.xiaohe66.mc.meteor.lotus.modules.step.Step;
 import com.xiaohe66.mc.meteor.lotus.modules.step.Steps;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 public class WalkModule extends StepModule implements AbstractGameEventListener {
    protected static final IBaritone baritone = BaritoneAPI.getProvider().getPrimaryBaritone();
@@ -51,7 +51,7 @@ public class WalkModule extends StepModule implements AbstractGameEventListener 
    }
 
    protected void gotoTargetIfNeed(BlockPos targetPos, int range, Step walkingNext, String gotoTargetMsg) {
-      double distance = this.mc.player.position().distanceTo(targetPos.getCenter());
+      double distance = this.mc.player.getEntityPos().distanceTo(targetPos.toCenterPos());
       if (distance > 1000.0) {
          this.warning("移动距离超过1000格, 功能关闭", new Object[0]);
          this.toggle();

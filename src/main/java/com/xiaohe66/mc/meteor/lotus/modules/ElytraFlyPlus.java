@@ -2,15 +2,15 @@ package com.xiaohe66.mc.meteor.lotus.modules;
 
 import com.xiaohe66.mc.meteor.lotus.util.Const;
 import meteordevelopment.meteorclient.events.entity.player.PlayerMoveEvent;
-import meteordevelopment.meteorclient.mixininterface.IVec3;
+import meteordevelopment.meteorclient.mixininterface.IVec3d;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.EnumSetting.Builder;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.Vec2;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.Vec2f;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.MathHelper;
 
 public class ElytraFlyPlus extends Module {
    private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
@@ -170,27 +170,27 @@ public class ElytraFlyPlus extends Module {
    }
 
    private void constantiamTick(PlayerMoveEvent event) {
-      Vec3 motion = this.getMotion(this.mc.player.getDeltaMovement());
+      Vec3d motion = this.getMotion(this.mc.player.getVelocity());
       if (motion != null) {
-         ((IVec3)event.movement).meteor$set(motion.x(), motion.y(), motion.z());
+         ((IVec3d)event.movement).meteor$set(motion.getX(), motion.getY(), motion.getZ());
          event.movement = motion;
       }
    }
 
-   private Vec3 getMotion(Vec3 velocity) {
-      Vec2 vec2f = this.mc.player.input.getMoveVector();
+   private Vec3d getMotion(Vec3d velocity) {
+      Vec2f vec2f = this.mc.player.input.getMovementInput();
       if (vec2f.y == 0.0F) {
-         return this.constStop.get() ? new Vec3(0.0, 0.0, 0.0) : null;
+         return this.constStop.get() ? new Vec3d(0.0, 0.0, 0.0) : null;
       }
 
       boolean forward = vec2f.y > 0.0F;
-      double yaw = Math.toRadians(this.mc.player.getYRot() + (forward ? 90 : -90));
+      double yaw = Math.toRadians(this.mc.player.getYaw() + (forward ? 90 : -90));
       double x = Math.cos(yaw);
       double z = Math.sin(yaw);
       double maxAcc = this.calcAcceleration(velocity.x, velocity.z, x, z);
-      double delta = Math.clamp(Mth.inverseLerp(velocity.horizontalDistance(), 0.0, 0.5), 0.0, 1.0);
+      double delta = Math.clamp(MathHelper.getLerpProgress(velocity.horizontalLength(), 0.0, 0.5), 0.0, 1.0);
       double acc = Math.min(maxAcc, (Double)this.constAcceleration.get() / 20.0 * (0.1 + delta * 0.9));
-      return new Vec3(velocity.x() + x * acc, velocity.y(), velocity.z() + z * acc);
+      return new Vec3d(velocity.getX() + x * acc, velocity.getY(), velocity.getZ() + z * acc);
    }
 
    private double calcAcceleration(double vx, double vz, double x, double z) {
@@ -204,9 +204,9 @@ public class ElytraFlyPlus extends Module {
    }
 
    private void waspTick(PlayerMoveEvent event) {
-      if (this.mc.player.isFallFlying()) {
+      if (this.mc.player.isGliding()) {
          this.updateWaspMovement();
-         this.pitch = this.mc.player.getXRot();
+         this.pitch = this.mc.player.getPitch();
          double cos = Math.cos(Math.toRadians(this.yaw + 90.0F));
          double sin = Math.sin(Math.toRadians(this.yaw + 90.0F));
          double x = this.moving ? cos * (Double)this.horizontal.get() : 0.0;
@@ -216,22 +216,22 @@ public class ElytraFlyPlus extends Module {
             y *= Math.abs(Math.sin(Math.toRadians(this.pitch)));
          }
 
-         if (this.mc.options.keyShift.isDown() && !this.mc.options.keyJump.isDown()) {
+         if (this.mc.options.sneakKey.isPressed() && !this.mc.options.jumpKey.isPressed()) {
             y = -(Double)this.down.get();
          }
 
-         if (!this.mc.options.keyShift.isDown() && this.mc.options.keyJump.isDown()) {
+         if (!this.mc.options.sneakKey.isPressed() && this.mc.options.jumpKey.isPressed()) {
             y = (Double)this.up.get();
          }
 
-         ((IVec3)event.movement).meteor$set(x, y, z);
-         this.mc.player.setDeltaMovement(0.0, 0.0, 0.0);
+         ((IVec3d)event.movement).meteor$set(x, y, z);
+         this.mc.player.setVelocity(0.0, 0.0, 0.0);
       }
    }
 
    private void updateWaspMovement() {
-      float yaw = this.mc.player.getYRot();
-      Vec2 vec2f = this.mc.player.input.getMoveVector();
+      float yaw = this.mc.player.getYaw();
+      Vec2f vec2f = this.mc.player.input.getMovementInput();
       float f = vec2f.y;
       float s = vec2f.x;
       if (f > 0.0F) {
@@ -249,11 +249,11 @@ public class ElytraFlyPlus extends Module {
    }
 
    private void controlTick(PlayerMoveEvent event) {
-      if (this.mc.player.isFallFlying()) {
+      if (this.mc.player.isGliding()) {
          this.updateControlMovement();
          this.pitch = 0.0F;
          boolean movingUp = false;
-         if (!this.mc.options.keyShift.isDown() && this.mc.options.keyJump.isDown() && this.velocity > (Double)this.speed.get() * 0.4) {
+         if (!this.mc.options.sneakKey.isPressed() && this.mc.options.jumpKey.isPressed() && this.velocity > (Double)this.speed.get() * 0.4) {
             this.p = (float)Math.min(this.p + 0.1 * (1.0F - this.p) * (1.0F - this.p) * (1.0F - this.p), 1.0);
             this.pitch = Math.max(Math.max(this.p, 0.0F) * -90.0F, -90.0F);
             movingUp = true;
@@ -273,19 +273,19 @@ public class ElytraFlyPlus extends Module {
             ? this.velocity * (Double)this.upMultiplier.get() * -Math.sin(Math.toRadians(this.pitch)) * this.velocity
             : -(Double)this.fallSpeed.get();
          double z = this.moving && !movingUp ? sin * (Double)this.speed.get() : (movingUp ? this.velocity * Math.cos(Math.toRadians(this.pitch)) * sin : 0.0);
-         y *= Math.abs(Math.sin(Math.toRadians(movingUp ? this.pitch : this.mc.player.getXRot())));
-         if (this.mc.options.keyShift.isDown() && !this.mc.options.keyJump.isDown()) {
+         y *= Math.abs(Math.sin(Math.toRadians(movingUp ? this.pitch : this.mc.player.getPitch())));
+         if (this.mc.options.sneakKey.isPressed() && !this.mc.options.jumpKey.isPressed()) {
             y = -(Double)this.down.get();
          }
 
-         ((IVec3)event.movement).meteor$set(x, y, z);
-         this.mc.player.setDeltaMovement(0.0, 0.0, 0.0);
+         ((IVec3d)event.movement).meteor$set(x, y, z);
+         this.mc.player.setVelocity(0.0, 0.0, 0.0);
       }
    }
 
    private void updateControlMovement() {
-      float yaw = this.mc.player.getYRot();
-      Vec2 vec2f = this.mc.player.input.getMoveVector();
+      float yaw = this.mc.player.getYaw();
+      Vec2f vec2f = this.mc.player.input.getMovementInput();
       float f = vec2f.y;
       float s = vec2f.x;
       if (f > 0.0F) {
@@ -303,14 +303,14 @@ public class ElytraFlyPlus extends Module {
    }
 
    public boolean active() {
-      if ((Boolean)this.stopWater.get() && this.mc.player.isInWater()) {
+      if ((Boolean)this.stopWater.get() && this.mc.player.isTouchingWater()) {
          this.activeFor = 0;
          return false;
       } else if ((Boolean)this.stopLava.get() && this.mc.player.isInLava()) {
          this.activeFor = 0;
          return false;
       } else {
-         return this.mc.player.isFallFlying();
+         return this.mc.player.isGliding();
       }
    }
 
