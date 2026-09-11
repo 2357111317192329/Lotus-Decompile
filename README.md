@@ -1,9 +1,9 @@
-# 反編譯 Lotus
-這是最初反編譯出的yarn mapping 1.21.11版本。
+# Example Mod
 
-編輯於2026/5/27 
-本專案暫時不會公開，但如果未來發現官方Lotus加入了額外的混淆，本專案會立即公開。
+## Setup
+
+For setup instructions, please see the [Fabric Documentation page](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) related to the IDE that you are using.
 
 ## License
 
-本專案基於Lotus 1.16.0版本的jar反編譯，經歷了反編譯、反混淆、改yarn mapping為Mojang mapping、更新至26.1.2等多個步驟，工程量不亞於一個小型模組。因此雖然本專案基於尊重原作者暫不開源，但若原作者後續加入了額外的混淆堵死了未來反編譯的窗口，本專案將不得不拋棄對原作者的尊重而立即開源。
+This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.

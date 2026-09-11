@@ -1,314 +1,519 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  fi.dy.masa.litematica.data.DataManager
+ *  fi.dy.masa.litematica.world.SchematicWorldHandler
+ *  fi.dy.masa.litematica.world.WorldSchematic
+ *  meteordevelopment.meteorclient.events.render.Render3DEvent
+ *  meteordevelopment.meteorclient.events.world.TickEvent$Post
+ *  meteordevelopment.meteorclient.renderer.ShapeMode
+ *  meteordevelopment.meteorclient.settings.BlockListSetting$Builder
+ *  meteordevelopment.meteorclient.settings.BoolSetting$Builder
+ *  meteordevelopment.meteorclient.settings.ColorSetting$Builder
+ *  meteordevelopment.meteorclient.settings.DoubleSetting$Builder
+ *  meteordevelopment.meteorclient.settings.EnumSetting$Builder
+ *  meteordevelopment.meteorclient.settings.IntSetting$Builder
+ *  meteordevelopment.meteorclient.settings.Setting
+ *  meteordevelopment.meteorclient.settings.SettingGroup
+ *  meteordevelopment.meteorclient.utils.render.color.Color
+ *  meteordevelopment.meteorclient.utils.render.color.SettingColor
+ *  meteordevelopment.meteorclient.utils.world.BlockUtils
+ *  meteordevelopment.orbit.EventHandler
+ *  net.minecraft.item.BlockItem
+ *  net.minecraft.item.Item
+ *  net.minecraft.block.Blocks
+ *  net.minecraft.block.Block
+ *  net.minecraft.block.PlantBlock
+ *  net.minecraft.util.math.BlockPos
+ *  net.minecraft.util.math.Direction
+ *  net.minecraft.util.math.Vec3i
+ *  net.minecraft.util.math.Vec3d
+ *  net.minecraft.block.SlabBlock
+ *  net.minecraft.block.StairsBlock
+ *  net.minecraft.block.BlockState
+ *  net.minecraft.state.property.Properties
+ *  net.minecraft.state.property.EnumProperty
+ *  net.minecraft.state.property.Property
+ *  net.minecraft.block.enums.SlabType
+ *  net.minecraft.util.Pair
+ *  org.slf4j.Logger
+ *  org.slf4j.LoggerFactory
+ */
 package com.xiaohe66.mc.meteor.lotus.modules;
 
-import com.xiaohe66.mc.meteor.lotus.event.KeyboardInputTickEvent;
+import com.xiaohe66.mc.meteor.lotus.modules.BaseModule;
 import com.xiaohe66.mc.meteor.lotus.modules.printer.PlaceBlockHelper;
-import com.xiaohe66.mc.meteor.lotus.modules.printer.SortAlgorithm;
-import com.xiaohe66.mc.meteor.lotus.modules.printer.SortingSecond;
 import com.xiaohe66.mc.meteor.lotus.util.HeBlockUtils;
+import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
+import com.xiaohe66.mc.meteor.lotus.util.HePosUtils;
+import com.xiaohe66.mc.meteor.lotus.util.HeRotationUtils;
+import com.xiaohe66.mc.meteor.lotus.modules.printer.PrinterMode;
+import com.xiaohe66.mc.meteor.lotus.modules.printer.SortAlgorithm;
+
 import fi.dy.masa.litematica.data.DataManager;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import fi.dy.masa.litematica.world.WorldSchematic;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
-import meteordevelopment.meteorclient.events.world.TickEvent.Post;
+import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
+import meteordevelopment.meteorclient.settings.BlockListSetting;
+import meteordevelopment.meteorclient.settings.BoolSetting;
+import meteordevelopment.meteorclient.settings.ColorSetting;
+import meteordevelopment.meteorclient.settings.DoubleSetting;
+import meteordevelopment.meteorclient.settings.EnumSetting;
+import meteordevelopment.meteorclient.settings.IntSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
-import meteordevelopment.meteorclient.settings.DoubleSetting.Builder;
-import meteordevelopment.meteorclient.utils.player.FindItemResult;
-import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
+import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.util.PlayerInput;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
+import net.minecraft.block.Blocks;
 import net.minecraft.block.Block;
+import net.minecraft.block.PlantBlock;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3i;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.SlabBlock;
+import net.minecraft.block.StairsBlock;
 import net.minecraft.block.BlockState;
+import net.minecraft.state.property.Properties;
+import net.minecraft.state.property.EnumProperty;
+import net.minecraft.state.property.Property;
+import net.minecraft.block.enums.SlabType;
 import net.minecraft.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LitematicaPrinter extends BaseModule {
-   private static final Logger log = LoggerFactory.getLogger(LitematicaPrinter.class);
-   private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
-   private final SettingGroup sgRendering = this.settings.createGroup("渲染");
-   private final Setting<Double> printingRange = this.sgGeneral
-      .add(((Builder)((Builder)new Builder().name("放置范围(格)")).description("放置范围(格)")).defaultValue(4.5).min(1.0).sliderMin(1.0).max(6.0).sliderMax(6.0).build());
-   private final Setting<Double> yPrintingRange = this.sgGeneral
-      .add(((Builder)((Builder)new Builder().name("放置高度(格)")).description("放置高度(格)")).defaultValue(1.0).min(1.0).sliderMax(6.0).build());
-   private final Setting<Boolean> airPlace = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)new meteordevelopment.meteorclient.settings.BoolSetting.Builder()
-                     .name("空气放置-org"))
-                  .description("空气放置, 副手绕过, 用于 2b2t.org"))
-               .defaultValue(false))
-            .build()
-      );
-   private final Setting<Boolean> movePause = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)new meteordevelopment.meteorclient.settings.BoolSetting.Builder()
-                     .name("移动暂停"))
-                  .description("移动时暂停放置"))
-               .defaultValue(true))
-            .build()
-      );
-   private final Setting<Boolean> returnHand = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)new meteordevelopment.meteorclient.settings.BoolSetting.Builder()
-                        .name("复原物品栏"))
-                     .description("复原物品栏"))
-                  .defaultValue(false))
-               .visible(() -> false))
-            .build()
-      );
-   private final Setting<Boolean> rotate = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)new meteordevelopment.meteorclient.settings.BoolSetting.Builder()
-                     .name("旋转"))
-                  .description("旋转到正在放置的块"))
-               .defaultValue(true))
-            .build()
-      );
-   private final Setting<SortAlgorithm> firstAlgorithm = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.EnumSetting.Builder)((meteordevelopment.meteorclient.settings.EnumSetting.Builder)((meteordevelopment.meteorclient.settings.EnumSetting.Builder)new meteordevelopment.meteorclient.settings.EnumSetting.Builder()
-                     .name("优先放置模式"))
-                  .description("优先放置模式"))
-               .defaultValue(SortAlgorithm.DownTop))
-            .build()
-      );
-   private final Setting<SortingSecond> secondAlgorithm = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.EnumSetting.Builder)((meteordevelopment.meteorclient.settings.EnumSetting.Builder)((meteordevelopment.meteorclient.settings.EnumSetting.Builder)((meteordevelopment.meteorclient.settings.EnumSetting.Builder)new meteordevelopment.meteorclient.settings.EnumSetting.Builder()
-                        .name("第二放置模式"))
-                     .description("第二放置模式"))
-                  .defaultValue(SortingSecond.最远的))
-               .visible(() -> ((SortAlgorithm)this.firstAlgorithm.get()).applySecondSorting))
-            .build()
-      );
-   private final Setting<List<Block>> blacklist = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.BlockListSetting.Builder)((meteordevelopment.meteorclient.settings.BlockListSetting.Builder)new meteordevelopment.meteorclient.settings.BlockListSetting.Builder()
-                  .name("黑名单"))
-               .description("不允许放置的方块"))
-            .build()
-      );
-   private final Setting<Boolean> renderBlocks = this.sgRendering
-      .add(
-         ((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)new meteordevelopment.meteorclient.settings.BoolSetting.Builder()
-                        .name("放置渲染"))
-                     .description("放置渲染"))
-                  .defaultValue(true))
-               .visible(() -> false))
-            .build()
-      );
-   private final Setting<Integer> fadeTime = this.sgRendering
-      .add(
-         ((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)((meteordevelopment.meteorclient.settings.IntSetting.Builder)new meteordevelopment.meteorclient.settings.IntSetting.Builder()
-                        .name("渲染淡出时间(tick)"))
-                     .description("渲染淡出时间"))
-                  .defaultValue(5))
-               .sliderRange(1, 20)
-               .sliderMin(1)
-               .visible(this.renderBlocks::get))
-            .build()
-      );
-   private final Setting<SettingColor> colour = this.sgRendering
-      .add(
-         ((meteordevelopment.meteorclient.settings.ColorSetting.Builder)((meteordevelopment.meteorclient.settings.ColorSetting.Builder)((meteordevelopment.meteorclient.settings.ColorSetting.Builder)new meteordevelopment.meteorclient.settings.ColorSetting.Builder()
-                     .name("颜色"))
-                  .description("颜色"))
-               .defaultValue(new SettingColor(95, 190, 255))
-               .visible(this.renderBlocks::get))
-            .build()
-      );
-   private final Setting<Boolean> debug = this.sgRendering
-      .add(
-         ((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)((meteordevelopment.meteorclient.settings.BoolSetting.Builder)new meteordevelopment.meteorclient.settings.BoolSetting.Builder()
-                     .name("调试模式"))
-                  .description("调试模式"))
-               .defaultValue(false))
-            .build()
-      );
-   private int lastUsedSlot = -1;
-   private boolean isMoving;
-   private final List<PlaceBlockHelper> needPlaceBlockList = new ArrayList<>();
-   private final List<Pair<Integer, BlockPos>> renderPosList = new ArrayList<>();
+    private static final Logger log = LoggerFactory.getLogger(LitematicaPrinter.class);
+    private final SettingGroup sgPlatform = settings.createGroup("平台打印");
+    private final SettingGroup sgAntiMob = settings.createGroup("防刷怪");
+    private final SettingGroup sgRendering = settings.createGroup("渲染");
+    private final Setting<Double> printingRange = sgGeneral.add(new DoubleSetting.Builder()
+        .name("放置范围(格)")
+        .description("放置范围(格)")
+        .defaultValue(4.1)
+        .min(1.0)
+        .sliderMin(1.0)
+        .max(6.0)
+        .sliderMax(6.0)
+        .build());
+    private final Setting<Integer> blocksPerTick = sgGeneral.add(new IntSetting.Builder()
+        .name("打印数量(每tick)")
+        .description("打印数量(每tick)")
+        .defaultValue(1)
+        .min(1)
+        .sliderMax(16)
+        .build());
+    private final Setting<List<Block>> blacklist = sgGeneral.add(new BlockListSetting.Builder()
+        .name("黑名单")
+        .description("不允许放置的方块")
+        .build());
+    private final Setting<Integer> placeCooldown = sgGeneral.add(new IntSetting.Builder()
+        .name("放置超时")
+        .description("同一位置失败后冷却 tick")
+        .defaultValue(20)
+        .min(0)
+        .sliderMax(100)
+        .build());
+    private final Setting<Integer> maxRayCheckPerTick = sgGeneral.add(new IntSetting.Builder()
+        .name("面校验上限(每tick)")
+        .description("每tick进行射线面校验的最大次数。射线校验开销大, 限制后可防止扫描大量不可达位置时掉帧; 调低可减少卡顿, 但打印响应会变慢")
+        .defaultValue(16)
+        .min(1)
+        .sliderMax(64)
+        .build());
+    private final Setting<SortAlgorithm> sortAlgorithm = sgGeneral.add(new EnumSetting.Builder<SortAlgorithm>()
+        .name("优先打印")
+        .description("打印的优先级")
+        .defaultValue(SortAlgorithm.近处)
+        .build());
+    private final Setting<PrinterMode> printerMode = sgGeneral.add(new EnumSetting.Builder<PrinterMode>()
+        .name("打印模式")
+        .description("打印模式")
+        .defaultValue(PrinterMode.投影打印)
+        .build());
+    private final Setting<List<Block>> platformBlocks = sgPlatform.add(new BlockListSetting.Builder()
+        .name("平台方块")
+        .description("搭建平台时使用的方块")
+        .defaultValue(new Block[]{Blocks.STONE_BRICKS, Blocks.STONE_BRICK_SLAB, Blocks.SMOOTH_STONE, Blocks.SMOOTH_STONE_SLAB})
+        .visible(() -> this.printerMode.get() == PrinterMode.平台打印)
+        .build());
+    private final Setting<Boolean> topSlab = sgPlatform.add(new BoolSetting.Builder()
+        .name("是否上半砖")
+        .description("在打印半砖时, 打印上半砖还是下半砖")
+        .defaultValue(true)
+        .visible(() -> this.printerMode.get() == PrinterMode.平台打印)
+        .build());
+    private final Setting<List<Block>> antiMobBlocks = sgAntiMob.add(new BlockListSetting.Builder()
+        .name("防刷怪方块")
+        .description("在做防刷怪时使用的方块")
+        .defaultValue(new Block[]{Blocks.ACTIVATOR_RAIL, Blocks.COBBLESTONE_SLAB, Blocks.DETECTOR_RAIL, Blocks.POWERED_RAIL, Blocks.RAIL, Blocks.STONE_BRICK_SLAB, Blocks.SMOOTH_STONE_SLAB})
+        .visible(() -> this.printerMode.get() == PrinterMode.防刷怪)
+        .build());
+    private final Setting<Boolean> antiSmallMobs = sgAntiMob.add(new BoolSetting.Builder()
+        .name("防矮小生物")
+        .description("对仅有1格净空的位置(蜘蛛/洞穴蜘蛛/蠹虫/末影螨)也放置防刷怪方块")
+        .defaultValue(false)
+        .visible(() -> this.printerMode.get() == PrinterMode.防刷怪)
+        .build());
+    private final Setting<Integer> fadeTime = sgRendering.add(new IntSetting.Builder()
+        .name("渲染淡出时间(tick)")
+        .description("渲染淡出时间")
+        .defaultValue(5)
+        .sliderRange(1, 20)
+        .build());
+    private final Setting<SettingColor> colour = sgRendering.add(new ColorSetting.Builder()
+        .name("渲染颜色")
+        .description("渲染颜色")
+        .defaultValue(new SettingColor(95, 190, 255))
+        .build());
+    private final List<Pair<Integer, BlockPos>> renderPosList;
+    private final Map<BlockPos, Integer> placeCooldownMap;
+    private final List<PlaceBlockHelper> needPlaceBlockList;
+    private int nextBlockIndex;
+    private WorldSchematic schematicWorld;
+    private Supplier<List<BlockPos>> blockPosSupplier;
 
-   public LitematicaPrinter() {
-      super("投影打印", "grim可用，在不复杂场景下的使用, 适合建造刷怪塔、村民交易所等简单生电机器, 暂不支持楼梯、活板门等", 1);
-   }
+    public LitematicaPrinter() {
+        super("打印机", "投影打印、平台打印、防刷怪。使用前请使用via跨版本到1.20.6以下", 0);
+        this.renderPosList = new ArrayList<Pair<Integer, BlockPos>>();
+        this.placeCooldownMap = new HashMap<BlockPos, Integer>();
+        this.needPlaceBlockList = new ArrayList<PlaceBlockHelper>();
+        this.nextBlockIndex = 0;
+    }
 
-   public void onActivate() {
-      this.isMoving = false;
-   }
+    public void onActivate() {
+        if (this.printerMode.get() == PrinterMode.投影打印) {
+            this.schematicWorld = SchematicWorldHandler.getSchematicWorld();
+            if (this.schematicWorld == null) {
+                this.warning("未加载投影", new Object[0]);
+                this.toggle();
+            }
+        }
+    }
 
-   @EventHandler(priority = 100)
-   public void onKeyboardInputTickEvent(KeyboardInputTickEvent event) {
-      PlayerInput playerInput = event.getPlayerInput();
-      this.isMoving = playerInput.forward() || playerInput.backward() || playerInput.left() || playerInput.right() || playerInput.jump();
-   }
-
-   @EventHandler
-   private void onTick(Post event) {
-      if (!this.isReady()) {
-         this.renderPosList.clear();
-      } else {
-         this.renderPosList.forEach(s -> s.setLeft((Integer)s.getLeft() - 1));
-         this.renderPosList.removeIf(s -> (Integer)s.getLeft() <= 0);
-         WorldSchematic worldSchematic = SchematicWorldHandler.getSchematicWorld();
-         if (worldSchematic == null) {
-            this.warning("未加载投影", new Object[0]);
-            this.renderPosList.clear();
+    @EventHandler
+    private void onTick(TickEvent.Post event) {
+        if (!this.isReady()) {
             this.toggle();
-         } else if (this.checkAndDecrement()) {
-            if ((Boolean)this.movePause.get() && this.isMoving) {
-               this.setDelay(5);
+            return;
+        }
+        this.renderPosList.forEach(s -> s.setLeft(s.getLeft() - 1));
+        this.renderPosList.removeIf(s -> s.getLeft() <= 0);
+        this.placeCooldownMap.replaceAll((pos, cooldown) -> cooldown - 1);
+        this.placeCooldownMap.entrySet().removeIf(entry -> entry.getValue() <= 0);
+        if (!this.checkAndDecrement()) {
+            return;
+        }
+        try {
+            List<PlaceBlockHelper> placeBlocks;
+            if (this.printerMode.get() == PrinterMode.投影打印) {
+                placeBlocks = this.getSchematicPlaceBlocks();
+            } else if (this.printerMode.get() == PrinterMode.平台打印) {
+                if (this.platformBlocks.get().isEmpty()) {
+                    this.warning("平台方块至少选择1个", new Object[0]);
+                    this.toggle();
+                    return;
+                }
+                placeBlocks = this.getPlatformPlaceBlocks();
+            } else if (this.printerMode.get() == PrinterMode.防刷怪) {
+                if (this.antiMobBlocks.get().isEmpty()) {
+                    this.warning("防刷怪方块至少选择1个", new Object[0]);
+                    this.toggle();
+                    return;
+                }
+                placeBlocks = this.getAntiMobPlaceBlocks();
             } else {
-               this.needPlaceBlockList.clear();
-
-               for (BlockPos schematicBlockPos : HeBlockUtils.listPosInSphere(
-                  (int)((Double)this.printingRange.get() + 1.0), (int)((Double)this.yPrintingRange.get() + 1.0), this.mc.player.getBlockPos()
-               )) {
-                  BlockState targetCurBlockState = this.mc.world.getBlockState(schematicBlockPos);
-                  BlockState schematicBlockState = worldSchematic.getBlockState(schematicBlockPos);
-                  Block targetBlock = targetCurBlockState.getBlock();
-                  boolean isNeedPlace = this.mc.player.getBlockPos().isWithinDistance(schematicBlockPos, (Double)this.printingRange.get())
-                     && targetCurBlockState.isReplaceable()
-                     && !schematicBlockState.isLiquid()
-                     && !schematicBlockState.isAir()
-                     && targetBlock != schematicBlockState.getBlock()
-                     && DataManager.getRenderLayerRange().isPositionWithinRange(schematicBlockPos)
-                     && !this.mc
-                        .player
-                        .getBoundingBox()
-                        .intersects(Vec3d.of(schematicBlockPos), Vec3d.of(schematicBlockPos).add(1.0, 1.0, 1.0))
-                     && schematicBlockState.canPlaceAt(this.mc.world, schematicBlockPos)
-                     && !((List)this.blacklist.get()).contains(schematicBlockState.getBlock());
-
-                  for (Pair<Integer, BlockPos> posPair : this.renderPosList) {
-                     if (schematicBlockPos.equals(posPair.getRight())) {
-                        isNeedPlace = false;
-                        break;
-                     }
-                  }
-
-                  if (isNeedPlace) {
-                     BlockPos blockPos = new BlockPos(schematicBlockPos.getX(), schematicBlockPos.getY(), schematicBlockPos.getZ());
-                     PlaceBlockHelper placeBlockHelper = new PlaceBlockHelper(
-                        (Boolean)this.debug.get(), blockPos, schematicBlockState, (Double)this.printingRange.get(), (Boolean)this.rotate.get()
-                     );
-                     placeBlockHelper.setAirPlace((Boolean)this.airPlace.get());
-                     if (placeBlockHelper.getCanPlaceDirection() != null) {
-                        this.printLog(
-                           "BlockIterator add schematicBlockPos : {} {} {}",
-                           schematicBlockPos.getX(),
-                           schematicBlockPos.getY(),
-                           schematicBlockPos.getZ()
-                        );
-                        this.needPlaceBlockList.add(placeBlockHelper);
-                     }
-                  }
-               }
-
-               if (!this.needPlaceBlockList.isEmpty()) {
-                  this.sortPlaceBlock();
-                  PlaceBlockHelper placeBlockHelper = this.needPlaceBlockList.getFirst();
-                  Item item = placeBlockHelper.getSchematicBlock().asItem();
-                  boolean placeSuccess = this.switchItemAndPlace(item, placeBlockHelper);
-                  if (placeSuccess && (Boolean)this.renderBlocks.get()) {
-                     this.renderPosList.add(new Pair((Integer)this.fadeTime.get(), new BlockPos(placeBlockHelper.getSchematicBlockPos())));
-                  }
-
-                  this.setDelay();
-               }
+                return;
             }
-         }
-      }
-   }
+            this.selectBlocksToPlace(placeBlocks);
+            this.placeBlocks();
+            this.setDelay();
+        }
+        catch (Exception e) {
+            log.error("onTickPost error", (Throwable)e);
+            this.error("onTickPost error:" + e.getMessage(), new Object[0]);
+        }
+    }
 
-   private boolean switchItemAndPlace(Item item, PlaceBlockHelper placeBlockHelper) {
-      int selectedSlot = this.getMainSlot();
-      if (this.mc.player.getMainHandStack().getItem() == item) {
-         this.lastUsedSlot = selectedSlot;
-         return placeBlockHelper.tryPlace();
-      }
-
-      if (this.lastUsedSlot != -1 && this.getItemStack(this.lastUsedSlot).getItem() == item) {
-         InvUtils.swap(this.lastUsedSlot, (Boolean)this.returnHand.get());
-         return false;
-      }
-
-      FindItemResult result = InvUtils.find(new Item[]{item});
-      if (!result.found()) {
-         return false;
-      }
-
-      if (result.isHotbar()) {
-         this.lastUsedSlot = selectedSlot;
-         InvUtils.swap(result.slot(), (Boolean)this.returnHand.get());
-         return false;
-      }
-
-      if (result.isMain()) {
-         FindItemResult empty = InvUtils.findEmpty();
-         if (empty.found() && empty.isHotbar()) {
-            InvUtils.move().from(result.slot()).toHotbar(empty.slot());
-            InvUtils.swap(empty.slot(), (Boolean)this.returnHand.get());
-         } else if (this.lastUsedSlot != -1) {
-            InvUtils.move().from(result.slot()).toHotbar(this.lastUsedSlot);
-            InvUtils.swap(this.lastUsedSlot, (Boolean)this.returnHand.get());
-         } else {
-            this.warning("热栏需要留空", new Object[0]);
-         }
-      }
-
-      return false;
-   }
-
-   private void sortPlaceBlock() {
-      if (this.firstAlgorithm.get() != SortAlgorithm.None) {
-         if (((SortAlgorithm)this.firstAlgorithm.get()).applySecondSorting && this.secondAlgorithm.get() != SortingSecond.None) {
-            this.needPlaceBlockList
-               .sort((o1, o2) -> ((SortingSecond)this.secondAlgorithm.get()).algorithm.compare(o1.getSchematicBlockPos(), o2.getSchematicBlockPos()));
-         }
-
-         this.needPlaceBlockList
-            .sort((o1, o2) -> ((SortAlgorithm)this.firstAlgorithm.get()).algorithm.compare(o1.getSchematicBlockPos(), o2.getSchematicBlockPos()));
-      }
-   }
-
-   @EventHandler
-   private void onRender(Render3DEvent event) {
-      this.renderPosList
-         .forEach(
-            s -> {
-               Color a = new Color(
-                  ((SettingColor)this.colour.get()).r,
-                  ((SettingColor)this.colour.get()).g,
-                  ((SettingColor)this.colour.get()).b,
-                  (int)((float)((Integer)s.getLeft()).intValue() / ((Integer)this.fadeTime.get()).intValue() * ((SettingColor)this.colour.get()).a)
-               );
-               event.renderer.box((BlockPos)s.getRight(), a, null, ShapeMode.Sides, 0);
+    private void placeBlocks() {
+        for (PlaceBlockHelper helper : this.needPlaceBlockList) {
+            BlockPos blockPos = helper.getBlockPos();
+            BlockState targetState = null;
+            Block block = null;
+            int slot = -1;
+            for (BlockState candidateState : helper.getCandidateStates()) {
+                block = candidateState.getBlock();
+                Item item = block.asItem();
+                slot = HeInvUtils.findItemSlot(item);
+                if (slot == -1) continue;
+                targetState = candidateState;
+                break;
             }
-         );
-   }
+            if (targetState == null) {
+                return;
+            }
+            HeInvUtils.swapToSelectedSlot(slot);
+            Collection properties = targetState.getProperties();
+            if (block instanceof SlabBlock) {
+                HeBlockUtils.placeSlab(blockPos, targetState);
+            } else if (block instanceof StairsBlock) {
+                HeBlockUtils.placeStairs(blockPos, targetState);
+            } else if (helper.requiresSneaking()) {
+                LitematicaPrinter.clickPlace(helper, blockPos);
+            } else if (properties.contains(Properties.FACING)) {
+                LitematicaPrinter.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)Properties.FACING, helper.getClickDirection());
+            } else if (properties.contains(Properties.HORIZONTAL_FACING)) {
+                LitematicaPrinter.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)Properties.HORIZONTAL_FACING, helper.getClickDirection());
+            } else if (targetState.getProperties().contains(Properties.HOPPER_FACING)) {
+                LitematicaPrinter.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)Properties.HOPPER_FACING, helper.getClickDirection());
+            } else {
+                LitematicaPrinter.clickPlace(helper, blockPos);
+            }
+            this.renderPosList.add(new Pair(this.fadeTime.get(), blockPos));
+            this.placeCooldownMap.put(blockPos, this.placeCooldown.get());
+            HeInvUtils.swapToSelectedSlot(slot);
+            HeInvUtils.sendCloseScreenPacket();
+        }
+        this.needPlaceBlockList.clear();
+    }
 
-   public void onDeactivate() {
-   }
+    private static void clickPlace(PlaceBlockHelper helper, BlockPos blockPos) {
+        Direction clickDirection = helper.getClickDirection();
+        if (clickDirection != null) {
+            HeBlockUtils.clickAdjacentBlock(blockPos, clickDirection);
+        } else {
+            HeBlockUtils.clickAdjacentBlock(blockPos);
+        }
+    }
 
-   private void printLog(String str, Object arg) {
-      if ((Boolean)this.debug.get()) {
-         log.info(str, arg);
-      }
-   }
+    private static void placeDirectional(BlockState blockState, Block block, BlockPos blockPos, EnumProperty<Direction> property, Direction clickDirection) {
+        Direction facing = (Direction)blockState.get(property);
+        Direction placeDirection = HeBlockUtils.isObserverOrHopper(block) ? facing : facing.getOpposite();
+        if (clickDirection != null) {
+            HeBlockUtils.placeBlock(blockPos, placeDirection, clickDirection);
+        } else {
+            HeBlockUtils.placeBlock(blockPos, placeDirection);
+        }
+    }
 
-   private void printLog(String str, Object... args) {
-      if ((Boolean)this.debug.get()) {
-         log.info(str, args);
-      }
-   }
+    private void selectBlocksToPlace(List<PlaceBlockHelper> blocks) {
+        if (!this.needPlaceBlockList.isEmpty() || blocks.isEmpty()) {
+            return;
+        }
+        int remainingChecks = this.maxRayCheckPerTick.get();
+        int blockCount = blocks.size();
+        int checkedCount = 0;
+        for (int i = 0; i < blockCount && remainingChecks > 0; ++i) {
+            PlaceBlockHelper helper = blocks.get((this.nextBlockIndex + i) % blockCount);
+            ++checkedCount;
+            BlockPos blockPos = helper.getBlockPos();
+            if (blockPos.getY() > DataManager.getRenderLayerRange().getLayerMax()) continue;
+            BlockState currentState = helper.getTargetState();
+            if (this.printerMode.get() == PrinterMode.防刷怪) {
+                boolean isPlant = currentState.getBlock() instanceof PlantBlock;
+                if (!currentState.isAir() && !isPlant || this.antiMobBlocks.get().contains(currentState.getBlock())) {
+                    continue;
+                }
+            } else if (HeBlockUtils.isSolid(currentState)) continue;
+            if (this.placeCooldown.get() != 0 && this.placeCooldownMap.containsKey(blockPos) || !currentState.isReplaceable()) continue;
+            for (BlockState candidateState : helper.getCandidateStates()) {
+                Item item;
+                if (candidateState == null || candidateState.isAir()) continue;
+                Block block = candidateState.getBlock();
+                if (this.blacklist.get().contains(block) || !((item = block.asItem()) instanceof BlockItem)) continue;
+                BlockItem blockItem = (BlockItem)item;
+                if (!HeInvUtils.hasItem(item) || HePosUtils.isEntityInside(blockPos, candidateState)) continue;
+                --remainingChecks;
+                Direction clickDirection = HeBlockUtils.getPlaceSide(blockPos, this.printingRange.get(), 0.0);
+                if (clickDirection == null) break;
+                helper.setClickDirection(clickDirection);
+                this.needPlaceBlockList.add(helper);
+                break;
+            }
+            if (this.needPlaceBlockList.size() >= this.blocksPerTick.get()) break;
+        }
+        this.nextBlockIndex = (this.nextBlockIndex + checkedCount) % blockCount;
+    }
+
+    private List<PlaceBlockHelper> getAntiMobPlaceBlocks() {
+        List<Block> blocks = this.antiMobBlocks.get();
+        List slabAdjustedStates = blocks.stream().map(Block::getDefaultState).map(state -> state.getBlock() instanceof SlabBlock ? state.with((Property)SlabBlock.TYPE, (Comparable)SlabType.BOTTOM) : state).toList();
+        int rangeBlocks = (int)Math.ceil(this.printingRange.get());
+        double maxDistanceSq = this.printingRange.get() * this.printingRange.get();
+        ArrayList<PlaceBlockHelper> placeBlocks = new ArrayList<PlaceBlockHelper>();
+        BlockPos playerPos = this.mc.player.getBlockPos();
+        for (int x = -rangeBlocks; x <= rangeBlocks; ++x) {
+            for (int z = -rangeBlocks; z <= rangeBlocks; ++z) {
+                BlockState downState;
+                int foundY = Integer.MAX_VALUE;
+                for (int y = 1; y >= -rangeBlocks; --y) {
+                    BlockPos checkPos = playerPos.add(x, y, z);
+                    BlockState blockState = this.mc.world.getBlockState(checkPos);
+                    if (!HeBlockUtils.isReplaceable(blockState, checkPos) || !HeBlockUtils.isSolid(downState = this.mc.world.getBlockState(checkPos.down())) || !BlockUtils.isValidSpawnBlock(downState) || !HeBlockUtils.isAboveClear(checkPos) && !this.antiSmallMobs.get()) continue;
+                    foundY = y;
+                    break;
+                }
+                if (foundY == Integer.MAX_VALUE) continue;
+                BlockPos placePos = playerPos.add(x, foundY, z);
+                double distanceSq = this.mc.player.getEyePos().squaredDistanceTo(Vec3d.ofCenter((Vec3i)placePos));
+                if (distanceSq > maxDistanceSq) continue;
+                PlaceBlockHelper helper = new PlaceBlockHelper(placePos, distanceSq);
+                helper.setCandidateStates(slabAdjustedStates);
+                helper.setTargetState(this.mc.world.getBlockState(placePos));
+                helper.setRequiresSneaking(true);
+                placeBlocks.add(helper);
+            }
+        }
+        ((SortAlgorithm)this.sortAlgorithm.get()).sort(placeBlocks);
+        return placeBlocks;
+    }
+
+    private List<PlaceBlockHelper> getPlatformPlaceBlocks() {
+        ArrayList<PlaceBlockHelper> placeBlocks = new ArrayList<PlaceBlockHelper>();
+        BlockPos centerPos = this.getPlatformCenterPos();
+        Vec3d eyePos = this.mc.player.getEyePos();
+        double maxDistanceSq = this.printingRange.get() * this.printingRange.get();
+        List<Block> blocks = this.platformBlocks.get();
+        SlabType slabType = this.topSlab.get() != false ? SlabType.TOP : SlabType.BOTTOM;
+        List slabAdjustedStates = blocks.stream().map(Block::getDefaultState).map(state -> state.getBlock() instanceof SlabBlock ? state.with((Property)SlabBlock.TYPE, (Comparable)slabType) : state).toList();
+        int rangeBlocks = this.printingRange.get().intValue();
+        int maxX = centerPos.getX() + rangeBlocks;
+        for (int x = centerPos.getX() - rangeBlocks; x <= maxX; ++x) {
+            int maxZ = centerPos.getZ() + rangeBlocks;
+            for (int z = centerPos.getZ() - rangeBlocks; z <= maxZ; ++z) {
+                BlockPos targetPos = new BlockPos(x, centerPos.getY(), z);
+                double distanceSq = eyePos.squaredDistanceTo(targetPos.toCenterPos());
+                if (distanceSq > maxDistanceSq) continue;
+                PlaceBlockHelper helper = new PlaceBlockHelper(targetPos, distanceSq);
+                BlockState currentState = this.mc.world.getBlockState(targetPos);
+                helper.setCandidateStates(slabAdjustedStates);
+                helper.setTargetState(currentState);
+                helper.setRequiresSneaking(true);
+                placeBlocks.add(helper);
+            }
+        }
+        this.sortAlgorithm.get().sort(placeBlocks);
+        return placeBlocks;
+    }
+
+    private BlockPos getPlatformCenterPos() {
+        Vec3d eyePos = this.mc.player.getEntityPos();
+        BlockPos basePos = this.mc.player.getBlockPos();
+        if (eyePos.getY() - (double)basePos.getY() >= 0.5) {
+            basePos = basePos.up();
+        }
+        for (int i = 0; i < 3; ++i) {
+            basePos = basePos.down();
+            Vec3d checkCenter = basePos.toCenterPos();
+            boolean west = eyePos.getX() < checkCenter.getX();
+            boolean north = eyePos.getZ() < checkCenter.getZ();
+            ArrayList<BlockPos> checkPositions = new ArrayList<BlockPos>(4);
+            checkPositions.add(basePos);
+            if (west && north) {
+                checkPositions.add(basePos.west());
+                checkPositions.add(basePos.north().west());
+                checkPositions.add(basePos.north());
+            } else if (!west && north) {
+                checkPositions.add(basePos.east());
+                checkPositions.add(basePos.north().east());
+                checkPositions.add(basePos.north());
+            } else if (west) {
+                checkPositions.add(basePos.west());
+                checkPositions.add(basePos.south().west());
+                checkPositions.add(basePos.south());
+            } else {
+                checkPositions.add(basePos.east());
+                checkPositions.add(basePos.south().east());
+                checkPositions.add(basePos.south());
+            }
+            for (BlockPos checkPos : checkPositions) {
+                BlockState blockState = this.mc.world.getBlockState(checkPos);
+                if (!HeBlockUtils.isSolid(blockState)) continue;
+                return basePos;
+            }
+        }
+        return this.mc.player.getBlockPos().down();
+    }
+
+    private List<PlaceBlockHelper> getSchematicPlaceBlocks() {
+        List<BlockPos> blockPosList;
+        int rangeBlocks = (int)Math.ceil(this.printingRange.get());
+        double maxDistanceSq = this.printingRange.get() * this.printingRange.get();
+        ArrayList<PlaceBlockHelper> placeBlocks = new ArrayList<PlaceBlockHelper>();
+        if (this.blockPosSupplier != null) {
+            blockPosList = this.blockPosSupplier.get();
+        } else {
+            int size = rangeBlocks * 2 + 1;
+            BlockPos playerPos = this.mc.player.getBlockPos();
+            blockPosList = new ArrayList<BlockPos>(size * size * size);
+            for (int y = -rangeBlocks; y < rangeBlocks; ++y) {
+                for (int x = -rangeBlocks; x <= rangeBlocks; ++x) {
+                    for (int z = -rangeBlocks; z <= rangeBlocks; ++z) {
+                        blockPosList.add(playerPos.add(x, y, z));
+                    }
+                }
+            }
+        }
+        for (BlockPos schematicBlockPos : blockPosList) {
+            double distanceSq;
+            if (!DataManager.getRenderLayerRange().isPositionWithinRange(schematicBlockPos) || (distanceSq = this.mc.player.getEyePos().squaredDistanceTo(Vec3d.ofCenter(schematicBlockPos))) > maxDistanceSq) continue;
+            PlaceBlockHelper helper = new PlaceBlockHelper(schematicBlockPos, distanceSq);
+            BlockState schematicBlockState = this.schematicWorld.getBlockState(schematicBlockPos);
+            BlockState targetBlockState = this.mc.world.getBlockState(schematicBlockPos);
+            helper.setCandidateStates(Collections.singletonList(schematicBlockState));
+            helper.setTargetState(targetBlockState);
+            placeBlocks.add(helper);
+        }
+        if (this.blockPosSupplier == null) {
+            this.sortAlgorithm.get().sort(placeBlocks);
+        }
+        return placeBlocks;
+    }
+
+    @EventHandler
+    private void onRender(Render3DEvent event) {
+        this.renderPosList.forEach(pair -> {
+            Color color = new Color(this.colour.get().r, this.colour.get().g, this.colour.get().b, (int)((float)pair.getLeft() / (float)this.fadeTime.get() * (float)this.colour.get().a));
+            event.renderer.box((BlockPos)pair.getRight(), color, null, ShapeMode.Sides, 0);
+        });
+    }
+
+    public void startPrinting() {
+        if (this.printerMode.get() != PrinterMode.投影打印) {
+            this.printerMode.set(PrinterMode.投影打印);
+        }
+        if (!this.isActive()) {
+            this.toggle();
+        }
+    }
+
+    public void setBlockPosSupplier(Supplier<List<BlockPos>> supplier) {
+        this.blockPosSupplier = supplier;
+    }
+
+    public void reset() {
+        this.renderPosList.clear();
+        this.placeCooldownMap.clear();
+        this.nextBlockIndex = 0;
+    }
+
+    public void onDeactivate() {
+        this.reset();
+        HeRotationUtils.clearKeptRotation();
+        this.blockPosSupplier = null;
+    }
 }

@@ -24,7 +24,7 @@ repositories {
 }
 
 loom {
-        accessWidenerPath = file("src/main/resources/xiaohe66-meteor-lotus.accesswidener")
+        accessWidenerPath = file("src/main/resources/Lotus.accesswidener")
 }
 
 dependencies {

@@ -1,52 +1,25 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package com.xiaohe66.mc.meteor.lotus.modules.printer;
 
+import com.xiaohe66.mc.meteor.lotus.modules.printer.PlaceBlockHelper;
 import java.util.Comparator;
-import meteordevelopment.meteorclient.MeteorClient;
-import meteordevelopment.meteorclient.utils.Utils;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import java.util.List;
 
 public enum SortAlgorithm {
-   None(false, (a, b) -> 0),
-   TopDown(true, Comparator.comparingInt(value -> value.getY() * -1)),
-   DownTop(true, Comparator.comparingInt(Vec3i::getY)),
-   最近的(
-      false,
-      Comparator.comparingDouble(
-         value -> MeteorClient.mc.player != null
-            ? Utils.squaredDistance(
-               MeteorClient.mc.player.getX(),
-               MeteorClient.mc.player.getY(),
-               MeteorClient.mc.player.getZ(),
-               value.getX() + 0.5,
-               value.getY() + 0.5,
-               value.getZ() + 0.5
-            )
-            : 0.0
-      )
-   ),
-   最远的(
-      false,
-      Comparator.comparingDouble(
-         value -> MeteorClient.mc.player != null
-            ? Utils.squaredDistance(
-                  MeteorClient.mc.player.getX(),
-                  MeteorClient.mc.player.getY(),
-                  MeteorClient.mc.player.getZ(),
-                  value.getX() + 0.5,
-                  value.getY() + 0.5,
-                  value.getZ() + 0.5
-               )
-               * -1.0
-            : 0.0
-      )
-   );
+    远处 {
+        @Override
+        public void sort(List<PlaceBlockHelper> blocks) {
+            blocks.sort((block1, block2) -> Double.compare(block2.getDistance(), block1.getDistance()));
+        }
+    },
+    近处 {
+        @Override
+        public void sort(List<PlaceBlockHelper> blocks) {
+            blocks.sort(Comparator.comparingDouble(BlockPosWarp::getDistance));
+        }
+    };
 
-   public final boolean applySecondSorting;
-   public final Comparator<BlockPos> algorithm;
-
-   SortAlgorithm(boolean applySecondSorting, Comparator<BlockPos> algorithm) {
-      this.applySecondSorting = applySecondSorting;
-      this.algorithm = algorithm;
-   }
+    public abstract void sort(List<PlaceBlockHelper> blocks);
 }

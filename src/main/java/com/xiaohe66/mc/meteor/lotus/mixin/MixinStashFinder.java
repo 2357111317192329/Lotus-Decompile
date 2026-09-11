@@ -1,3 +1,21 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  meteordevelopment.meteorclient.MeteorClient
+ *  meteordevelopment.meteorclient.settings.Setting
+ *  meteordevelopment.meteorclient.systems.modules.world.StashFinder
+ *  net.minecraft.block.entity.BlockEntity
+ *  net.minecraft.block.entity.BlockEntityType
+ *  org.spongepowered.asm.mixin.Final
+ *  org.spongepowered.asm.mixin.Mixin
+ *  org.spongepowered.asm.mixin.Shadow
+ *  org.spongepowered.asm.mixin.Unique
+ *  org.spongepowered.asm.mixin.injection.At
+ *  org.spongepowered.asm.mixin.injection.At$Shift
+ *  org.spongepowered.asm.mixin.injection.ModifyVariable
+ *  org.spongepowered.asm.mixin.injection.Redirect
+ */
 package com.xiaohe66.mc.meteor.lotus.mixin;
 
 import com.xiaohe66.mc.meteor.lotus.event.StorageFinderEvent;
@@ -14,33 +32,32 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.At.Shift;
 
-@Mixin(value = StashFinder.class, remap = false)
+@Mixin(value={StashFinder.class}, remap=false)
 public class MixinStashFinder {
-   @Shadow
-   @Final
-   private Setting<List<BlockEntityType<?>>> storageBlocks;
-   @Unique
-   private BlockEntity blockEntity;
+    @Shadow
+    @Final
+    private Setting<List<BlockEntityType<?>>> storageBlocks;
+    @Unique
+    private BlockEntity blockEntity;
 
-   @Redirect(method = "onChunkData", at = @At(value = "INVOKE", target = "Ljava/util/List;contains(Ljava/lang/Object;)Z"))
-   private boolean isStorage(List<?> list, Object element) {
-      boolean isStorage = ((List)this.storageBlocks.get()).contains(element);
-      if (isStorage) {
-         StorageFinderEvent event = StorageFinderEvent.get(this.blockEntity);
-         MeteorClient.EVENT_BUS.post(event);
-         if (event.isCancel()) {
-            isStorage = false;
-         }
-      }
+    @Redirect(method={"onChunkData"}, at=@At(value="INVOKE", target="Ljava/util/List;contains(Ljava/lang/Object;)Z"))
+    private boolean isStorage(List<?> list, Object element) {
+        boolean isStorage = ((List)this.storageBlocks.get()).contains(element);
+        if (isStorage) {
+            StorageFinderEvent event = StorageFinderEvent.get(this.blockEntity);
+            MeteorClient.EVENT_BUS.post(event);
+            if (event.isCancel()) {
+                isStorage = false;
+            }
+        }
+        return isStorage;
+    }
 
-      return isStorage;
-   }
-
-   @ModifyVariable(method = "onChunkData", at = @At(value = "INVOKE", target = "Ljava/util/List;contains(Ljava/lang/Object;)Z", shift = Shift.BEFORE))
-   private BlockEntity captureBlockEntity(BlockEntity blockEntity) {
-      this.blockEntity = blockEntity;
-      return blockEntity;
-   }
+    @ModifyVariable(method={"onChunkData"}, at=@At(value="INVOKE", target="Ljava/util/List;contains(Ljava/lang/Object;)Z", shift=At.Shift.BEFORE))
+    private BlockEntity captureBlockEntity(BlockEntity blockEntity) {
+        this.blockEntity = blockEntity;
+        return blockEntity;
+    }
 }
+

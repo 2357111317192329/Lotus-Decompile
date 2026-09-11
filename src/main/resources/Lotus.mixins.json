@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "package": "com.xiaohe66.mc.meteor.lotus.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CustomTextRendererMixin",
+    "HandledScreenMixin",
+    "HudMixin",
+    "KillAuraAccessor",
+    "MixinAbstractSignEditScreen",
+    "MixinKeyboardInput",
+    "MixinStashFinder",
+    "MixinStorageESP",
+    "ModuleAccessor",
+    "ScreenMixin",
+    "SettingAccessor",
+    "VanillaTextRendererMixin",
+    "WorldRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

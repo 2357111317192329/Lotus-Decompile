@@ -1,4 +1,4 @@
-## 恭喜你发现了宝藏
+## blacklist
 
 | 玩家ID | UUID |
 |--------|------|
@@ -7,3 +7,5 @@
 | WetBones_ | 2ba6f46e-ef30-4060-a019-5832045e2110 |
 | STOMACHBOOK | 4149fd35-e903-4a01-8612-3452cab3f3a6 |
 | Ninajirachi | f2a679b2-48bc-40c7-88f5-ff9f4140a83d |
+
+## Lotus未开源，请不要抄袭。
