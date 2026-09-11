@@ -1,3 +1,15 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  meteordevelopment.meteorclient.MeteorClient
+ *  net.minecraft.client.gui.DrawContext
+ *  net.minecraft.client.gui.screen.Screen
+ *  org.spongepowered.asm.mixin.Mixin
+ *  org.spongepowered.asm.mixin.injection.At
+ *  org.spongepowered.asm.mixin.injection.Inject
+ *  org.spongepowered.asm.mixin.injection.callback.CallbackInfo
+ */
 package com.xiaohe66.mc.meteor.lotus.mixin;
 
 import com.xiaohe66.mc.meteor.lotus.event.ScreenRenderEvent;
@@ -20,3 +32,4 @@ public abstract class ScreenMixin {
       MeteorClient.EVENT_BUS.post(ScreenRenderEvent.get(context, this.getFont(), mouseX, mouseY));
    }
 }
+

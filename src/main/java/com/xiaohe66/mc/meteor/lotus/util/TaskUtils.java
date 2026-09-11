@@ -1,3 +1,6 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package com.xiaohe66.mc.meteor.lotus.util;
 
 import java.util.concurrent.Executors;
@@ -6,9 +9,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class TaskUtils {
-   private static final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+    private static final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
 
-   public static ScheduledFuture<?> run(Runnable runnable, long delay, TimeUnit timeUnit) {
-      return scheduledExecutorService.schedule(runnable, delay, timeUnit);
-   }
+    public static ScheduledFuture<?> run(Runnable runnable, long delay, TimeUnit timeUnit) {
+        return scheduledExecutorService.schedule(runnable, delay, timeUnit);
+    }
 }
+

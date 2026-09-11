@@ -27,7 +27,7 @@ repositories {
 }
 
 loom {
-        accessWidenerPath = file("src/main/resources/xiaohe66-meteor-lotus.accesswidener")
+        accessWidenerPath = file("src/main/resources/Lotus.accesswidener")
 }
 
 dependencies {
@@ -42,7 +42,7 @@ dependencies {
         implementation "com.github.sakura-ryoko:malilib:${project.malilib_version}"
 
         implementation "com.github.sakura-ryoko:litematica:${project.litematica_version}"
-        //compileOnly
+
         implementation "meteordevelopment:baritone:${project.baritone_version}"
 }
 java {

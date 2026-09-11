@@ -1,24 +1,54 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  meteordevelopment.meteorclient.events.world.TickEvent$Post
+ *  meteordevelopment.meteorclient.settings.BoolSetting$Builder
+ *  meteordevelopment.meteorclient.settings.KeybindSetting$Builder
+ *  meteordevelopment.meteorclient.settings.Setting
+ *  meteordevelopment.meteorclient.settings.SettingGroup
+ *  meteordevelopment.meteorclient.settings.StringSetting$Builder
+ *  meteordevelopment.meteorclient.utils.misc.Keybind
+ *  meteordevelopment.meteorclient.utils.player.InvUtils
+ *  meteordevelopment.orbit.EventHandler
+ *  net.minecraft.screen.ScreenHandler
+ *  net.minecraft.screen.PlayerScreenHandler
+ *  net.minecraft.screen.slot.Slot
+ *  net.minecraft.item.Item
+ *  net.minecraft.item.ItemStack
+ *  net.minecraft.util.collection.DefaultedList
+ *  net.minecraft.text.Text
+ *  net.minecraft.client.gui.screen.ingame.HandledScreen
+ *  net.minecraft.registry.Registries
+ *  org.lwjgl.glfw.GLFW
+ */
 package com.xiaohe66.mc.meteor.lotus.modules;
 
+import com.xiaohe66.mc.meteor.lotus.event.ScreenCloseEvent;
+import com.xiaohe66.mc.meteor.lotus.modules.BaseModule;
+import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
+import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
+
+import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
 import com.xiaohe66.mc.meteor.lotus.event.MouseClickEvent;
 import com.xiaohe66.mc.meteor.lotus.event.MouseDragEvent;
 import com.xiaohe66.mc.meteor.lotus.event.MouseReleaseEvent;
-import com.xiaohe66.mc.meteor.lotus.event.ScreenCloseEvent;
-import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
-import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
+import com.xiaohe66.mc.meteor.lotus.event.MouseScrollEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Map.Entry;
-import meteordevelopment.meteorclient.events.world.TickEvent.Post;
+import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.settings.BoolSetting;
+import meteordevelopment.meteorclient.settings.KeybindSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
-import meteordevelopment.meteorclient.settings.BoolSetting.Builder;
+import meteordevelopment.meteorclient.settings.StringSetting;
 import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
@@ -33,403 +63,580 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
-public class ItemClearUp extends BaseModule {
-   private static final Comparator<ItemStack> ITEM_ID_COMPARATOR = Comparator.comparingInt(stack -> BuiltInRegistries.ITEM.getId(stack.getItem()));
-   private static final Comparator<ItemStack> ITEM_COUNT_COMPARATOR = (a, b) -> Integer.compare(b.getCount(), a.getCount());
-   private static final Comparator<ItemStack> ITEM_ID_COUNT_COMPARATOR = ITEM_ID_COMPARATOR.thenComparing(ITEM_COUNT_COMPARATOR);
-   private final SettingGroup sgGeneral = this.settings.getDefaultGroup();
-   private final Setting<Boolean> scrollMove = this.sgGeneral
-      .add(((Builder)((Builder)((Builder)new Builder().name("拖拽操作")).description("按住绑定的 键位 拖拽鼠标，整组移动经过的物品")).defaultValue(true)).build());
-   private final Setting<Keybind> scrollMoveKey = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)new meteordevelopment.meteorclient.settings.KeybindSetting.Builder()
-                        .name("拖拽操作-键位"))
-                     .description("按住绑定的 键位 拖拽鼠标，整组移动经过的物品"))
-                  .defaultValue(Keybind.fromKey(340)))
-               .visible(this.scrollMove::get))
-            .build()
-      );
-   private final Setting<Boolean> sameClickMove = this.sgGeneral
-      .add(((Builder)((Builder)((Builder)new Builder().name("同类操作")).description("按住绑定的 键位 点击物品移动同类型，拖拽到界面外丢弃同类型")).defaultValue(true)).build());
-   private final Setting<Keybind> sameClickMoveKey = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)new meteordevelopment.meteorclient.settings.KeybindSetting.Builder()
-                     .name("同类操作-键位"))
-                  .description("按住绑定的 键位 点击物品移动同类型，拖拽到界面外丢弃同类型"))
-               .defaultValue(Keybind.fromKey(342)))
-            .build()
-      );
-   private final Setting<Boolean> sortEnabled = this.sgGeneral
-      .add(((Builder)((Builder)((Builder)new Builder().name("物品排序")).description("按下绑定键位对当前区域物品进行排序")).defaultValue(true)).build());
-   private final Setting<Keybind> sortKeybind = this.sgGeneral
-      .add(
-         ((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)((meteordevelopment.meteorclient.settings.KeybindSetting.Builder)new meteordevelopment.meteorclient.settings.KeybindSetting.Builder()
-                        .name("排序键位"))
-                     .description("按下后对当前区域物品进行排序（容器/背包）"))
-                  .defaultValue(Keybind.fromKey(82)))
-               .visible(this.sortEnabled::get))
-            .action(() -> {
-               if ((Boolean)this.sortEnabled.get()) {
-                  this.startSort();
-               }
-            })
-            .build()
-      );
-   private final LinkedHashSet<Integer> taskSet = new LinkedHashSet<>();
-   private final List<Integer> sortClickTaskList = new ArrayList<>();
-   private Item drapItem;
-   private boolean isDrapType;
+public class ItemClearUp
+extends BaseModule {
+    private static final Comparator<ItemStack> ITEM_ID_COMPARATOR = Comparator.comparingInt(stack -> BuiltInRegistries.ITEM.getId(stack.getItem()));
+    private static final Comparator<ItemStack> ITEM_COUNT_COMPARATOR = (a, b) -> Integer.compare(b.getCount(), a.getCount());
+    private static final Comparator<ItemStack> ITEM_ID_COUNT_COMPARATOR = ITEM_ID_COMPARATOR.thenComparing(ITEM_COUNT_COMPARATOR);
+    private final Setting<Boolean> scrollMove = sgGeneral.add(new BoolSetting.Builder()
+        .name("拖拽操作")
+        .description("按住绑定的 键位 拖拽鼠标，整组移动经过的物品")
+        .defaultValue(true)
+        .build());
+    private final Setting<Keybind> scrollMoveKey = sgGeneral.add(new KeybindSetting.Builder()
+        .name("拖拽操作-键位")
+        .description("按住绑定的 键位 拖拽鼠标，整组移动经过的物品")
+        .defaultValue(Keybind.fromKey(340))
+        .visible(() -> this.scrollMove.get())
+        .build());
+    private final Setting<Boolean> sameClickMove = sgGeneral.add(new BoolSetting.Builder()
+        .name("同类操作")
+        .description("按住绑定的 键位 点击物品移动同类型，拖拽到界面外丢弃同类型")
+        .defaultValue(true)
+        .build());
+    private final Setting<Keybind> sameClickMoveKey = sgGeneral.add(new KeybindSetting.Builder()
+        .name("同类操作-键位")
+        .description("按住绑定的 键位 点击物品移动同类型，拖拽到界面外丢弃同类型")
+        .defaultValue(Keybind.fromKey(342))
+        .build());
+    private final Setting<Boolean> sortEnabled = sgGeneral.add(new BoolSetting.Builder()
+        .name("物品排序")
+        .description("按下绑定键位对当前区域物品进行排序")
+        .defaultValue(true)
+        .build());
+    private final Setting<Keybind> sortKeybind = sgGeneral.add(new KeybindSetting.Builder()
+        .name("排序键位")
+        .description("按下后对当前区域物品进行排序（容器/背包）")
+        .defaultValue(Keybind.fromKey(82))
+        .visible(() -> this.sortEnabled.get())
+        .action(() -> {
+            if (this.sortEnabled.get()) {
+                this.startSort();
+            }
+        })
+        .build());
+    private final Setting<Boolean> sortHotbar = sgGeneral.add(new BoolSetting.Builder()
+        .name("排序快捷栏")
+        .description("排序背包时是否包含快捷栏")
+        .defaultValue(false)
+        .visible(() -> this.sortEnabled.get())
+        .build());
+    private final Setting<String> excludedSortSlots = sgGeneral.add(new StringSetting.Builder()
+        .name("排序排除格子")
+        .description("不参与排序的格子序号，排序区域内从左到右、从上到下从0开始（主物品栏0-26，启用排序快捷栏后快捷栏为27-35），用英文逗号分隔，例如: 0,1,2")
+        .defaultValue("")
+        .visible(() -> this.sortEnabled.get())
+        .build());
+    private final Setting<Boolean> scrollTransfer = sgGeneral.add(new BoolSetting.Builder()
+        .name("滚轮移动")
+        .description("启用后，在背包/容器界面中滚动鼠标滚轮可快速转移单个物品")
+        .defaultValue(true)
+        .build());
+    private final LinkedHashSet<Integer> taskSet;
+    private final List<Integer> sortClickTaskList;
+    private Item drapItem;
+    private boolean dragStartedInContainer;
+    private boolean isDrapType;
 
-   public ItemClearUp() {
-      super("物品整理", "物品快捷操作：shift 拖拽移动、alt 同类移动/丢弃、R 排序", 0);
-   }
+    public ItemClearUp() {
+        super("快捷物品操作", "快捷物品操作：shift 拖拽移动、alt 同类移动/丢弃、r 排序", 0);
+        this.taskSet = new LinkedHashSet();
+        this.sortClickTaskList = new ArrayList<Integer>();
+    }
 
-   @EventHandler
-   private void onTick(Post event) {
-      if (this.checkAndDecrement()) {
-         if (!this.sortClickTaskList.isEmpty()) {
+    @EventHandler
+    private void onTick(TickEvent.Post event) {
+        if (!this.checkAndDecrement()) {
+            return;
+        }
+        if (!this.sortClickTaskList.isEmpty()) {
             Integer slotId = this.sortClickTaskList.removeFirst();
-            InvUtils.click().slotId(slotId);
+            InvUtils.click().slotId(slotId.intValue());
             this.setDelay();
-         } else if (!this.taskSet.isEmpty()) {
-            Integer moveSlotId = this.taskSet.removeFirst();
-            ItemStack itemStack = this.getItemStackBySlotId(moveSlotId);
-            if (itemStack.isEmpty()) {
-               this.warning("想移动, 但格子空了 : " + moveSlotId, new Object[0]);
-            } else {
-               if (this.isContainer(moveSlotId)) {
-                  if (this.isInvFull()) {
-                     this.warning("背包满了", new Object[0]);
-                     this.clearQueue();
-                     return;
-                  }
-               } else if (this.isContainerFull()) {
-                  this.warning("容器满了", new Object[0]);
-                  this.clearQueue();
-                  return;
-               }
-
-               if (this.isDrapType) {
-                  InvUtils.drop().slotId(moveSlotId);
-               } else {
-                  InvUtils.shiftClick().slotId(moveSlotId);
-               }
-
-               this.setDelay();
+            return;
+        }
+        if (this.taskSet.isEmpty()) {
+            return;
+        }
+        Integer slotId = this.taskSet.removeFirst();
+        ItemStack itemStack = this.getItemStackBySlotId(slotId);
+        if (itemStack.isEmpty()) {
+            this.warning("想移动, 但格子空了 : " + slotId, new Object[0]);
+            return;
+        }
+        if (this.isContainer(slotId)) {
+            if (this.isInvFull()) {
+                this.warning("背包满了", new Object[0]);
+                this.clearQueue();
+                return;
             }
-         }
-      }
-   }
-
-   private void startSort() {
-      if (this.mc.screen instanceof AbstractContainerScreen) {
-         AbstractContainerMenu handler = this.mc.player.containerMenu;
-         boolean containerOpen = this.isContainerOpen();
-         if (!containerOpen) {
-            this.warning("暂不支持对背包排序", new Object[0]);
-         } else {
-            int size = this.getScreenMainSize();
-            List<ItemStack> tmpItemStackList = new ArrayList<>();
-
-            for (int i = 0; i < size; i++) {
-               tmpItemStackList.add(handler.getSlot(i).getItem().copy());
-            }
-
-            List<ItemStack> correctItemStackList = this.mergeAndSortItemStacks(tmpItemStackList);
+        } else if (this.isContainerFull()) {
+            this.warning("容器满了", new Object[0]);
             this.clearQueue();
+            return;
+        }
+        if (this.isDrapType) {
+            InvUtils.drop().slotId(slotId.intValue());
+        } else {
+            InvUtils.shiftClick().slotId(slotId.intValue());
+        }
+        this.setDelay();
+    }
 
-            for (int targetSlotId = 0; targetSlotId < correctItemStackList.size(); targetSlotId++) {
-               ItemStack targetSlotCorrect = correctItemStackList.get(targetSlotId);
-               ItemStack targetSlotTmp = tmpItemStackList.get(targetSlotId);
-               if (!isSameCount(targetSlotTmp, targetSlotCorrect)) {
-                  int sourceSlotId;
-                  for (sourceSlotId = size - 1; sourceSlotId >= 0; sourceSlotId--) {
-                     ItemStack sourceSlotTmp = tmpItemStackList.get(sourceSlotId);
-                     if (isSame(sourceSlotTmp, targetSlotCorrect)) {
-                        if (sourceSlotId >= correctItemStackList.size()) {
-                           break;
+    /*
+     * Enabled aggressive block sorting
+     */
+    public void startSort() {
+        if (!(this.mc.screen instanceof AbstractContainerScreen)) {
+            return;
+        }
+        AbstractContainerMenu handler = this.mc.player.containerMenu;
+        List<Integer> sortSlotList = this.getSortableSlots();
+        if (sortSlotList.isEmpty()) {
+            return;
+        }
+        int slotCount = sortSlotList.size();
+        ArrayList<ItemStack> currentStacks = new ArrayList<ItemStack>(slotCount);
+        for (Integer slotId : sortSlotList) {
+            currentStacks.add(handler.getSlot(slotId.intValue()).getItem().copy());
+        }
+        List<ItemStack> sortedStacks = this.mergeAndSortItemStacks(currentStacks);
+        this.clearQueue();
+        int index = 0;
+        while (true) {
+            block10: {
+                ItemStack mergedStack;
+                int n;
+                ItemStack overflowStack;
+                block13: {
+                    ItemStack sourceStack;
+                    ItemStack currentStack;
+                    block11: {
+                        block12: {
+                            if (index >= sortedStacks.size()) {
+                                return;
+                            }
+                            ItemStack targetStack = sortedStacks.get(index);
+                            currentStack = currentStacks.get(index);
+                            if (ItemClearUp.isSameCount(currentStack, targetStack)) break block10;
+                            for (n = slotCount - 1; n >= 0 && (!ItemClearUp.isSame(sourceStack = currentStacks.get(n), targetStack) || n < sortedStacks.size() && ItemClearUp.isSame(sourceStack, overflowStack = sortedStacks.get(n))); --n) {
+                            }
+                            if (n < 0 || n == index) break block10;
+                            this.sortClickTaskList.add(sortSlotList.get(n));
+                            this.sortClickTaskList.add(sortSlotList.get(index));
+                            sourceStack = currentStacks.get(n);
+                            currentStacks.set(n, ItemStack.EMPTY);
+                            if (!ItemClearUp.canMarge(currentStack, sourceStack)) break block11;
+                            n = currentStack.getMaxStackSize() - currentStack.getCount() - sourceStack.getCount();
+                            if (n >= 0) break block12;
+                            overflowStack = sourceStack.copyWithCount(-n);
+                            mergedStack = currentStacks.get(index);
+                            mergedStack.setCount(mergedStack.getMaxStackSize());
+                            break block13;
                         }
-
-                        ItemStack sourceSlotCorrect = correctItemStackList.get(sourceSlotId);
-                        if (!isSame(sourceSlotTmp, sourceSlotCorrect)) {
-                           break;
+                        mergedStack = currentStacks.get(index);
+                        mergedStack.grow(sourceStack.getCount());
+                        --index;
+                        break block10;
+                    }
+                    overflowStack = currentStack;
+                    currentStacks.set(index, sourceStack);
+                    --index;
+                }
+                while (!overflowStack.isEmpty()) {
+                    for (n = index + 1; n < sortedStacks.size(); ++n) {
+                        mergedStack = sortedStacks.get(n);
+                        if (mergedStack.getItem() != overflowStack.getItem()) continue;
+                        ItemStack nextStack = currentStacks.get(n);
+                        if (nextStack.getItem() != mergedStack.getItem()) {
+                            this.sortClickTaskList.add(sortSlotList.get(n));
+                            currentStacks.set(n, overflowStack);
+                            overflowStack = nextStack;
+                            break;
                         }
-                     }
-                  }
-
-                  if (sourceSlotId >= 0 && sourceSlotId != targetSlotId) {
-                     this.sortClickTaskList.add(sourceSlotId);
-                     this.sortClickTaskList.add(targetSlotId);
-                     ItemStack sourceSlotTmp = tmpItemStackList.get(sourceSlotId);
-                     tmpItemStackList.set(sourceSlotId, ItemStack.EMPTY);
-                     ItemStack nextSourceSlotTmp;
-                     if (canMarge(targetSlotTmp, sourceSlotTmp)) {
-                        int supCount = targetSlotTmp.getMaxStackSize() - targetSlotTmp.getCount() - sourceSlotTmp.getCount();
-                        if (supCount >= 0) {
-                           ItemStack itemStack = tmpItemStackList.get(targetSlotId);
-                           itemStack.grow(sourceSlotTmp.getCount());
-                           targetSlotId--;
-                           continue;
+                            if (!ItemClearUp.canMarge(nextStack, overflowStack)) continue;
+                        this.sortClickTaskList.add(sortSlotList.get(n));
+                        int diff = nextStack.getMaxStackSize() - nextStack.getCount() - overflowStack.getCount();
+                        if (diff < 0) {
+                            nextStack.setCount(nextStack.getMaxStackSize());
+                            overflowStack.setCount(-diff);
+                            break;
                         }
-
-                        nextSourceSlotTmp = sourceSlotTmp.copyWithCount(-supCount);
-                        ItemStack itemStack = tmpItemStackList.get(targetSlotId);
-                        itemStack.setCount(itemStack.getMaxStackSize());
-                     } else {
-                        nextSourceSlotTmp = targetSlotTmp;
-                        tmpItemStackList.set(targetSlotId, sourceSlotTmp);
-                        targetSlotId--;
-                     }
-
-                     while (!nextSourceSlotTmp.isEmpty()) {
-                        int nextTargetSlotId;
-                        for (nextTargetSlotId = targetSlotId + 1; nextTargetSlotId < correctItemStackList.size(); nextTargetSlotId++) {
-                           ItemStack nextTargetSlotCorrect = correctItemStackList.get(nextTargetSlotId);
-                           if (nextTargetSlotCorrect.getItem() == nextSourceSlotTmp.getItem()) {
-                              ItemStack nextTargetSlotTmp = tmpItemStackList.get(nextTargetSlotId);
-                              if (nextTargetSlotTmp.getItem() != nextTargetSlotCorrect.getItem()) {
-                                 this.sortClickTaskList.add(nextTargetSlotId);
-                                 tmpItemStackList.set(nextTargetSlotId, nextSourceSlotTmp);
-                                 nextSourceSlotTmp = nextTargetSlotTmp;
-                                 break;
-                              }
-
-                              if (canMarge(nextTargetSlotTmp, nextSourceSlotTmp)) {
-                                 this.sortClickTaskList.add(nextTargetSlotId);
-                                 int supCount = nextTargetSlotTmp.getMaxStackSize() - nextTargetSlotTmp.getCount() - nextSourceSlotTmp.getCount();
-                                 if (supCount < 0) {
-                                    nextTargetSlotTmp.setCount(nextTargetSlotTmp.getMaxStackSize());
-                                    nextSourceSlotTmp.setCount(-supCount);
-                                 } else {
-                                    nextTargetSlotTmp.grow(nextSourceSlotTmp.getCount());
-                                    nextSourceSlotTmp = ItemStack.EMPTY;
-                                    targetSlotId--;
-                                 }
-                                 break;
-                              }
-                           }
-                        }
-
-                        if (nextTargetSlotId >= correctItemStackList.size()) {
-                           this.warning("错误的状态2", new Object[0]);
-                           break;
-                        }
-                     }
-                  }
-               }
+                        nextStack.grow(overflowStack.getCount());
+                        overflowStack = ItemStack.EMPTY;
+                        --index;
+                        break;
+                    }
+                    if (n < sortedStacks.size()) continue;
+                    this.warning("错误的状态2", new Object[0]);
+                    break;
+                }
             }
-         }
-      }
-   }
+            ++index;
+        }
+    }
 
-   private List<ItemStack> mergeAndSortItemStacks(List<ItemStack> items) {
-      Map<ItemBo, ItemStack> itemStackCountMap = new HashMap<>();
+    private List<Integer> getSortableSlots() {
+        int endSlot;
+        int mainEndSlot;
+        int startSlot;
+        boolean includeHotbar;
+        if (this.isContainerOpen()) {
+            includeHotbar = false;
+            startSlot = 0;
+            endSlot = mainEndSlot = this.getScreenMainSize();
+        } else {
+            includeHotbar = true;
+            startSlot = 9;
+            mainEndSlot = 36;
+            endSlot = 45;
+        }
+        Set<Integer> excludedSlots = this.getExcludedSlots();
+        ArrayList<Integer> sortableSlots = new ArrayList<Integer>();
+        int sortIndex = 0;
+        int slotId = startSlot;
+        while (slotId < mainEndSlot) {
+            if (!excludedSlots.contains(sortIndex)) {
+                sortableSlots.add(slotId);
+            }
+            ++slotId;
+            ++sortIndex;
+        }
+        if (includeHotbar && this.sortHotbar.get()) {
+            slotId = mainEndSlot;
+            while (slotId < endSlot) {
+                if (!excludedSlots.contains(sortIndex)) {
+                    sortableSlots.add(slotId);
+                }
+                ++slotId;
+                ++sortIndex;
+            }
+        }
+        return sortableSlots;
+    }
 
-      for (ItemStack itemStack : items) {
-         if (!itemStack.isEmpty()) {
-            ItemBo key = new ItemBo(itemStack, true);
-            ItemStack sumItemStack = itemStackCountMap.get(key);
-            if (sumItemStack == null) {
-               itemStackCountMap.put(key, itemStack.copy());
+    private Set<Integer> getExcludedSlots() {
+        HashSet<Integer> excludedSlots = new HashSet<Integer>();
+        String config = this.excludedSortSlots.get();
+        if (config == null || config.isBlank()) {
+            return excludedSlots;
+        }
+        for (String token : config.split(",")) {
+            if ((token = token.trim()).isEmpty()) continue;
+            try {
+                int slotIndex = Integer.parseInt(token);
+                if (slotIndex < 0) continue;
+                excludedSlots.add(slotIndex);
+            }
+            catch (NumberFormatException e) {
+                // empty catch block
+            }
+        }
+        return excludedSlots;
+    }
+
+    private List<ItemStack> mergeAndSortItemStacks(List<ItemStack> items) {
+        int count;
+        ItemStack sumStack;
+        HashMap<ItemBo, ItemStack> itemSumMap = new HashMap<ItemBo, ItemStack>();
+        for (ItemStack stack : items) {
+            if (stack.isEmpty()) continue;
+            ItemBo itemBo = new ItemBo(stack, true);
+            sumStack = itemSumMap.get(itemBo);
+            if (sumStack == null) {
+                itemSumMap.put(itemBo, stack.copy());
+                continue;
+            }
+            count = sumStack.getCount() + stack.getCount();
+            sumStack.setCount(count);
+        }
+        ArrayList resultList = new ArrayList();
+        for (Map.Entry entry : itemSumMap.entrySet()) {
+            ItemStack copy;
+            int maxCount;
+            sumStack = (ItemStack)entry.getValue();
+            maxCount = sumStack.getMaxStackSize();
+            for (count = sumStack.getCount(); count >= maxCount; count -= maxCount) {
+                copy = sumStack.copyWithCount(maxCount);
+                resultList.add(copy);
+            }
+            if (count <= 0) continue;
+            copy = sumStack.copyWithCount(count);
+            resultList.add(copy);
+        }
+        resultList.sort(ITEM_ID_COUNT_COMPARATOR);
+        return resultList;
+    }
+
+    @EventHandler
+    private void onMouseClick(MouseClickEvent event) {
+        if (!(this.mc.screen instanceof AbstractContainerScreen)) {
+            return;
+        }
+        if (event.button != 0) {
+            return;
+        }
+        Slot sourceSlot = this.getSlotAt(event.mouseX, event.mouseY, event.screenX, event.screenY);
+        if (sourceSlot == null || !sourceSlot.hasItem()) {
+            return;
+        }
+        boolean heldAlt = this.isHeldAlt();
+        boolean heldShift = this.isHeldShift();
+        if (!heldAlt && !heldShift) {
+            this.drapItem = sourceSlot.getItem().getItem();
+            this.dragStartedInContainer = this.isContainer(sourceSlot.index);
+            return;
+        }
+        if (heldAlt) {
+            boolean isContainerSlot = this.isContainer(sourceSlot.index);
+            this.addTaskSameItem(isContainerSlot, sourceSlot.getItem());
+            event.cancel();
+        } else if (heldShift) {
+            // empty if block
+        }
+    }
+
+    private void addTaskSameItem(boolean startFromContainer, ItemStack sourceStack) {
+        int startSlot;
+        int endSlot;
+        NonNullList slots = this.mc.player.containerMenu.slots;
+        if (startFromContainer) {
+            startSlot = 0;
+            endSlot = this.getScreenMainSize();
+        } else {
+            startSlot = this.getScreenMainSize();
+            endSlot = startSlot + this.getPlayerMainSize();
+        }
+        Item sourceItem = sourceStack.getItem();
+        if (HeItemUtils.isShulkerBox(sourceItem)) {
+            ShulkerBoxReader shulkerReader = new ShulkerBoxReader(sourceStack);
+            Set<Item> itemSet = shulkerReader.getItemSet();
+            for (int i = startSlot; i < endSlot; ++i) {
+                ShulkerBoxReader otherReader;
+                Set<Item> otherItemSet;
+                Slot slot = (Slot)slots.get(i);
+                ItemStack itemStack = slot.getItem();
+                if (!HeItemUtils.isShulkerBox(itemStack.getItem()) || !itemSet.equals(otherItemSet = (otherReader = new ShulkerBoxReader(itemStack)).getItemSet())) continue;
+                this.addTask(slot);
+            }
+            return;
+        }
+        for (int i = startSlot; i < endSlot; ++i) {
+            Slot slot = (Slot)slots.get(i);
+            ItemStack itemStack = slot.getItem();
+            if (itemStack.getItem() != sourceItem) continue;
+            this.addTask(slot);
+        }
+    }
+
+    @EventHandler
+    private void onMouseDrag(MouseDragEvent event) {
+        if (!this.scrollMove.get() || !(this.mc.screen instanceof AbstractContainerScreen)) {
+            return;
+        }
+        if (!this.isHeldShift()) {
+            return;
+        }
+        Slot slot = this.getSlotAt(event.mouseX, event.mouseY, event.screenX, event.screenY);
+        if (slot == null || !slot.hasItem()) {
+            return;
+        }
+        this.addTask(slot);
+        event.cancel();
+    }
+
+    @EventHandler
+    private void onMouseRelease(MouseReleaseEvent event) {
+        Slot currentSlot;
+        if (event.button != 0) {
+            return;
+        }
+        if (this.isHeldAlt() && (currentSlot = this.getSlotAt(event.mouseX, event.mouseY, event.screenX, event.screenY)) == null && this.drapItem != null) {
+            Item item = this.drapItem;
+            boolean startedInContainer = this.dragStartedInContainer;
+            this.clearQueue();
+            this.isDrapType = true;
+            ItemStack tempStack = item.getDefaultInstance();
+            if (!this.isContainerOpen()) {
+                this.addTaskSameItem(false, tempStack);
             } else {
-               int newCount = sumItemStack.getCount() + itemStack.getCount();
-               sumItemStack.setCount(newCount);
+                this.addTaskSameItem(startedInContainer, tempStack);
             }
-         }
-      }
+            return;
+        }
+        this.isDrapType = false;
+    }
 
-      List<ItemStack> result = new ArrayList<>();
-
-      for (Entry<ItemBo, ItemStack> entry : itemStackCountMap.entrySet()) {
-         ItemStack sumItemStack = entry.getValue();
-         int maxStackCount = sumItemStack.getMaxStackSize();
-
-         int supCount;
-         for (supCount = sumItemStack.getCount(); supCount >= maxStackCount; supCount -= maxStackCount) {
-            ItemStack copy = sumItemStack.copyWithCount(maxStackCount);
-            result.add(copy);
-         }
-
-         if (supCount > 0) {
-            ItemStack copy = sumItemStack.copyWithCount(supCount);
-            result.add(copy);
-         }
-      }
-
-      result.sort(ITEM_ID_COUNT_COMPARATOR);
-      return result;
-   }
-
-   @EventHandler
-   private void onMouseClick(MouseClickEvent event) {
-      if (this.mc.screen instanceof AbstractContainerScreen) {
-         if (event.button == 0) {
-            Slot sourceSlot = this.getSlotAt(event.mouseX, event.mouseY, event.screenX, event.screenY);
-            if (sourceSlot != null && sourceSlot.hasItem()) {
-               boolean heldAlt = this.isHeldAlt();
-               boolean heldShift = this.isHeldShift();
-               if (!heldAlt && !heldShift) {
-                  this.drapItem = sourceSlot.getItem().getItem();
-               } else {
-                  if (heldAlt) {
-                     boolean container = this.isContainer(sourceSlot.index);
-                     this.addTaskSameItem(container, sourceSlot.getItem());
-                     event.cancel();
-                  } else if (heldShift) {
-                  }
-               }
+    @EventHandler
+    private void onMouseScroll(MouseScrollEvent event) {
+        if (!this.scrollTransfer.get()) {
+            return;
+        }
+        if (!(this.mc.screen instanceof AbstractContainerScreen)) {
+            return;
+        }
+        Slot slot = this.getSlotAt(event.getMouseX(), event.getMouseY(), event.getScreenX(), event.getScreenY());
+        if (slot == null || !slot.hasItem()) {
+            return;
+        }
+        double scrollAmount = event.getVerticalAmount();
+        if (scrollAmount == 0.0) {
+            return;
+        }
+        boolean scrollUp = scrollAmount > 0.0;
+        boolean isInventorySlot = this.isInventoryArea(slot.index);
+        boolean isHotbarSlot = this.isHotbarArea(slot.index);
+        ItemStack stack = slot.getItem();
+        int fromSlot = -1;
+        int toSlot = -1;
+        if (scrollUp) {
+            if (isInventorySlot) {
+                fromSlot = this.findSourceSlot(stack, false);
+                if (this.isSameSlot(slot, stack)) {
+                    toSlot = slot.index;
+                }
+            } else if (isHotbarSlot) {
+                fromSlot = slot.index;
+                toSlot = this.findTargetSlot(stack, true);
             }
-         }
-      }
-   }
-
-   private void addTaskSameItem(boolean isContainer, ItemStack sourceStack) {
-      NonNullList<Slot> slots = this.mc.player.containerMenu.slots;
-      int start;
-      int end;
-      if (isContainer) {
-         start = 0;
-         end = this.getScreenMainSize();
-      } else {
-         start = this.getScreenMainSize();
-         end = start + this.getPlayerMainSize();
-      }
-
-      Item sourceItem = sourceStack.getItem();
-      if (HeItemUtils.isShulkerBox(sourceItem)) {
-         ShulkerBoxReader reader = new ShulkerBoxReader(sourceStack);
-         Set<Item> sourceItemSet = reader.getItemSet();
-
-         for (int i = start; i < end; i++) {
-            Slot slot = (Slot)slots.get(i);
-            ItemStack itemStack = slot.getItem();
-            if (HeItemUtils.isShulkerBox(itemStack.getItem())) {
-               ShulkerBoxReader targetReader = new ShulkerBoxReader(itemStack);
-               Set<Item> targetItemSet = targetReader.getItemSet();
-               if (sourceItemSet.equals(targetItemSet)) {
-                  this.addTask(slot);
-               }
+        } else if (isInventorySlot) {
+            fromSlot = slot.index;
+            toSlot = this.findTargetSlot(stack, false);
+        } else if (isHotbarSlot) {
+            fromSlot = this.findSourceSlot(stack, true);
+            if (this.isSameSlot(slot, stack)) {
+                toSlot = slot.index;
             }
-         }
-      } else {
-         for (int i = start; i < end; i++) {
-            Slot slot = (Slot)slots.get(i);
-            ItemStack itemStack = slot.getItem();
-            if (itemStack.getItem() == sourceItem) {
-               this.addTask(slot);
-            }
-         }
-      }
-   }
+        }
+        if (fromSlot != -1 && toSlot != -1) {
+            HeInvUtils.moveOneFromSlot(fromSlot, toSlot);
+            event.cancel();
+        }
+    }
 
-   @EventHandler
-   private void onMouseDrag(MouseDragEvent event) {
-      if ((Boolean)this.scrollMove.get() && this.mc.screen instanceof AbstractContainerScreen) {
-         if (this.isHeldShift()) {
-            Slot slot = this.getSlotAt(event.mouseX, event.mouseY, event.screenX, event.screenY);
-            if (slot != null && slot.hasItem()) {
-               this.addTask(slot);
-               event.cancel();
-            }
-         }
-      }
-   }
+    @EventHandler
+    private void onScreenClose(ScreenCloseEvent event) {
+        this.clearQueue();
+    }
 
-   @EventHandler
-   private void onMouseRelease(MouseReleaseEvent event) {
-      if (event.button == 0) {
-         if (this.isHeldAlt()) {
-            Slot currentSlot = this.getSlotAt(event.mouseX, event.mouseY, event.screenX, event.screenY);
-            if (currentSlot == null && this.drapItem != null && !this.isContainerOpen()) {
-               Item item = this.drapItem;
-               this.clearQueue();
-               this.isDrapType = true;
-               ItemStack tempStack = item.getDefaultInstance();
-               this.addTaskSameItem(false, tempStack);
-               return;
-            }
-         }
+    private boolean isContainerOpen() {
+        if (this.mc.screen instanceof AbstractContainerScreen) {
+            return !(this.mc.player.containerMenu instanceof InventoryMenu);
+        }
+        return false;
+    }
 
-         this.isDrapType = false;
-      }
-   }
-
-   @EventHandler
-   private void onScreenClose(ScreenCloseEvent event) {
-      this.clearQueue();
-   }
-
-   private boolean isContainerOpen() {
-      return this.mc.screen instanceof AbstractContainerScreen ? !(this.mc.player.containerMenu instanceof InventoryMenu) : false;
-   }
-
-   private Slot getSlotAt(double mouseX, double mouseY, int screenX, int screenY) {
-      AbstractContainerMenu handler = this.mc.player.containerMenu;
-
-      for (Slot slot : handler.slots) {
-         int slotX = slot.x + screenX;
-         int slotY = slot.y + screenY;
-         boolean isMouseOverSlot = mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18;
-         if (isMouseOverSlot) {
+    private Slot getSlotAt(double mouseX, double mouseY, int screenX, int screenY) {
+        AbstractContainerMenu handler = this.mc.player.containerMenu;
+        for (Slot slot : handler.slots) {
+            int slotLeft = slot.x + screenX;
+            int slotTop = slot.y + screenY;
+            boolean inside = mouseX >= slotLeft && mouseX < slotLeft + 18 && mouseY >= slotTop && mouseY < slotTop + 18;
+            if (!inside) continue;
             return slot;
-         }
-      }
+        }
+        return null;
+    }
 
-      return null;
-   }
+    private void addTask(Slot slot) {
+        this.taskSet.add(slot.index);
+    }
 
-   private void addTask(Slot slot) {
-      this.taskSet.add(slot.index);
-   }
+    private void clearQueue() {
+        this.isDrapType = false;
+        this.drapItem = null;
+        this.dragStartedInContainer = false;
+        this.taskSet.clear();
+        this.sortClickTaskList.clear();
+    }
 
-   private void clearQueue() {
-      this.isDrapType = false;
-      this.drapItem = null;
-      this.taskSet.clear();
-      this.sortClickTaskList.clear();
-   }
+    private boolean isSameSlot(Slot slot, ItemStack stack) {
+        if (!slot.hasItem()) {
+            return true;
+        }
+        return ItemClearUp.canMarge(slot.getItem(), stack);
+    }
 
-   private boolean isHeldShift() {
-      long handle = this.mc.getWindow().handle();
-      return (Boolean)this.scrollMove.get() && GLFW.glfwGetKey(handle, ((Keybind)this.scrollMoveKey.get()).getValue()) == 1;
-   }
+    private boolean isInventoryArea(int slotId) {
+        if (this.mc.player.containerMenu instanceof InventoryMenu) {
+            return slotId >= 9 && slotId < 36;
+        }
+        return this.isContainer(slotId);
+    }
 
-   private boolean isHeldAlt() {
-      long handle = this.mc.getWindow().handle();
-      return (Boolean)this.sameClickMove.get() && GLFW.glfwGetKey(handle, ((Keybind)this.sameClickMoveKey.get()).getValue()) == 1;
-   }
+    private boolean isHotbarArea(int slotId) {
+        if (this.mc.player.containerMenu instanceof InventoryMenu) {
+            return slotId >= 36 && slotId < 45;
+        }
+        return !this.isContainer(slotId);
+    }
 
-   public static boolean isSame(ItemStack left, ItemStack right) {
-      return left.getItem() != right.getItem() ? false : isSameName(left, right);
-   }
+    private int findTargetSlot(ItemStack stack, boolean inventoryArea) {
+        AbstractContainerMenu handler = this.mc.player.containerMenu;
+        for (Slot slot : handler.slots) {
+            if (inventoryArea && !this.isInventoryArea(slot.index) || !inventoryArea && !this.isHotbarArea(slot.index) || !slot.hasItem() || !ItemClearUp.canMarge(slot.getItem(), stack)) continue;
+            return slot.index;
+        }
+        for (Slot slot : handler.slots) {
+            if (inventoryArea && !this.isInventoryArea(slot.index) || !inventoryArea && !this.isHotbarArea(slot.index) || slot.hasItem()) continue;
+            return slot.index;
+        }
+        return -1;
+    }
 
-   public static boolean isSameCount(ItemStack left, ItemStack right) {
-      if (left.getItem() != right.getItem()) {
-         return false;
-      } else {
-         return left.getCount() != right.getCount() ? false : isSameName(left, right);
-      }
-   }
+    private int findSourceSlot(ItemStack stack, boolean inventoryArea) {
+        AbstractContainerMenu handler = this.mc.player.containerMenu;
+        for (Slot slot : handler.slots) {
+            if (inventoryArea && !this.isInventoryArea(slot.index) || !inventoryArea && !this.isHotbarArea(slot.index) || !slot.hasItem() || !ItemClearUp.isSame(slot.getItem(), stack)) continue;
+            return slot.index;
+        }
+        return -1;
+    }
 
-   public static boolean canMarge(ItemStack left, ItemStack right) {
-      if (left.getItem() != right.getItem()) {
-         return false;
-      } else {
-         return left.getCount() >= left.getMaxStackSize() ? false : isSameName(left, right);
-      }
-   }
+    private boolean isHeldShift() {
+        long handle = this.mc.getWindow().handle();
+        return this.scrollMove.get() != false && GLFW.glfwGetKey(handle, this.scrollMoveKey.get().getValue()) == 1;
+    }
 
-   private static boolean isSameName(ItemStack left, ItemStack right) {
-      Component leftName = left.getCustomName();
-      Component rightName = right.getCustomName();
-      if (leftName == null && rightName == null) {
-         return true;
-      } else {
-         return leftName != null && rightName != null ? leftName.getString().equals(rightName.getString()) : false;
-      }
-   }
+    private boolean isHeldAlt() {
+        long handle = this.mc.getWindow().handle();
+        return this.sameClickMove.get() != false && GLFW.glfwGetKey(handle, this.sameClickMoveKey.get().getValue()) == 1;
+    }
 
-   public void onDeactivate() {
-      this.clearQueue();
-   }
+    public static boolean isSame(ItemStack left, ItemStack right) {
+        if (left.getItem() != right.getItem()) {
+            return false;
+        }
+        return ItemClearUp.isSameName(left, right);
+    }
+
+    public static boolean isSameCount(ItemStack left, ItemStack right) {
+        if (left.getItem() != right.getItem()) {
+            return false;
+        }
+        if (left.getCount() != right.getCount()) {
+            return false;
+        }
+        return ItemClearUp.isSameName(left, right);
+    }
+
+    public static boolean canMarge(ItemStack left, ItemStack right) {
+        if (left.getItem() != right.getItem()) {
+            return false;
+        }
+        if (left.getCount() >= left.getMaxStackSize()) {
+            return false;
+        }
+        return ItemClearUp.isSameName(left, right);
+    }
+
+    private static boolean isSameName(ItemStack left, ItemStack right) {
+        Component leftName = left.getCustomName();
+        Component rightName = right.getCustomName();
+        if (leftName == null && rightName == null) {
+            return true;
+        }
+        if (leftName == null || rightName == null) {
+            return false;
+        }
+        return leftName.getString().equals(rightName.getString());
+    }
+
+    public boolean isSortingInProgress() {
+        return !this.sortClickTaskList.isEmpty();
+    }
+
+    public void onDeactivate() {
+        this.clearQueue();
+    }
 }
