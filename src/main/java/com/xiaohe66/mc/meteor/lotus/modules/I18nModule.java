@@ -62,7 +62,7 @@ public class I18nModule extends Module {
         .build());
 
     public I18nModule() {
-        super(Const.CATEGORY, "国际化", "Lotus国际化, 支持国际化其他插件。(更新语言后需要重新打开GUI)");
+        super(Const.CATEGORY, "L国际化", "Lotus国际化, 支持国际化其他插件。(更新语言后需要重新打开GUI)");
     }
 
     @PostInit

@@ -350,6 +350,46 @@ public class HeBlockUtils {
         }
     }
 
+    public static boolean isTorch(Block block) {
+        return block == Blocks.TORCH || block == Blocks.WALL_TORCH || block == Blocks.REDSTONE_TORCH || block == Blocks.REDSTONE_WALL_TORCH || block == Blocks.SOUL_TORCH || block == Blocks.SOUL_WALL_TORCH;
+    }
+
+    public static boolean isWallTorch(Block block) {
+        return block == Blocks.WALL_TORCH || block == Blocks.REDSTONE_WALL_TORCH || block == Blocks.SOUL_WALL_TORCH;
+    }
+
+    public static void placeTorch(BlockPos pos, BlockState state) {
+        if (HeBlockUtils.isWallTorch(state.getBlock())) {
+            Direction facing = (Direction)state.getValue((Property)BlockStateProperties.HORIZONTAL_FACING);
+            BlockPos wallPos = pos.relative(facing.getOpposite());
+            BlockState wallState = MeteorClient.mc.level.getBlockState(wallPos);
+            if (wallState.isAir() || !wallState.getFluidState().isEmpty()) {
+                return;
+            }
+            if (HeBlockUtils.hasLineOfSight(HeBlockUtils.getClickPoint(wallPos, facing), facing)) {
+                HeBlockUtils.clickBlock(wallPos, facing);
+            }
+        } else {
+            BlockPos downPos = pos.below();
+            BlockState downState = MeteorClient.mc.level.getBlockState(downPos);
+            boolean supported = !downState.isAir() && Block.isFaceFull(downState.getCollisionShape(MeteorClient.mc.level, downPos), Direction.UP);
+            if (supported && HeBlockUtils.hasLineOfSight(HeBlockUtils.getClickPoint(downPos, Direction.UP), Direction.UP)) {
+                HeBlockUtils.clickBlock(downPos, Direction.UP);
+            }
+        }
+    }
+
+    public static void placeHopper(BlockPos pos, BlockState state) {
+        Direction facing = (Direction)state.getValue((Property)BlockStateProperties.FACING_HOPPER);
+        BlockPos targetPos = pos.relative(facing);
+        BlockState targetState = MeteorClient.mc.level.getBlockState(targetPos);
+        if (!targetState.isAir() && targetState.getFluidState().isEmpty()) {
+            if (HeBlockUtils.hasLineOfSight(HeBlockUtils.getClickPoint(targetPos, facing.getOpposite()), facing.getOpposite())) {
+                HeBlockUtils.clickBlock(targetPos, facing.getOpposite());
+            }
+        }
+    }
+
     public static Direction getSlabPlaceDirection(BlockPos pos, boolean isTopHalf) {
         BlockState state;
         Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), pos.getCenter());

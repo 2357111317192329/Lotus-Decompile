@@ -40,5 +40,26 @@ public class HeItemUtils {
         MapItemSavedData mapState = MapItem.getSavedData((ItemStack)itemStack, (Level)MeteorClient.mc.level);
         return mapState.locked == locked;
     }
+
+    public static boolean isBundle(Item item) {
+        return item == Items.BUNDLE || item == Items.WHITE_BUNDLE || item == Items.ORANGE_BUNDLE || item == Items.MAGENTA_BUNDLE || item == Items.LIGHT_BLUE_BUNDLE || item == Items.YELLOW_BUNDLE || item == Items.LIME_BUNDLE || item == Items.PINK_BUNDLE || item == Items.GRAY_BUNDLE || item == Items.LIGHT_GRAY_BUNDLE || item == Items.CYAN_BUNDLE || item == Items.PURPLE_BUNDLE || item == Items.BLUE_BUNDLE || item == Items.BROWN_BUNDLE || item == Items.GREEN_BUNDLE || item == Items.RED_BUNDLE || item == Items.BLACK_BUNDLE;
+    }
+
+    public static boolean allAir(Item... items) {
+        for (Item item : items) {
+            if (item != Items.AIR) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean isNetheriteArmor(Item item) {
+        return item == Items.NETHERITE_HELMET || item == Items.NETHERITE_CHESTPLATE || item == Items.NETHERITE_LEGGINGS || item == Items.NETHERITE_BOOTS;
+    }
+
+    public static boolean isDiamondArmor(Item item) {
+        return item == Items.DIAMOND_HELMET || item == Items.DIAMOND_CHESTPLATE || item == Items.DIAMOND_LEGGINGS || item == Items.DIAMOND_BOOTS;
+    }
 }
 

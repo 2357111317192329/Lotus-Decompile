@@ -13,28 +13,28 @@ import org.slf4j.LoggerFactory;
 
 public class ModsCheck {
     private static final Logger log = LoggerFactory.getLogger(ModsCheck.class);
-    private static Boolean worldSchematic;
+    private static Boolean litematica;
     private static Boolean baritone;
-    private static Boolean xaeros;
+    private static Boolean caffeine;
 
-    public static boolean hasWorldSchematic() {
-        if (worldSchematic == null) {
+    public static boolean hasLitematica() {
+        if (litematica == null) {
             try {
-                Class.forName("fi.dy.masa.litematica.world.WorldSchematic");
-                worldSchematic = true;
+                Class.forName("fi.dy.masa.litematica.world.SchematicWorldHandler");
+                litematica = true;
             }
             catch (ClassNotFoundException e) {
                 log.warn("缺少<投影>");
-                worldSchematic = false;
+                litematica = false;
             }
         }
-        return worldSchematic;
+        return litematica;
     }
 
     public static boolean hasBaritone() {
         if (baritone == null) {
             try {
-                Class.forName("baritone.api.pathing.goals.Goal");
+                Class.forName("baritone.api.BaritoneAPI");
                 baritone = true;
             }
             catch (ClassNotFoundException e) {
@@ -45,17 +45,17 @@ public class ModsCheck {
         return baritone;
     }
 
-    public static boolean hasXaeros() {
-        if (xaeros == null) {
+    public static boolean hasCaffeine() {
+        if (caffeine == null) {
             try {
                 Class.forName("com.github.benmanes.caffeine.cache.Caffeine");
-                xaeros = true;
+                caffeine = true;
             }
             catch (ClassNotFoundException e) {
                 log.warn("缺少<地图三件套>");
-                xaeros = false;
+                caffeine = false;
             }
         }
-        return xaeros;
+        return caffeine;
     }
 }

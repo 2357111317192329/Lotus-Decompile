@@ -64,6 +64,14 @@ implements Iterable<ItemStack> {
         return false;
     }
 
+    public boolean hasItemNamed(ItemBo itemBo) {
+        for (ItemStack itemStack : this.readItemStackArr()) {
+            if (!new ItemBo(itemStack, true).equals(itemBo)) continue;
+            return true;
+        }
+        return false;
+    }
+
     public boolean hasItemAll(Set<ItemBo> itemBos) {
         if (this.itemBoSet == null) {
             List<ItemStack> condensed = this.getCondensed();
@@ -151,7 +159,7 @@ implements Iterable<ItemStack> {
         return this.condensedList;
     }
 
-    private Map<ItemBo, Integer> readItemQtyMap() {
+    public Map<ItemBo, Integer> readItemQtyMap() {
         ItemStack[] itemStackArr = this.readItemStackArr();
         LinkedHashMap<ItemBo, Integer> map = new LinkedHashMap<ItemBo, Integer>();
         for (ItemStack itemStack : itemStackArr) {
@@ -257,12 +265,14 @@ implements Iterable<ItemStack> {
 
     public boolean matchesQtyTemplate(List<ItemQty> itemQtys) {
         ItemStack[] boxItems = this.readItemStackArr();
-        int size = Math.min(itemQtys.size(), boxItems.length);
-        for (int i = 0; i < size; ++i) {
-            ItemQty itemQty = itemQtys.get(i);
-            ItemBo boxItemBo = new ItemBo(boxItems[i]);
-            if (Objects.equals(itemQty.getItem(), boxItemBo)) continue;
+        if (boxItems.length != itemQtys.size()) {
             return false;
+        }
+        for (int i = 0; i < boxItems.length; ++i) {
+            ItemQty template = itemQtys.get(i);
+            if (!Objects.equals(new ItemQty(boxItems[i]), template)) {
+                return false;
+            }
         }
         return true;
     }

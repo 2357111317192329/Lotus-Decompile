@@ -121,7 +121,7 @@ extends BaseModule {
     private ArmorTrim smithingTrim;
 
     public AutoCrafting() {
-        super("自动合成", "必须在工作台或锻造台使用。工作台可自动识别配方或手动选择合成物品；锻造台可识别已放置的配方并循环合成。", 3);
+        super("S自动合成", "必须在工作台或锻造台使用。工作台可自动识别配方或手动选择合成物品；锻造台可识别已放置的配方并循环合成。", 3);
     }
 
     @EventHandler

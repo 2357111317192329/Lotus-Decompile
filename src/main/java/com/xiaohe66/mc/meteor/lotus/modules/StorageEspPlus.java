@@ -90,7 +90,7 @@ public class StorageEspPlus extends Module {
         .build());
 
     public StorageEspPlus() {
-        super(Const.CATEGORY, "存储查找增强", "给[存储透视]和[存储查找器]增加排除遗迹的选项");
+        super(Const.CATEGORY, "V存储查找增强", "给[存储透视]和[存储查找器]增加排除遗迹的选项");
     }
 
     @EventHandler

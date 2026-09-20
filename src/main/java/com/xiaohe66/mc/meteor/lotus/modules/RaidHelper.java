@@ -59,7 +59,7 @@ public class RaidHelper extends BaseModule {
     private long drinkStartTime;
 
     public RaidHelper() {
-        super("袭击助手", "挂机袭击塔使用。定时从背包里拿药、自动喝药后开启杀戮光环", 560, 800);
+        super("A袭击助手", "挂机袭击塔使用。定时从背包里拿药、自动喝药后开启杀戮光环", 560, 800);
     }
 
     public void onActivate() {

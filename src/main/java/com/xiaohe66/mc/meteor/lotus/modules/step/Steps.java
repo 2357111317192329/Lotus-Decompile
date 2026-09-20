@@ -21,13 +21,16 @@ public class Steps {
     public static final Step PLACE = new Step("PLACE");
     public static final Step TAKE_KIT = new Step("TAKE_KIT");
     public static final Step PUT_KIT = new Step("PUT_KIT");
+    public static final Step PUT_MISC_KIT = new Step("PUT_MISC_KIT");
     public static final Step PLACE_KIT = new Step("PLACE_KIT");
     public static final Step BREAK_KIT = new Step("BREAK_KIT");
     public static final Step CHECK_KIT = new Step("CHECK_KIT");
     public static final Step GOTO_TAKE_ITEM = new Step("GOTO_TAKE_ITEM");
     public static final Step TAKE_ITEM = new Step("TAKE_ITEM");
+    public static final Step TAKE_ITEM2 = new Step("TAKE_ITEM2");
     public static final Step GOTO_PUT_ITEM = new Step("GOTO_PUT_ITEM");
     public static final Step PUT_ITEM = new Step("PUT_ITEM");
+    public static final Step PUT_ITEM2 = new Step("PUT_ITEM2");
     public static final Step TAKE_LOOSE_ITEM = new Step("TAKE_LOOSE_ITEM");
     public static final Step PICK_UP_ITEM = new Step("PICK_UP_ITEM");
     public static final Step TAKE_EMPTY_KIT = new Step("TAKE_EMPTY_KIT");

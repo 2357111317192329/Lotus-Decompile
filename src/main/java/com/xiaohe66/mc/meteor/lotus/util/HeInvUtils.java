@@ -35,9 +35,11 @@ import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import meteordevelopment.meteorclient.MeteorClient;
@@ -50,6 +52,7 @@ import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.Container;
@@ -68,6 +71,7 @@ import net.minecraft.world.item.enchantment.Enchantment;
 public class HeInvUtils {
     public static final Minecraft mc = Minecraft.getInstance();
     public static final int MAX_SLOT = 36;
+    private static boolean sprintingStopped = false;
 
     public static void closeCurScreen() {
         if (!(HeInvUtils.mc.player.containerMenu instanceof InventoryMenu)) {
@@ -119,7 +123,7 @@ public class HeInvUtils {
         for (ItemStack kitItemStack : kitItemStackList) {
             DataComponentMap components = kitItemStack.getComponents();
             ItemContainerContents container = components.get(DataComponents.CONTAINER);
-            NonNullList<ItemStack> stacks = NonNullList.create();
+            List<ItemStack> stacks = container.allItemsCopyStream().toList();
             String key = stacks.toString();
             if (map.containsKey(key)) {
                 ItemStack itemStack = (ItemStack)map.get(key);
@@ -131,6 +135,72 @@ public class HeInvUtils {
         ArrayList<ItemStack> itemStacks = new ArrayList<ItemStack>(map.values());
         itemStacks.sort((o1, o2) -> Integer.compare(o2.getCount(), o1.getCount()));
         return itemStacks;
+    }
+
+    public static Map<ItemBo, Integer> countItems(Set<Integer> excludeSlots, Set<ItemBo> filter) {
+        Inventory playerInventory = HeInvUtils.mc.player.getInventory();
+        HashMap<ItemBo, Integer> map = new HashMap<>();
+        for (int i = 0; i < 36; ++i) {
+            if (excludeSlots != null && excludeSlots.contains(i)) {
+                continue;
+            }
+            ItemStack stack = playerInventory.getItem(i);
+            ItemBo itemBo = new ItemBo(stack);
+            if (filter == null || filter.contains(itemBo)) {
+                map.merge(itemBo, stack.getCount(), Integer::sum);
+            }
+        }
+        return map;
+    }
+
+    public static void stopSprinting() {
+        if (!sprintingStopped && HeInvUtils.mc.player.isSprinting()) {
+            HeInvUtils.mc.player.connection.send(new ServerboundPlayerCommandPacket(HeInvUtils.mc.player, ServerboundPlayerCommandPacket.Action.STOP_SPRINTING));
+            sprintingStopped = true;
+        }
+    }
+
+    public static void startSprinting() {
+        if (sprintingStopped) {
+            HeInvUtils.mc.player.connection.send(new ServerboundPlayerCommandPacket(HeInvUtils.mc.player, ServerboundPlayerCommandPacket.Action.START_SPRINTING));
+            sprintingStopped = false;
+        }
+    }
+
+    public static void swapTo(int slot) {
+        if (!isSelectedSlot(slot)) {
+            swapToSelectedSlot(slot);
+        }
+    }
+
+    public static void swapTo(Item item) {
+        int slot = HeInvUtils.findItemSlot(item);
+        HeInvUtils.swapTo(slot);
+    }
+
+    public static void swapToIfNotHotbar(int slot) {
+        if (!isSelectedSlot(slot) && !isHotbar(slot)) {
+            swapToSelectedSlot(slot);
+        }
+    }
+
+    public static void withItemInHand(int slot, Runnable action) {
+        HeInvUtils.swapTo(slot);
+        action.run();
+        HeInvUtils.swapTo(slot);
+        HeInvUtils.sendCloseScreenPacket();
+    }
+
+    public static int getScreenMainSize() {
+        return HeInvUtils.mc.player.containerMenu instanceof InventoryMenu ? HeInvUtils.mc.player.containerMenu.slots.size() - HeInvUtils.getPlayerMainSize() - 1 : HeInvUtils.mc.player.containerMenu.slots.size() - HeInvUtils.getPlayerMainSize();
+    }
+
+    public static int getPlayerMainSize() {
+        return HeInvUtils.mc.player.getInventory().getNonEquipmentItems().size();
+    }
+
+    public static boolean isSelectedSlot(int slot) {
+        return HeInvUtils.mc.player.getInventory().getSelectedSlot() == slot;
     }
 
     public static boolean isInHotbar(Item item) {

@@ -174,7 +174,7 @@ public class RedstoneAssist extends Module {
     private final double[] cornersCache;
 
     public RedstoneAssist() {
-        super(Const.CATEGORY, "生电辅助", "显示方块亮度等级和刷怪风险区域");
+        super(Const.CATEGORY, "V生电辅助", "显示方块亮度等级和刷怪风险区域");
         this.sphereConfigs = new ArrayList<SphereConfig>();
         this.spawnableBlocksMap = new HashMap<SphereConfig, List<BlockPos>>();
         this.scanCooldownMap = new HashMap<SphereConfig, Integer>();

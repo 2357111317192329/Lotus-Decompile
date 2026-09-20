@@ -1,42 +1,19 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  meteordevelopment.meteorclient.settings.IntSetting$Builder
- *  meteordevelopment.meteorclient.settings.Setting
- *  meteordevelopment.meteorclient.settings.SettingGroup
- *  meteordevelopment.meteorclient.systems.modules.Module
- *  meteordevelopment.meteorclient.utils.player.FindItemResult
- *  meteordevelopment.meteorclient.utils.player.InvUtils
- *  meteordevelopment.meteorclient.utils.world.BlockUtils
- *  net.minecraft.util.Hand
- *  net.minecraft.util.ActionResult
- *  net.minecraft.entity.Entity
- *  net.minecraft.entity.player.PlayerEntity
- *  net.minecraft.entity.player.PlayerInventory
- *  net.minecraft.entity.projectile.ProjectileUtil
- *  net.minecraft.screen.ScreenHandler
- *  net.minecraft.screen.GenericContainerScreenHandler
- *  net.minecraft.screen.PlayerScreenHandler
- *  net.minecraft.screen.ShulkerBoxScreenHandler
- *  net.minecraft.item.ItemStack
- *  net.minecraft.util.math.BlockPos
- *  net.minecraft.util.math.Direction
- *  net.minecraft.util.math.Box
- *  net.minecraft.util.math.Vec3i
- *  net.minecraft.util.math.Vec3d
- *  net.minecraft.util.hit.EntityHitResult
- */
 package com.xiaohe66.mc.meteor.lotus.modules;
 
+import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
+import com.xiaohe66.mc.meteor.lotus.bo.StoragePos;
 import com.xiaohe66.mc.meteor.lotus.modules.step.Step;
 import com.xiaohe66.mc.meteor.lotus.modules.step.Steps;
 import com.xiaohe66.mc.meteor.lotus.util.Const;
 import com.xiaohe66.mc.meteor.lotus.util.HeBlockUtils;
 import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
+import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
 import com.xiaohe66.mc.meteor.lotus.util.HeRotationUtils;
+import com.xiaohe66.mc.meteor.lotus.util.LotusUtils;
+import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
 
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import meteordevelopment.meteorclient.settings.IntSetting;
 import meteordevelopment.meteorclient.settings.Setting;
@@ -118,28 +95,90 @@ extends Module {
     }
 
     protected ItemStack nextPlayerStack(Predicate<ItemStack> predicate) {
+        return this.nextPlayerStackByFunction(stack -> predicate.test(stack) ? stack.copy() : null);
+    }
+
+    protected ItemStack nextPlayerStackByFunction(Function<ItemStack, ItemStack> function) {
+        ItemStack result = this.findPlayerStackByFunction(function);
+        return result == null ? ItemStack.EMPTY : result;
+    }
+
+    protected ItemStack findPlayerStack(Predicate<ItemStack> predicate) {
+        return this.findPlayerStackByFunction(stack -> predicate.test(stack) ? stack.copy() : null);
+    }
+
+    protected ItemStack findPlayerStackSkipLocked(Predicate<ItemStack> predicate) {
+        return this.findPlayerStackByFunction(stack -> !LotusUtils.isLockedSlot(this.curPlayerSlot) && predicate.test(stack) ? stack.copy() : null);
+    }
+
+    protected <T> T findPlayerStackByFunction(Function<ItemStack, T> function) {
         int startSlot = this.curPlayerSlot;
         int maxSlot = this.getPlayerMainSize() - 1;
         do {
             this.curPlayerSlot = this.curPlayerSlot >= maxSlot ? 0 : ++this.curPlayerSlot;
-            ItemStack itemStack = this.getItemStack(this.curPlayerSlot);
-            if (itemStack.isEmpty() || !predicate.test(itemStack)) continue;
-            return itemStack;
+            ItemStack stack = this.getItemStack(this.curPlayerSlot);
+            if (!stack.isEmpty()) {
+                T result = function.apply(stack);
+                if (result != null) {
+                    return result;
+                }
+            }
         } while (this.curPlayerSlot != startSlot);
-        return ItemStack.EMPTY;
+        return null;
+    }
+
+    protected ShulkerBoxReader findShulkerInPlayer(Predicate<ShulkerBoxReader> predicate) {
+        return this.findPlayerStackByFunction(stack -> {
+            if (HeItemUtils.isShulkerBox(stack.getItem())) {
+                ShulkerBoxReader reader = new ShulkerBoxReader(stack);
+                if (predicate.test(reader)) {
+                    return reader;
+                }
+            }
+            return null;
+        });
     }
 
     protected ItemStack nextScreenStack(Predicate<ItemStack> predicate) {
+        return this.nextScreenStackByFunction(stack -> predicate.test(stack) ? stack.copy() : null);
+    }
+
+    protected ItemStack nextScreenStackByFunction(Function<ItemStack, ItemStack> function) {
+        ItemStack result = this.findScreenStackByFunction(function);
+        return result == null ? ItemStack.EMPTY : result;
+    }
+
+    protected ItemStack findScreenStack(Predicate<ItemStack> predicate) {
+        return this.findScreenStackByFunction(stack -> predicate.test(stack) ? stack.copy() : null);
+    }
+
+    protected <T> T findScreenStackByFunction(Function<ItemStack, T> function) {
         AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
         int maxSlot = this.getScreenMainSize() - 1;
         int startSlot = this.curScreenSlot;
         do {
             this.curScreenSlot = this.curScreenSlot >= maxSlot ? 0 : ++this.curScreenSlot;
-            ItemStack itemStack = screenHandler.getSlot(this.curScreenSlot).getItem();
-            if (itemStack.isEmpty() || !predicate.test(itemStack)) continue;
-            return itemStack;
+            ItemStack stack = screenHandler.getSlot(this.curScreenSlot).getItem();
+            if (!stack.isEmpty()) {
+                T result = function.apply(stack);
+                if (result != null) {
+                    return result;
+                }
+            }
         } while (this.curScreenSlot != startSlot);
-        return ItemStack.EMPTY;
+        return null;
+    }
+
+    protected ShulkerBoxReader findShulkerInScreen(Predicate<ShulkerBoxReader> predicate) {
+        return this.findScreenStackByFunction(stack -> {
+            if (HeItemUtils.isShulkerBox(stack.getItem())) {
+                ShulkerBoxReader reader = new ShulkerBoxReader(stack);
+                if (predicate.test(reader)) {
+                    return reader;
+                }
+            }
+            return null;
+        });
     }
 
     protected boolean hasScreenFull() {
@@ -235,13 +274,13 @@ extends Module {
         if (entityHitResult == null) {
             HeRotationUtils.keepRotation(entity.getEyePosition());
             EntityHitResult location = new EntityHitResult(entity, entity.getBoundingBox().getCenter());
-            this.mc.gameMode.interact(this.mc.player, entity,location, InteractionHand.MAIN_HAND);
+            this.mc.gameMode.interact(this.mc.player, entity, location, InteractionHand.MAIN_HAND);
         } else {
             HeRotationUtils.keepRotation(entity.getEyePosition());
             InteractionResult actionResult = this.mc.gameMode.interact((Player)this.mc.player, entity, entityHitResult, InteractionHand.MAIN_HAND);
             if (!actionResult.consumesAction()) {
                 EntityHitResult location2 = new EntityHitResult(entity, entity.getBoundingBox().getCenter());
-                this.mc.gameMode.interact((Player)this.mc.player, entity,location2, InteractionHand.MAIN_HAND);
+                this.mc.gameMode.interact((Player)this.mc.player, entity, location2, InteractionHand.MAIN_HAND);
             }
         }
     }
@@ -251,6 +290,18 @@ extends Module {
         if (!findItemResult.found()) {
             this.error(notFoundMessage, new Object[0]);
             this.toggle();
+            return false;
+        }
+        if (!findItemResult.isMainHand()) {
+            HeInvUtils.swap(findItemResult.slot(), this.getMainSlot());
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean swapToMainHand(Predicate<ItemStack> predicate) {
+        FindItemResult findItemResult = InvUtils.find(predicate);
+        if (!findItemResult.found()) {
             return false;
         }
         if (!findItemResult.isMainHand()) {
@@ -278,15 +329,15 @@ extends Module {
     }
 
     protected long mcTime() {
-        return this.mc.level.getGameTime();
+        return this.mc.level.getOverworldClockTime();
     }
 
     protected long mcDay() {
-        return this.mc.level.getGameTime() / 24000L;
+        return this.mc.level.getOverworldClockTime() / 24000L;
     }
 
     protected long mcTimeOfDay() {
-        return this.mc.level.getGameTime() % 24000L;
+        return this.mc.level.getOverworldClockTime() % 24000L;
     }
 
     protected void setDelay() {
@@ -302,14 +353,11 @@ extends Module {
     }
 
     public int getPlayerMainSize() {
-        return this.mc.player.getInventory().getNonEquipmentItems().size();
+        return HeInvUtils.getPlayerMainSize();
     }
 
     public int getScreenMainSize() {
-        if (this.mc.player.containerMenu instanceof InventoryMenu) {
-            return this.mc.player.containerMenu.slots.size() - this.getPlayerMainSize() - 1;
-        }
-        return this.mc.player.containerMenu.slots.size() - this.getPlayerMainSize();
+        return HeInvUtils.getScreenMainSize();
     }
 
     public boolean isContainer(int slotId) {
@@ -357,7 +405,7 @@ extends Module {
     }
 
     public void initCurScreenSlot() {
-        this.curPlayerSlot = this.getScreenMainSize() - 1;
+        this.curScreenSlot = this.getScreenMainSize() - 1;
     }
 
     public int getCurScreenSlot() {

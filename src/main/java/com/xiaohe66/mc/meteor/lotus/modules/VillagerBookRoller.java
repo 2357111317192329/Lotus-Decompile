@@ -155,7 +155,7 @@ public class VillagerBookRoller extends WalkModule {
     private int tradeIndex;
 
     public VillagerBookRoller() {
-        super("刷附魔书", "自动寻找失业村民，放置讲台刷取指定附魔书. (村民旁边是岩浆块且上方未放置工作方块)");
+        super("A刷附魔书", "自动寻找失业村民，放置讲台刷取指定附魔书. (村民旁边是岩浆块且上方未放置工作方块)");
         this.addStep(Steps.FINDING_TARGET, this::findingTarget);
         this.addStep(Steps.GOTO_TARGET, this::gotoTarget);
         this.addStep(Steps.PLACE_LECTERN, this::placeLectern);

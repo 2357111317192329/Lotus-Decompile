@@ -96,8 +96,8 @@ import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LitematicaPrinter extends BaseModule {
-    private static final Logger log = LoggerFactory.getLogger(LitematicaPrinter.class);
+public class Printer extends BaseModule {
+    private static final Logger log = LoggerFactory.getLogger(Printer.class);
     private final SettingGroup sgPlatform = settings.createGroup("平台打印");
     private final SettingGroup sgAntiMob = settings.createGroup("防刷怪");
     private final SettingGroup sgRendering = settings.createGroup("渲染");
@@ -187,8 +187,8 @@ public class LitematicaPrinter extends BaseModule {
     private WorldSchematic schematicWorld;
     private Supplier<List<BlockPos>> blockPosSupplier;
 
-    public LitematicaPrinter() {
-        super("打印机", "投影打印、平台打印、防刷怪。使用前请使用via跨版本到1.20.6以下", 0);
+    public Printer() {
+        super("A打印机", "3c专用。投影打印、平台打印、防刷怪。使用前请使用Via跨版本到1.20.6以下", 0);
         this.renderPosList = new ArrayList<Tuple<Integer, BlockPos>>();
         this.placeCooldownMap = new HashMap<BlockPos, Integer>();
         this.needPlaceBlockList = new ArrayList<PlaceBlockHelper>();
@@ -250,43 +250,50 @@ public class LitematicaPrinter extends BaseModule {
     }
 
     private void placeBlocks() {
-        for (PlaceBlockHelper helper : this.needPlaceBlockList) {
-            BlockPos blockPos = helper.getBlockPos();
-            BlockState targetState = null;
-            Block block = null;
-            int slot = -1;
-            for (BlockState candidateState : helper.getCandidateStates()) {
-                block = candidateState.getBlock();
-                Item item = block.asItem();
-                slot = HeInvUtils.findItemSlot(item);
-                if (slot == -1) continue;
-                targetState = candidateState;
-                break;
+        HeInvUtils.stopSprinting();
+        try {
+            for (PlaceBlockHelper helper : this.needPlaceBlockList) {
+                BlockPos blockPos = helper.getBlockPos();
+                BlockState targetState = null;
+                Block block = null;
+                int slot = -1;
+                for (BlockState candidateState : helper.getCandidateStates()) {
+                    block = candidateState.getBlock();
+                    Item item = block.asItem();
+                    slot = HeInvUtils.findItemSlot(item);
+                    if (slot == -1) continue;
+                    targetState = candidateState;
+                    break;
+                }
+                if (targetState == null) {
+                    return;
+                }
+                HeInvUtils.swapToSelectedSlot(slot);
+                Collection properties = targetState.getProperties();
+                if (block instanceof SlabBlock) {
+                    HeBlockUtils.placeSlab(blockPos, targetState);
+                } else if (block instanceof StairBlock) {
+                    HeBlockUtils.placeStairs(blockPos, targetState);
+                } else if (helper.requiresSneaking()) {
+                    Printer.clickPlace(helper, blockPos);
+                } else if (HeBlockUtils.isTorch(block)) {
+                    HeBlockUtils.placeTorch(blockPos, targetState);
+                } else if (properties.contains(BlockStateProperties.FACING)) {
+                    Printer.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)BlockStateProperties.FACING, helper.getClickDirection());
+                } else if (properties.contains(BlockStateProperties.FACING_HOPPER)) {
+                    HeBlockUtils.placeHopper(blockPos, targetState);
+                } else if (properties.contains(BlockStateProperties.HORIZONTAL_FACING)) {
+                    Printer.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)BlockStateProperties.HORIZONTAL_FACING, helper.getClickDirection());
+                } else {
+                    Printer.clickPlace(helper, blockPos);
+                }
+                this.renderPosList.add(new Tuple(this.fadeTime.get(), blockPos));
+                this.placeCooldownMap.put(blockPos, this.placeCooldown.get());
+                HeInvUtils.swapToSelectedSlot(slot);
+                HeInvUtils.sendCloseScreenPacket();
             }
-            if (targetState == null) {
-                return;
-            }
-            HeInvUtils.swapToSelectedSlot(slot);
-            Collection properties = targetState.getProperties();
-            if (block instanceof SlabBlock) {
-                HeBlockUtils.placeSlab(blockPos, targetState);
-            } else if (block instanceof StairBlock) {
-                HeBlockUtils.placeStairs(blockPos, targetState);
-            } else if (helper.requiresSneaking()) {
-                LitematicaPrinter.clickPlace(helper, blockPos);
-            } else if (properties.contains(BlockStateProperties.FACING)) {
-                LitematicaPrinter.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)BlockStateProperties.FACING, helper.getClickDirection());
-            } else if (properties.contains(BlockStateProperties.HORIZONTAL_FACING)) {
-                LitematicaPrinter.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)BlockStateProperties.HORIZONTAL_FACING, helper.getClickDirection());
-            } else if (targetState.getProperties().contains(BlockStateProperties.FACING_HOPPER)) {
-                LitematicaPrinter.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)BlockStateProperties.FACING_HOPPER, helper.getClickDirection());
-            } else {
-                LitematicaPrinter.clickPlace(helper, blockPos);
-            }
-            this.renderPosList.add(new Tuple(this.fadeTime.get(), blockPos));
-            this.placeCooldownMap.put(blockPos, this.placeCooldown.get());
-            HeInvUtils.swapToSelectedSlot(slot);
-            HeInvUtils.sendCloseScreenPacket();
+        } finally {
+            HeInvUtils.startSprinting();
         }
         this.needPlaceBlockList.clear();
     }

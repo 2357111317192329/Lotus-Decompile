@@ -43,15 +43,17 @@ import com.xiaohe66.mc.meteor.lotus.modules.entitylist.DisplaySide;
 
 import com.xiaohe66.mc.meteor.lotus.bo.ItemWarp;
 import com.xiaohe66.mc.meteor.lotus.bo.PlayerWarp;
+import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import meteordevelopment.meteorclient.events.render.Render2DEvent;
+import meteordevelopment.meteorclient.events.render.Render3DEvent;
+import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.renderer.text.TextRenderer;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.ColorSetting;
@@ -68,19 +70,23 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.render.MeteorToast;
+import meteordevelopment.meteorclient.utils.render.RenderUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class EntityList
@@ -96,18 +102,37 @@ extends Module {
         .description("仅在下界显示的实体")
         .defaultValue(new EntityType[]{EntityType.PLAYER, EntityType.EXPERIENCE_ORB, EntityType.COW, EntityType.SHEEP, EntityType.PIG, EntityType.HORSE, EntityType.ZOMBIE, EntityType.CREEPER, EntityType.BOGGED, EntityType.HUSK, EntityType.SLIME, EntityType.VILLAGER, EntityType.SPIDER, EntityType.CAVE_SPIDER, EntityType.DROWNED, EntityType.ZOMBIE_VILLAGER})
         .build());
+    public final Setting<Set<EntityType<?>>> endEntitys = sgGeneral.add(new EntityTypeListSetting.Builder()
+        .name("末地实体")
+        .description("仅在末地显示的实体")
+        .defaultValue(new EntityType[]{EntityType.PLAYER, EntityType.EXPERIENCE_ORB, EntityType.VILLAGER})
+        .build());
     public final Setting<SettingColor> entitysColor = sgGeneral.add(new ColorSetting.Builder()
         .name("实体颜色")
         .defaultValue(Color.MAGENTA)
         .build());
-    public final Setting<SettingColor> playerColor = sgGeneral.add(new ColorSetting.Builder()
-        .name("玩家颜色")
-        .defaultValue(Color.RED)
+    public final Setting<SettingColor> netheritePlayerColor = sgGeneral.add(new ColorSetting.Builder()
+        .name("合金玩家颜色")
+        .defaultValue(Color.MAGENTA)
+        .build());
+    public final Setting<SettingColor> diamondPlayerColor = sgGeneral.add(new ColorSetting.Builder()
+        .name("钻石玩家颜色")
+        .defaultValue(new Color(0, 255, 255))
+        .build());
+    public final Setting<SettingColor> otherPlayerColor = sgGeneral.add(new ColorSetting.Builder()
+        .name("其他玩家颜色")
+        .defaultValue(Color.ORANGE)
+        .build());
+    public final Setting<Integer> playerLimit = sgGeneral.add(new IntSetting.Builder()
+        .name("玩家数量限制")
+        .min(1)
+        .sliderMax(64)
+        .defaultValue(10)
         .build());
     private final SettingGroup itemGroup = settings.createGroup("物品");
     public final Setting<List<Item>> items1 = itemGroup.add(new ItemListSetting.Builder()
         .name("重点关注物品")
-        .defaultValue(new Item[]{Items.ELYTRA, Items.SHULKER_BOX, Items.WHITE_SHULKER_BOX, Items.ORANGE_SHULKER_BOX, Items.MAGENTA_SHULKER_BOX, Items.LIGHT_BLUE_SHULKER_BOX, Items.YELLOW_SHULKER_BOX, Items.LIME_SHULKER_BOX, Items.PINK_SHULKER_BOX, Items.GRAY_SHULKER_BOX, Items.LIGHT_GRAY_SHULKER_BOX, Items.CYAN_SHULKER_BOX, Items.PURPLE_SHULKER_BOX, Items.BLUE_SHULKER_BOX, Items.BROWN_SHULKER_BOX, Items.GREEN_SHULKER_BOX, Items.RED_SHULKER_BOX, Items.BLACK_SHULKER_BOX, Items.BUNDLE, Items.WHITE_BUNDLE, Items.ORANGE_BUNDLE, Items.MAGENTA_BUNDLE, Items.LIGHT_BLUE_BUNDLE, Items.YELLOW_BUNDLE, Items.LIME_BUNDLE, Items.PINK_BUNDLE, Items.GRAY_BUNDLE, Items.LIGHT_GRAY_BUNDLE, Items.CYAN_BUNDLE, Items.PURPLE_BUNDLE, Items.BLUE_BUNDLE, Items.BROWN_BUNDLE, Items.GREEN_BUNDLE, Items.RED_BUNDLE, Items.BLACK_BUNDLE, Items.ANCIENT_DEBRIS, Items.NETHERITE_SCRAP, Items.NETHERITE_INGOT, Items.NETHERITE_BLOCK, Items.NETHERITE_SWORD, Items.NETHERITE_AXE, Items.NETHERITE_HOE, Items.NETHERITE_PICKAXE, Items.NETHERITE_SHOVEL, Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS, Items.END_CRYSTAL, Items.ENCHANTED_GOLDEN_APPLE, Items.MACE, Items.HEAVY_CORE, Items.CREEPER_HEAD, Items.ZOMBIE_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL, Items.PLAYER_HEAD, Items.PIGLIN_HEAD, Items.DRAGON_HEAD})
+        .defaultValue(new Item[]{Items.ELYTRA, Items.SHULKER_BOX, Items.WHITE_SHULKER_BOX, Items.ORANGE_SHULKER_BOX, Items.MAGENTA_SHULKER_BOX, Items.LIGHT_BLUE_SHULKER_BOX, Items.YELLOW_SHULKER_BOX, Items.LIME_SHULKER_BOX, Items.PINK_SHULKER_BOX, Items.GRAY_SHULKER_BOX, Items.LIGHT_GRAY_SHULKER_BOX, Items.CYAN_SHULKER_BOX, Items.PURPLE_SHULKER_BOX, Items.BLUE_SHULKER_BOX, Items.BROWN_SHULKER_BOX, Items.GREEN_SHULKER_BOX, Items.RED_SHULKER_BOX, Items.BLACK_SHULKER_BOX, Items.BUNDLE, Items.WHITE_BUNDLE, Items.ORANGE_BUNDLE, Items.MAGENTA_BUNDLE, Items.LIGHT_BLUE_BUNDLE, Items.YELLOW_BUNDLE, Items.LIME_BUNDLE, Items.PINK_BUNDLE, Items.GRAY_BUNDLE, Items.LIGHT_GRAY_BUNDLE, Items.CYAN_BUNDLE, Items.PURPLE_BUNDLE, Items.BLUE_BUNDLE, Items.BROWN_BUNDLE, Items.GREEN_BUNDLE, Items.RED_BUNDLE, Items.BLACK_BUNDLE, Items.ANCIENT_DEBRIS, Items.NETHERITE_SCRAP, Items.NETHERITE_INGOT, Items.NETHERITE_BLOCK, Items.NETHERITE_SWORD, Items.NETHERITE_AXE, Items.NETHERITE_HOE, Items.NETHERITE_PICKAXE, Items.NETHERITE_SHOVEL, Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS, Items.NETHERITE_SPEAR, Items.END_CRYSTAL, Items.ENCHANTED_GOLDEN_APPLE, Items.MACE, Items.HEAVY_CORE, Items.CREEPER_HEAD, Items.ZOMBIE_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL, Items.PLAYER_HEAD, Items.PIGLIN_HEAD, Items.DRAGON_HEAD})
         .onChanged(this::setItems1)
         .build());
     public final Setting<SettingColor> items1Color = itemGroup.add(new ColorSetting.Builder()
@@ -179,6 +204,32 @@ extends Module {
         .sliderMax(6.0)
         .defaultValue(1.0)
         .build());
+    private final SettingGroup renderGroup = settings.createGroup("渲染");
+    public final Setting<Boolean> renderImportantItems = renderGroup.add(new BoolSetting.Builder()
+        .name("重点关注物品渲染")
+        .description("渲染重点关注物品的边框和连线")
+        .defaultValue(true)
+        .build());
+    public final Setting<ShapeMode> renderMode = renderGroup.add(new EnumSetting.Builder<ShapeMode>()
+        .name("渲染模式")
+        .description("重点关注物品的渲染模式")
+        .defaultValue(ShapeMode.Both)
+        .visible(() -> this.renderImportantItems.get())
+        .build());
+    public final Setting<Double> fillOpacity = renderGroup.add(new DoubleSetting.Builder()
+        .name("填充不透明度")
+        .description("重点关注物品边框内的填充不透明度")
+        .defaultValue(0.3)
+        .min(0.0)
+        .sliderMax(1.0)
+        .visible(() -> this.renderImportantItems.get())
+        .build());
+    public final Setting<Boolean> connectionLine = renderGroup.add(new BoolSetting.Builder()
+        .name("连接线")
+        .description("从屏幕中心到重点关注物品的连线")
+        .defaultValue(true)
+        .visible(() -> this.renderImportantItems.get())
+        .build());
     private final Set<Item> items1Set;
     private final Set<Item> items2Set;
     private final Set<Item> blackListSet;
@@ -188,12 +239,14 @@ extends Module {
     private final Map<Item, ItemWarp> items2Map;
     private final Map<Item, ItemWarp> itemsMap;
     private final Map<EntityType<?>, Integer> entitysMap;
+    private final Color lineRenderColor = new Color();
+    private final Color fillRenderColor = new Color();
     private boolean renderFlag;
     private long startTime;
     private long prevTime;
 
     public EntityList() {
-        super(Const.CATEGORY, "实体列表", "显示实体列表, 可以按重要程度分组, 如红色为重点关注");
+        super(Const.CATEGORY, "V实体列表", "显示实体列表, 可以按重要程度分组, 如红色为重点关注");
         this.items2 = this.itemGroup.add(new ItemListSetting.Builder().name("关注物品").defaultValue(new Item[]{Items.DIAMOND_SWORD, Items.DIAMOND_AXE, Items.DIAMOND_HOE, Items.DIAMOND_PICKAXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS, Items.COAL_ORE, Items.DEEPSLATE_COAL_ORE, Items.IRON_ORE, Items.DEEPSLATE_IRON_ORE, Items.COPPER_ORE, Items.DEEPSLATE_COPPER_ORE, Items.GOLD_ORE, Items.DEEPSLATE_GOLD_ORE, Items.REDSTONE_ORE, Items.DEEPSLATE_REDSTONE_ORE, Items.LAPIS_ORE, Items.DEEPSLATE_LAPIS_ORE, Items.DIAMOND_ORE, Items.DEEPSLATE_DIAMOND_ORE, Items.EMERALD_ORE, Items.DEEPSLATE_EMERALD_ORE, Items.NETHER_QUARTZ_ORE, Items.NETHER_GOLD_ORE, Items.RAW_IRON, Items.RAW_COPPER, Items.RAW_GOLD, Items.COAL, Items.IRON_INGOT, Items.COPPER_INGOT, Items.GOLD_INGOT, Items.REDSTONE, Items.LAPIS_LAZULI, Items.DIAMOND, Items.EMERALD, Items.QUARTZ, Items.AMETHYST_SHARD, Items.COAL_BLOCK, Items.IRON_BLOCK, Items.COPPER_BLOCK, Items.GOLD_BLOCK, Items.REDSTONE_BLOCK, Items.LAPIS_BLOCK, Items.DIAMOND_BLOCK, Items.EMERALD_BLOCK, Items.QUARTZ_BLOCK, Items.AMETHYST_BLOCK, Items.SHULKER_SHELL, Items.ENDER_PEARL, Items.ENDER_CHEST, Items.MUSIC_DISC_13, Items.MUSIC_DISC_CAT, Items.MUSIC_DISC_BLOCKS, Items.MUSIC_DISC_CHIRP, Items.MUSIC_DISC_FAR, Items.MUSIC_DISC_MALL, Items.MUSIC_DISC_MELLOHI, Items.MUSIC_DISC_STAL, Items.MUSIC_DISC_STRAD, Items.MUSIC_DISC_WARD, Items.MUSIC_DISC_11, Items.MUSIC_DISC_WAIT, Items.MUSIC_DISC_OTHERSIDE, Items.MUSIC_DISC_5, Items.MUSIC_DISC_PIGSTEP, Items.MUSIC_DISC_RELIC, Items.ENDER_EYE, Items.END_ROD, Items.SNIFFER_EGG, Items.SEA_LANTERN, Items.VERDANT_FROGLIGHT, Items.OCHRE_FROGLIGHT, Items.PEARLESCENT_FROGLIGHT, Items.SHROOMLIGHT, Items.BEACON, Items.TNT, Items.SLIME_BALL, Items.SLIME_BLOCK, Items.DRAGON_BREATH, Items.GOLDEN_CARROT, Items.GHAST_TEAR, Items.BLAZE_ROD, Items.BREEZE_ROD, Items.NETHER_STAR, Items.GOLDEN_APPLE, Items.PORKCHOP, Items.COOKED_PORKCHOP, Items.BEEF, Items.COOKED_BEEF, Items.WIND_CHARGE, Items.GOAT_HORN, Items.RABBIT_FOOT, Items.OMINOUS_TRIAL_KEY, Items.TRIAL_KEY, Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, Items.SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE, Items.VEX_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WILD_ARMOR_TRIM_SMITHING_TEMPLATE, Items.COAST_ARMOR_TRIM_SMITHING_TEMPLATE, Items.DUNE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.RAISER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.HOST_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WARD_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.TIDE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE, Items.RIB_ARMOR_TRIM_SMITHING_TEMPLATE, Items.EYE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.FLOW_ARMOR_TRIM_SMITHING_TEMPLATE, Items.BOLT_ARMOR_TRIM_SMITHING_TEMPLATE, Items.HONEY_BLOCK, Items.TOTEM_OF_UNDYING, Items.OMINOUS_BOTTLE, Items.FIREWORK_ROCKET, Items.PUMPKIN_PIE, Items.CHORUS_FRUIT}).onChanged(this::setItems2).build());
         this.items1Set = new HashSet<Item>((Collection)this.items1.get());
         this.items2Set = new HashSet<Item>((Collection)this.items2.get());
@@ -224,7 +277,14 @@ extends Module {
         this.renderFlag = false;
         this.clearLists();
         ResourceKey worldKey = this.mc.player.level().dimension();
-        Set displayEntities = worldKey == ServerLevel.NETHER ? this.netherEntitys.get() : (worldKey == ServerLevel.OVERWORLD ? this.entitys.get() : Collections.emptySet());
+        Set displayEntities;
+        if (worldKey == ServerLevel.NETHER) {
+            displayEntities = this.netherEntitys.get();
+        } else if (worldKey == ServerLevel.OVERWORLD) {
+            displayEntities = this.entitys.get();
+        } else {
+            displayEntities = this.endEntitys.get();
+        }
         Vec3 cameraPos = HePosUtils.getCameraPos();
         for (Entity entity : this.mc.level.entitiesForRendering()) {
             if (entity instanceof ItemEntity) {
@@ -235,8 +295,11 @@ extends Module {
             this.handleEntity(entity, cameraPos, displayEntities);
         }
         double yPos = this.yOffset.get();
-        yPos = this.drawPlayers(this.nonFriendPlayers, (Color)this.playerColor.get(), yPos);
-        yPos = this.drawPlayers(this.friendPlayers, Config.get().friendColor.get().copy(), yPos);
+        yPos = this.drawPlayers(this.nonFriendPlayers, null, yPos, this.playerLimit.get());
+        if (this.nonFriendPlayers.size() < this.playerLimit.get()) {
+            int remaining = this.playerLimit.get() - this.nonFriendPlayers.size();
+            yPos = this.drawPlayers(this.friendPlayers, Config.get().friendColor.get().copy(), yPos, remaining);
+        }
         yPos = this.drawItems(this.items1Map, (Color)this.items1Color.get(), yPos);
         yPos = this.drawItems(this.items2Map, (Color)this.items2Color.get(), yPos);
         yPos = this.drawItems(this.itemsMap, (Color)this.itemsColor.get(), yPos);
@@ -245,17 +308,43 @@ extends Module {
         this.renderFlag = true;
     }
 
+    @EventHandler
+    private void onRender3D(Render3DEvent event) {
+        if (Utils.isLoading() || !this.renderImportantItems.get()) {
+            return;
+        }
+        SettingColor color = this.items1Color.get();
+        this.lineRenderColor.set(color);
+        this.fillRenderColor.set(color).a((int)((double)color.a * this.fillOpacity.get()));
+        for (Entity entity : this.mc.level.entitiesForRendering()) {
+            if (!(entity instanceof ItemEntity)) continue;
+            ItemEntity itemEntity = (ItemEntity)entity;
+            Item item = itemEntity.getItem().getItem();
+            if (!this.items1Set.contains(item) || this.blackListSet.contains(item)) continue;
+            double dx = Mth.lerp((double)event.tickDelta, entity.xOld, entity.getX()) - entity.getX();
+            double dy = Mth.lerp((double)event.tickDelta, entity.yOld, entity.getY()) - entity.getY();
+            double dz = Mth.lerp((double)event.tickDelta, entity.zOld, entity.getZ()) - entity.getZ();
+            AABB box = entity.getBoundingBox();
+            event.renderer.box(dx + box.minX, dy + box.minY, dz + box.minZ, dx + box.maxX, dy + box.maxY, dz + box.maxZ, this.fillRenderColor, this.lineRenderColor, this.renderMode.get(), 0);
+            if (this.connectionLine.get() && !this.mc.options.hideGui) {
+                double height = box.maxY - box.minY;
+                event.renderer.line(RenderUtils.center.x, RenderUtils.center.y, RenderUtils.center.z, entity.getX() + dx, entity.getY() + dy + height / 2.0, entity.getZ() + dz, this.lineRenderColor);
+            }
+        }
+    }
+
     private void handleEntity(Entity entity, Vec3 cameraPos, Set<EntityType<?>> displayEntities) {
         EntityType entityType = entity.getType();
         if (!displayEntities.contains(entityType)) {
             return;
         }
         if (entityType == EntityType.PLAYER) {
-            if (entity != this.mc.player) {
+            if (entity != this.mc.player && this.nonFriendPlayers.size() + this.friendPlayers.size() < this.playerLimit.get()) {
                 Player playerEntity = (Player)entity;
                 String playerName = playerEntity.getName().getString();
+                Item armorItem = this.getArmorType(playerEntity);
                 float distance = (float)cameraPos.distanceTo(entity.position());
-                PlayerWarp playerWarp = new PlayerWarp(playerName, distance);
+                PlayerWarp playerWarp = new PlayerWarp(playerName, armorItem, distance);
                 boolean isFriend = Friends.get().get(playerName) != null;
                 if (isFriend) {
                     this.friendPlayers.add(playerWarp);
@@ -267,6 +356,20 @@ extends Module {
             Integer count = this.entitysMap.getOrDefault(entityType, 0);
             this.entitysMap.put(entityType, count + 1);
         }
+    }
+
+    private Item getArmorType(Player playerEntity) {
+        Item head = playerEntity.getItemBySlot(EquipmentSlot.HEAD).getItem();
+        Item chest = playerEntity.getItemBySlot(EquipmentSlot.CHEST).getItem();
+        Item legs = playerEntity.getItemBySlot(EquipmentSlot.LEGS).getItem();
+        Item feet = playerEntity.getItemBySlot(EquipmentSlot.FEET).getItem();
+        if (HeItemUtils.allAir(head, chest, legs, feet)) {
+            return Items.AIR;
+        }
+        if (!HeItemUtils.isNetheriteArmor(head) && !HeItemUtils.isNetheriteArmor(chest) && !HeItemUtils.isNetheriteArmor(legs) && !HeItemUtils.isNetheriteArmor(feet)) {
+            return !HeItemUtils.isDiamondArmor(head) && !HeItemUtils.isDiamondArmor(chest) && !HeItemUtils.isDiamondArmor(legs) && !HeItemUtils.isDiamondArmor(feet) ? Items.DIAMOND : Items.DIAMOND_BLOCK;
+        }
+        return Items.NETHERITE_BLOCK;
     }
 
     private void handleItemEntity(Entity entity, Vec3 cameraPos, ItemEntity itemEntity) {
@@ -302,14 +405,32 @@ extends Module {
         }
     }
 
-    private double drawPlayers(List<PlayerWarp> players, Color color, double yPos) {
+    private double drawPlayers(List<PlayerWarp> players, Color color, double yPos, int limit) {
         if (players.isEmpty()) {
             return yPos;
         }
         players.sort((a, b) -> Float.compare(a.getDistance(), b.getDistance()));
-        for (PlayerWarp playerWarp : players) {
-            String lineText = String.format("%s %.1fm", playerWarp.getName(), Float.valueOf(playerWarp.getDistance()));
-            this.drawText(lineText, color, yPos);
+        int count = Math.min(players.size(), limit);
+        for (int i = 0; i < count; ++i) {
+            PlayerWarp playerWarp = players.get(i);
+            Item item = playerWarp.getItem();
+            String tag;
+            Color lineColor;
+            if (item == Items.NETHERITE_BLOCK) {
+                tag = "合金甲";
+                lineColor = this.netheritePlayerColor.get();
+            } else if (item == Items.DIAMOND_BLOCK) {
+                tag = "钻石甲";
+                lineColor = this.diamondPlayerColor.get();
+            } else if (item == Items.AIR) {
+                tag = "裸奔";
+                lineColor = Color.WHITE;
+            } else {
+                tag = "着甲";
+                lineColor = this.otherPlayerColor.get();
+            }
+            String lineText = String.format("[%s] %s %.1fm", tag, playerWarp.getName(), Float.valueOf(playerWarp.getDistance()));
+            this.drawText(lineText, color != null ? color : lineColor, yPos);
             yPos += (double)this.lineHeight.get() * this.scale.get();
         }
         return yPos;

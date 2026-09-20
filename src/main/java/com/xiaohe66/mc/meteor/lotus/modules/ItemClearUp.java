@@ -28,6 +28,7 @@ import com.xiaohe66.mc.meteor.lotus.event.ScreenCloseEvent;
 import com.xiaohe66.mc.meteor.lotus.modules.BaseModule;
 import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
 import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
+import com.xiaohe66.mc.meteor.lotus.util.LotusUtils;
 
 import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
@@ -54,6 +55,7 @@ import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -61,6 +63,9 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.saveddata.maps.MapId;
+import net.minecraft.world.level.saveddata.maps.MapId;
 import org.lwjgl.glfw.GLFW;
 
 public class ItemClearUp
@@ -111,12 +116,6 @@ extends BaseModule {
         .defaultValue(false)
         .visible(() -> this.sortEnabled.get())
         .build());
-    private final Setting<String> excludedSortSlots = sgGeneral.add(new StringSetting.Builder()
-        .name("排序排除格子")
-        .description("不参与排序的格子序号，排序区域内从左到右、从上到下从0开始（主物品栏0-26，启用排序快捷栏后快捷栏为27-35），用英文逗号分隔，例如: 0,1,2")
-        .defaultValue("")
-        .visible(() -> this.sortEnabled.get())
-        .build());
     private final Setting<Boolean> scrollTransfer = sgGeneral.add(new BoolSetting.Builder()
         .name("滚轮移动")
         .description("启用后，在背包/容器界面中滚动鼠标滚轮可快速转移单个物品")
@@ -129,7 +128,7 @@ extends BaseModule {
     private boolean isDrapType;
 
     public ItemClearUp() {
-        super("快捷物品操作", "快捷物品操作：shift 拖拽移动、alt 同类移动/丢弃、r 排序", 0);
+        super("L快捷物品操作", "快捷物品操作：shift 拖拽移动、alt 同类移动/丢弃、R 排序", 0);
         this.taskSet = new LinkedHashSet();
         this.sortClickTaskList = new ArrayList<Integer>();
     }
@@ -190,8 +189,116 @@ extends BaseModule {
         for (Integer slotId : sortSlotList) {
             currentStacks.add(handler.getSlot(slotId.intValue()).getItem().copy());
         }
-        List<ItemStack> sortedStacks = this.mergeAndSortItemStacks(currentStacks);
         this.clearQueue();
+        ArrayList<ItemStack> bundleStacks = new ArrayList<ItemStack>();
+        ArrayList<ItemStack> normalStacks = new ArrayList<ItemStack>(slotCount);
+        for (ItemStack stack : currentStacks) {
+            if (!stack.isEmpty() && HeItemUtils.isBundle(stack.getItem())) {
+                bundleStacks.add(stack.copy());
+                continue;
+            }
+            normalStacks.add(stack);
+        }
+        List<ItemStack> sortedNormalStacks = this.mergeAndSortItemStacks(normalStacks);
+        if (!bundleStacks.isEmpty()) {
+            bundleStacks.sort(ITEM_ID_COUNT_COMPARATOR);
+            this.placeBundleStacks(sortSlotList, currentStacks, bundleStacks, sortedNormalStacks.size());
+        }
+        List<Integer> sortSlots;
+        List<ItemStack> sortStacks;
+        if (bundleStacks.isEmpty()) {
+            sortSlots = sortSlotList;
+            sortStacks = currentStacks;
+        } else {
+            sortSlots = new ArrayList<Integer>(slotCount);
+            sortStacks = new ArrayList<ItemStack>(slotCount);
+            for (int i = 0; i < slotCount; ++i) {
+                ItemStack stack = currentStacks.get(i);
+                if (stack.isEmpty() || !HeItemUtils.isBundle(stack.getItem())) {
+                    sortSlots.add(sortSlotList.get(i));
+                    sortStacks.add(stack);
+                }
+            }
+        }
+        this.placeNormalStacks(sortSlots, sortStacks, sortedNormalStacks);
+    }
+
+    private void placeBundleStacks(List<Integer> sortSlotList, List<ItemStack> currentStacks, List<ItemStack> bundleStacks, int startIndex) {
+        int slotCount = sortSlotList.size();
+        for (int i = 0; i < bundleStacks.size(); ++i) {
+            int targetPos = startIndex + i;
+            ItemStack bundleStack = bundleStacks.get(i);
+            ItemStack currentStack = currentStacks.get(targetPos);
+            if (ItemClearUp.isSame(currentStack, bundleStack)) continue;
+            int sourcePos = -1;
+            for (int j = 0; j < startIndex; ++j) {
+                if (!ItemClearUp.isSame(currentStacks.get(j), bundleStack)) continue;
+                sourcePos = j;
+                break;
+            }
+            if (sourcePos < 0) {
+                for (int j = slotCount - 1; j > targetPos; --j) {
+                    if (!ItemClearUp.isSame(currentStacks.get(j), bundleStack)) continue;
+                    sourcePos = j;
+                    break;
+                }
+            }
+            if (sourcePos < 0) {
+                this.warning("错误的状态3", new Object[0]);
+                return;
+            }
+            int sourceSlot = sortSlotList.get(sourcePos);
+            int targetSlot = sortSlotList.get(targetPos);
+            ItemStack sourceStack = currentStacks.get(sourcePos);
+            if (currentStack.isEmpty()) {
+                this.sortClickTaskList.add(sourceSlot);
+                this.sortClickTaskList.add(targetSlot);
+                currentStacks.set(sourcePos, ItemStack.EMPTY);
+                currentStacks.set(targetPos, sourceStack);
+            } else {
+                int emptySlot = this.findEmptySortSlot(sortSlotList, currentStacks);
+                if (emptySlot < 0) {
+                    this.warning("没有空格，跳过收纳袋排序", new Object[0]);
+                    return;
+                }
+                this.sortClickTaskList.add(targetSlot);
+                this.sortClickTaskList.add(emptySlot);
+                this.sortClickTaskList.add(sourceSlot);
+                this.sortClickTaskList.add(targetSlot);
+                this.sortClickTaskList.add(emptySlot);
+                this.sortClickTaskList.add(sourceSlot);
+                currentStacks.set(sourcePos, currentStack);
+                currentStacks.set(targetPos, sourceStack);
+            }
+        }
+    }
+
+    private int findEmptySortSlot(List<Integer> sortSlotList, List<ItemStack> currentStacks) {
+        for (int i = 0; i < currentStacks.size(); ++i) {
+            if (currentStacks.get(i).isEmpty()) {
+                return sortSlotList.get(i);
+            }
+        }
+        AbstractContainerMenu handler = this.mc.player.containerMenu;
+        int start;
+        int end;
+        if (handler instanceof InventoryMenu) {
+            start = 9;
+            end = 45;
+        } else {
+            start = 0;
+            end = handler.slots.size();
+        }
+        for (int i = start; i < end; ++i) {
+            if (handler.getSlot(i).getItem().isEmpty()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void placeNormalStacks(List<Integer> sortSlotList, List<ItemStack> currentStacks, List<ItemStack> sortedStacks) {
+        int slotCount = sortSlotList.size();
         int index = 0;
         while (true) {
             block10: {
@@ -281,12 +388,12 @@ extends BaseModule {
             mainEndSlot = 36;
             endSlot = 45;
         }
-        Set<Integer> excludedSlots = this.getExcludedSlots();
+        Set<Integer> lockedSlots = LotusUtils.getLockedSlots();
         ArrayList<Integer> sortableSlots = new ArrayList<Integer>();
         int sortIndex = 0;
         int slotId = startSlot;
         while (slotId < mainEndSlot) {
-            if (!excludedSlots.contains(sortIndex)) {
+            if (!lockedSlots.contains(sortIndex)) {
                 sortableSlots.add(slotId);
             }
             ++slotId;
@@ -295,7 +402,7 @@ extends BaseModule {
         if (includeHotbar && this.sortHotbar.get()) {
             slotId = mainEndSlot;
             while (slotId < endSlot) {
-                if (!excludedSlots.contains(sortIndex)) {
+                if (!lockedSlots.contains(sortIndex)) {
                     sortableSlots.add(slotId);
                 }
                 ++slotId;
@@ -303,26 +410,6 @@ extends BaseModule {
             }
         }
         return sortableSlots;
-    }
-
-    private Set<Integer> getExcludedSlots() {
-        HashSet<Integer> excludedSlots = new HashSet<Integer>();
-        String config = this.excludedSortSlots.get();
-        if (config == null || config.isBlank()) {
-            return excludedSlots;
-        }
-        for (String token : config.split(",")) {
-            if ((token = token.trim()).isEmpty()) continue;
-            try {
-                int slotIndex = Integer.parseInt(token);
-                if (slotIndex < 0) continue;
-                excludedSlots.add(slotIndex);
-            }
-            catch (NumberFormatException e) {
-                // empty catch block
-            }
-        }
-        return excludedSlots;
     }
 
     private List<ItemStack> mergeAndSortItemStacks(List<ItemStack> items) {
@@ -611,11 +698,19 @@ extends BaseModule {
     }
 
     public static boolean canMarge(ItemStack left, ItemStack right) {
-        if (left.getItem() != right.getItem()) {
+        Item item = left.getItem();
+        if (item != right.getItem()) {
             return false;
         }
         if (left.getCount() >= left.getMaxStackSize()) {
             return false;
+        }
+        if (item == Items.FILLED_MAP) {
+            MapId leftId = left.get(DataComponents.MAP_ID);
+            MapId rightId = right.get(DataComponents.MAP_ID);
+            if (leftId == null || rightId == null || leftId.id() != rightId.id()) {
+                return false;
+            }
         }
         return ItemClearUp.isSameName(left, right);
     }

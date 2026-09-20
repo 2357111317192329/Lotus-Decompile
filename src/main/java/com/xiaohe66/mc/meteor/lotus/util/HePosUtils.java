@@ -35,6 +35,8 @@ package com.xiaohe66.mc.meteor.lotus.util;
 import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
 
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
+import com.xiaohe66.mc.meteor.lotus.bo.StorageItem;
+import com.xiaohe66.mc.meteor.lotus.bo.StoragePos;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +58,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -183,6 +187,135 @@ public class HePosUtils {
             return new Vec3(freecam.pos.x, freecam.pos.y, freecam.pos.z);
         }
         return MeteorClient.mc.player.position();
+    }
+
+    public static Map<ItemBo, StoragePos> scanFrames(int range, int verticalRange) {
+        BlockPos playerPos = MeteorClient.mc.player.blockPosition();
+        int x = playerPos.getX();
+        int y = playerPos.getY();
+        int z = playerPos.getZ();
+        List<ItemFrame> frames = MeteorClient.mc.level.getEntitiesOfClass(ItemFrame.class,
+            new AABB(x - range, y, z - range, x + range, y + verticalRange, z + range),
+            frame -> !frame.getItem().isEmpty());
+        Vec3 playerEyePos = MeteorClient.mc.player.position();
+        HashMap<ItemBo, StoragePos> result = new HashMap<>();
+        for (ItemFrame frame : frames) {
+            ItemStack stack = frame.getItem();
+            ItemBo itemBo = new ItemBo(stack);
+            BlockPos framePos = frame.blockPosition();
+            BlockPos attachedPos = frame.getPos();
+            Direction facing = frame.getNearestViewDirection();
+            BlockPos putPos = attachedPos.above().relative(facing.getOpposite());
+            if (MeteorClient.mc.level.getBlockState(putPos).getBlock() != Blocks.CHEST) {
+                continue;
+            }
+            BlockPos kitPos = framePos.below(2);
+            BlockState kitState = MeteorClient.mc.level.getBlockState(kitPos);
+            if ((!kitState.isAir() && !(kitState.getBlock() instanceof ShulkerBoxBlock)) || kitPos.getY() != MeteorClient.mc.player.blockPosition().getY()) {
+                continue;
+            }
+            BlockPos btnPos = kitPos.relative(facing, 2);
+            BlockPos takePos = putPos.below(2);
+            StoragePos storagePos = new StoragePos(StorageItem.valueOf(itemBo), framePos, putPos, takePos, kitPos, btnPos);
+            StoragePos existing = result.get(itemBo);
+            if (existing == null) {
+                result.put(itemBo, storagePos);
+            } else {
+                ChatUtils.warning("存在多个位置: %s", itemBo.getName());
+                double newDistance = storagePos.getBtnPos().getCenter().distanceTo(playerEyePos);
+                double oldDistance = existing.getBtnPos().getCenter().distanceTo(playerEyePos);
+                if (newDistance < oldDistance) {
+                    result.put(itemBo, storagePos);
+                }
+            }
+        }
+        return result;
+    }
+
+    public static Map<ItemBo, StoragePos> scanFramesPiston(int range, int verticalRange) {
+        BlockPos playerPos = MeteorClient.mc.player.blockPosition();
+        int x = playerPos.getX();
+        int y = playerPos.getY();
+        int z = playerPos.getZ();
+        List<ItemFrame> frames = MeteorClient.mc.level.getEntitiesOfClass(ItemFrame.class,
+            new AABB(x - range, y, z - range, x + range, y + verticalRange, z + range),
+            frame -> !frame.getItem().isEmpty());
+        Vec3 playerPosVec = MeteorClient.mc.player.position();
+        HashMap<ItemBo, StoragePos> result = new HashMap<>();
+        for (ItemFrame frame : frames) {
+            ItemStack stack = frame.getItem();
+            ItemBo itemBo = new ItemBo(stack);
+            BlockPos framePos = frame.blockPosition();
+            BlockPos attachedPos = frame.getPos();
+            Direction facing = frame.getNearestViewDirection();
+            BlockPos putPos = attachedPos.above().relative(facing.getOpposite());
+            if (MeteorClient.mc.level.getBlockState(putPos).getBlock() != Blocks.CHEST) {
+                continue;
+            }
+            BlockPos kitPos = framePos.below(2);
+            BlockState kitState = MeteorClient.mc.level.getBlockState(kitPos);
+            if (!kitState.isAir() && !(kitState.getBlock() instanceof ShulkerBoxBlock)) {
+                continue;
+            }
+            if (MeteorClient.mc.level.getBlockState(kitPos.below()).getBlock() != Blocks.PISTON || kitPos.getY() != MeteorClient.mc.player.blockPosition().getY()) {
+                continue;
+            }
+            BlockPos btnPos = kitPos.relative(facing);
+            BlockPos takePos = putPos.below(2);
+            if (!(MeteorClient.mc.level.getBlockState(btnPos).getBlock() instanceof ButtonBlock)) {
+                continue;
+            }
+            StoragePos storagePos = new StoragePos(StorageItem.valueOf(itemBo), framePos, putPos, takePos, kitPos, btnPos);
+            StoragePos existing = result.get(itemBo);
+            if (existing == null) {
+                result.put(itemBo, storagePos);
+            } else {
+                ChatUtils.warning("存在多个位置: %s", itemBo.getName());
+                double newDistance = storagePos.getBtnPos().getCenter().distanceTo(playerPosVec);
+                double oldDistance = existing.getBtnPos().getCenter().distanceTo(playerPosVec);
+                if (newDistance < oldDistance) {
+                    result.put(itemBo, storagePos);
+                }
+            }
+        }
+        return result;
+    }
+
+    public static BlockPos getBlockPos(Vec3 pos) {
+        int playerY = MeteorClient.mc.player.getBlockY();
+        if (pos.y < (double) playerY - 0.75 || pos.y > (double) playerY + 2.3) {
+            return null;
+        }
+        double range = 2.030625;
+        Vec3 playerPos = MeteorClient.mc.player.position();
+        BlockPos floored = BlockPos.containing(pos);
+        BlockPos nearest = null;
+        double minDistance = Double.MAX_VALUE;
+        for (int dx = -1; dx <= 1; ++dx) {
+            for (int dz = -1; dz <= 1; ++dz) {
+                BlockPos candidate = floored.offset(dx, 0, dz).atY(playerY);
+                double dX = candidate.getX() + 0.5 - pos.x;
+                double dZ = candidate.getZ() + 0.5 - pos.z;
+                if (dX * dX + dZ * dZ <= range && isStandableSpot(candidate)) {
+                    double distance = candidate.getCenter().distanceToSqr(playerPos);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearest = candidate;
+                    }
+                }
+            }
+        }
+        return nearest;
+    }
+
+    private static boolean isStandableSpot(BlockPos pos) {
+        if (!MeteorClient.mc.level.getBlockState(pos).getCollisionShape(MeteorClient.mc.level, pos).isEmpty()) {
+            return false;
+        }
+        if (!MeteorClient.mc.level.getBlockState(pos.above()).getCollisionShape(MeteorClient.mc.level, pos.above()).isEmpty()) {
+            return false;
+        }
+        return !MeteorClient.mc.level.getBlockState(pos.below()).getCollisionShape(MeteorClient.mc.level, pos.below()).isEmpty();
     }
 
     static class HePosUtilsDirectionSwitchMap {

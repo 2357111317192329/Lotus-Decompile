@@ -84,7 +84,7 @@ extends BaseModule {
     private boolean timing;
 
     public AutoHelmet() {
-        super("自动头盔", "附近有猪灵时自动换上金头盔", 20);
+        super("L自动头盔", "附近有猪灵时自动换上金头盔", 20);
         this.enchantments = new Object2IntOpenHashMap();
     }
 

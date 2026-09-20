@@ -1,31 +1,86 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  meteordevelopment.meteorclient.systems.modules.Modules
- *  meteordevelopment.meteorclient.systems.modules.combat.KillAura
- *  meteordevelopment.meteorclient.systems.modules.render.FreeLook
- *  meteordevelopment.meteorclient.systems.modules.render.FreeLook$Mode
- *  meteordevelopment.meteorclient.utils.player.ChatUtils
- */
 package com.xiaohe66.mc.meteor.lotus.util;
 
-import com.xiaohe66.mc.meteor.lotus.modules.LitematicaPrinter;
-
 import com.xiaohe66.mc.meteor.lotus.mixin.KillAuraAccessor;
+import com.xiaohe66.mc.meteor.lotus.modules.Printer;
+import com.xiaohe66.mc.meteor.lotus.modules.LotusHelper;
+import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.systems.modules.combat.KillAura;
 import meteordevelopment.meteorclient.systems.modules.render.FreeLook;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
+import net.minecraft.client.multiplayer.ServerData;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Locale;
+import java.util.Set;
 
 public class LotusUtils {
+    private static String serverId = "none";
+    private static String worldId = "none";
+    private static Set<Integer> lockedSlots;
+
     private LotusUtils() {
+    }
+
+    public static String getWorldId() {
+        if (MeteorClient.mc.level != null) {
+            worldId = MeteorClient.mc.level.dimension().identifier().toString();
+        }
+        return worldId;
+    }
+
+    public static String getServerId() {
+        return serverId;
+    }
+
+    public static void setServerId(boolean useAddress) {
+        ServerData serverData = MeteorClient.mc.getCurrentServer();
+        if (serverData != null) {
+            if (useAddress) {
+                String invalidChars = "[\\\\/:*?\"<>|]";
+                serverId = serverData.ip.replaceAll(invalidChars, "_");
+            } else {
+                serverId = serverData.name;
+            }
+        } else if (MeteorClient.mc.getSingleplayerServer() != null) {
+            serverId = MeteorClient.mc.getSingleplayerServer().getWorldData().getLevelName();
+        } else {
+            serverId = "other";
+        }
+    }
+
+    public static void openFolder(File folder) {
+        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+        try {
+            if (os.contains("win")) {
+                Runtime.getRuntime().exec(new String[]{"explorer.exe", folder.getAbsolutePath()});
+            } else if (os.contains("mac")) {
+                Runtime.getRuntime().exec(new String[]{"open", folder.getAbsolutePath()});
+            } else {
+                Runtime.getRuntime().exec(new String[]{"xdg-open", folder.getAbsolutePath()});
+            }
+        } catch (IOException e) {
+            ChatUtils.error("打开文件夹失败 : %s", e.getMessage());
+        }
+    }
+
+    public static Set<Integer> getLockedSlots() {
+        if (lockedSlots == null) {
+            LotusHelper lotusHelper = Modules.get().get(LotusHelper.class);
+            lockedSlots = lotusHelper.getLockedSlots();
+        }
+        return lockedSlots;
+    }
+
+    public static boolean isLockedSlot(int slot) {
+        return getLockedSlots().contains(slot);
     }
 
     public static void enableKillAura() {
         KillAura killAura = Modules.get().get(KillAura.class);
         if (!killAura.isActive()) {
-            ChatUtils.info("开启杀戮", (Object[])new Object[0]);
+            ChatUtils.info("开启杀戮", new Object[0]);
             KillAuraAccessor killAuraAccessor = (KillAuraAccessor)killAura;
             killAuraAccessor.getAutoSwitch().set(true);
             killAuraAccessor.getSwapBack().set(false);
@@ -34,9 +89,9 @@ public class LotusUtils {
     }
 
     public static void disableKillAura() {
-        KillAura killAura = (KillAura)Modules.get().get(KillAura.class);
+        KillAura killAura = Modules.get().get(KillAura.class);
         if (killAura.isActive()) {
-            ChatUtils.info("关闭杀戮", (Object[])new Object[0]);
+            ChatUtils.info("关闭杀戮", new Object[0]);
             killAura.toggle();
         }
     }
@@ -59,12 +114,12 @@ public class LotusUtils {
     }
 
     public static void startPrinter() {
-        LitematicaPrinter printer = (LitematicaPrinter)Modules.get().get(LitematicaPrinter.class);
+        Printer printer = Modules.get().get(Printer.class);
         printer.startPrinting();
     }
 
     public static void stopPrinter() {
-        LitematicaPrinter printer = (LitematicaPrinter)Modules.get().get(LitematicaPrinter.class);
+        Printer printer = Modules.get().get(Printer.class);
         if (printer.isActive()) {
             printer.toggle();
         }

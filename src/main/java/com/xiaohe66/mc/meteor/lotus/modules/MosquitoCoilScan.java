@@ -136,7 +136,7 @@ public class MosquitoCoilScan extends StepModule {
     private long lastSaveTime;
 
     public MosquitoCoilScan() {
-        super("螺旋扫图", "以阿基米德螺旋线方式自动使用Pitch40鞘翅飞行扫描地图。核心算法源于<Wandelion>的 MilkyAddon 中的 SpiralFlight。哞~");
+        super("H螺旋扫图", "以阿基米德螺旋线方式自动使用Pitch40鞘翅飞行扫描地图。核心算法源于<Wandelion>的 MilkyAddon 中的 SpiralFlight。哞~");
         this.lastSaveTime = 0L;
         this.navigator = new SpiralNavigator(this);
         this.pitchController = new Pitch40Controller(this);

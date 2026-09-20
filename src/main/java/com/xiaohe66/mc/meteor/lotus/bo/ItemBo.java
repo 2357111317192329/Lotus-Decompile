@@ -55,6 +55,10 @@ public class ItemBo {
         this.mapId = null;
     }
 
+    public static ItemBo of(Item item) {
+        return new ItemBo(item);
+    }
+
     public ItemBo(Item item, ResourceKey<Enchantment> enchantment) {
         this.item = item;
         this.name = null;
@@ -103,6 +107,10 @@ public class ItemBo {
         MapId testMapIdComponent = (MapId)itemStack.get(DataComponents.MAP_ID);
         Integer testMapId = testMapIdComponent != null ? Integer.valueOf(testMapIdComponent.id()) : null;
         return Objects.equals(this.mapId, testMapId);
+    }
+
+    public int getMaxStackSize() {
+        return this.item.getDefaultMaxStackSize() * 27;
     }
 
     public boolean equals(Object o) {

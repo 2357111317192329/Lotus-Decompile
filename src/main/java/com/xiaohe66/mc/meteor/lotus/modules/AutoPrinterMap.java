@@ -54,7 +54,8 @@ import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
 import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
 import com.xiaohe66.mc.meteor.lotus.util.HeRotationUtils;
 import com.xiaohe66.mc.meteor.lotus.util.LotusUtils;
-import com.xiaohe66.mc.meteor.lotus.modules.LitematicaPrinter;
+import com.xiaohe66.mc.meteor.lotus.util.NumberNameComparator;
+import com.xiaohe66.mc.meteor.lotus.modules.Printer;
 import com.xiaohe66.mc.meteor.lotus.modules.WalkModule;
 
 import fi.dy.masa.litematica.data.DataManager;
@@ -83,17 +84,23 @@ import meteordevelopment.meteorclient.settings.StringSetting;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
+import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.meteorclient.utils.player.SlotUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundRenameItemPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.CartographyTableMenu;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.Item;
@@ -101,6 +108,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.MapItem;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.AnvilBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -124,6 +132,11 @@ public class AutoPrinterMap extends WalkModule {
         .min(0)
         .sliderMax(64)
         .defaultValue(32)
+        .build());
+    private final Setting<Boolean> autoNaming = sgGeneral.add(new BoolSetting.Builder()
+        .name("自动命名")
+        .description("自动将成品地图画按投影名称命名")
+        .defaultValue(true)
         .build());
     private final Setting<Integer> pauseTicks = sgGeneral.add(new IntSetting.Builder()
         .name("暂停时间(tick)")
@@ -155,6 +168,8 @@ public class AutoPrinterMap extends WalkModule {
     private BlockPos supplyChestPos;
     private BlockPos outputChestPos;
     private BlockPos cartographyTablePos;
+    private BlockPos anvilPos;
+    private String mapName;
     private final Map<Item, List<BlockPos>> itemChestPosMap;
     private final List<List<BlockPos>> printRows;
     private final Map<Item, Integer> rowNeedCount;
@@ -171,7 +186,7 @@ public class AutoPrinterMap extends WalkModule {
     private BlockPos currentPrintPos;
 
     public AutoPrinterMap() {
-        super("制图师", "自动打印地图画(仅地毯), 需要搭配<Lotus-制图平台>使用, 投影原点必须是左上角。由<Liek_Girls>友情协助开发。");
+        super("M制图师", "自动打印地图画(仅地毯), 需要搭配<Lotus-制图平台>使用, 投影原点必须是左上角。补给箱需提供空地图、玻璃板、铁砧和经验瓶。由<1n8>友情赞助开发。");
         this.itemChestPosMap = new HashMap<Item, List<BlockPos>>();
         this.printRows = new LinkedList<List<BlockPos>>();
         this.rowNeedCount = new HashMap<Item, Integer>();
@@ -187,6 +202,7 @@ public class AutoPrinterMap extends WalkModule {
         this.addStep(Steps.SUPPLY, this::supply);
         this.addStep(Steps.DRAW, this::drawMap);
         this.addStep(Steps.LOCK, this::lockMap);
+        this.addStep(Steps.USE, this::anvilNaming);
         this.addStep(Steps.PUT, this::putMap);
         this.addStep(Steps.SORT, this::sortInventory);
     }
@@ -331,6 +347,13 @@ public class AutoPrinterMap extends WalkModule {
             this.step = Steps.LOCK;
             return;
         }
+        if (this.autoNaming.get()) {
+            Component customName = filledMapStack.getHoverName();
+            if (customName == null || !this.mapName.equals(customName.getString())) {
+                this.step = Steps.USE;
+                return;
+            }
+        }
         BlockPos targetPos = this.atPlayerY(this.outputChestPos);
         if (this.isTooFar(targetPos, 1.0)) {
             this.info("前往放入成品", new Object[0]);
@@ -377,7 +400,7 @@ public class AutoPrinterMap extends WalkModule {
                     MapItemSavedData mapState = MapItem.getSavedData(filledMapStack, (Level)this.mc.level);
                     if (mapState.locked) {
                         this.info("已锁定, 不需要锁定", new Object[0]);
-                        this.closeNext(Steps.PUT);
+                        this.closeNext(Steps.USE);
                         return;
                     }
                     InvUtils.shiftClick().slot(this.getCurPlayerSlot());
@@ -392,11 +415,85 @@ public class AutoPrinterMap extends WalkModule {
                 } else if (!cartographyHandler.getSlot(2).getItem().isEmpty()) {
                     this.info("锁定地图", new Object[0]);
                     InvUtils.shiftClick().slotId(2);
-                    this.closeNext(Steps.PUT);
+                    this.closeNext(this.autoNaming.get() ? Steps.USE : Steps.PUT);
                 }
                 this.setDelay();
             }
         }
+    }
+
+    private void anvilNaming() {
+        if (!this.autoNaming.get()) {
+            this.putMap();
+            return;
+        }
+        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
+        if (screenHandler instanceof AnvilMenu) {
+            AnvilMenu anvilHandler = (AnvilMenu)screenHandler;
+            if (anvilHandler.getSlot(0).getItem().isEmpty()) {
+                ItemStack mapStack = this.nextPlayerStack(this::needsNaming);
+                if (mapStack.isEmpty()) {
+                    this.closeNext(Steps.PUT);
+                    return;
+                }
+                InvUtils.shiftClick().slot(this.getCurPlayerSlot());
+            } else {
+                ItemStack resultStack = anvilHandler.getSlot(2).getItem();
+                Component resultName = resultStack.getHoverName();
+                if (resultName != null && this.mapName.equals(resultName.getString())) {
+                    this.info("命名完成: %s", new Object[]{this.mapName});
+                    InvUtils.shiftClick().slotId(2);
+                    this.closeNext(Steps.PUT);
+                    return;
+                }
+                this.info("命名地图: %s", new Object[]{this.mapName});
+                anvilHandler.setItemName(this.mapName);
+                this.mc.getConnection().send(new ServerboundRenameItemPacket(this.mapName));
+            }
+            this.setDelay();
+        } else if (this.mc.player.experienceLevel < 1) {
+            ItemStack xpStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.EXPERIENCE_BOTTLE);
+            if (xpStack.isEmpty()) {
+                this.info("缺少XP, 前往补给", new Object[0]);
+                this.step = Steps.SUPPLY;
+            } else {
+                HeInvUtils.swapTo(this.getCurPlayerSlot());
+                Rotations.rotate(this.mc.player.getYRot(), 90.0, () -> this.mc.gameMode.useItem(this.mc.player, InteractionHand.MAIN_HAND));
+                this.setDelay(20);
+            }
+        } else {
+            BlockPos targetPos = this.atPlayerY(this.anvilPos);
+            if (this.isTooFar(targetPos, 1.0)) {
+                this.info("前往铁砧", new Object[0]);
+                this.gotoTarget(targetPos, 0, Steps.USE);
+            } else if (!(this.mc.level.getBlockState(this.anvilPos).getBlock() instanceof AnvilBlock)) {
+                ItemStack anvilStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.ANVIL);
+                if (anvilStack.isEmpty()) {
+                    this.info("铁砧损坏且背包没有铁砧, 前往补给", new Object[0]);
+                    this.step = Steps.SUPPLY;
+                } else {
+                    this.info("补放铁砧", new Object[0]);
+                    HeInvUtils.swapTo(this.getCurPlayerSlot());
+                    HeBlockUtils.clickAdjacentBlock(this.anvilPos);
+                    this.setDelay();
+                }
+            } else if (this.mc.player.containerMenu instanceof InventoryMenu) {
+                if (targetPos != this.anvilPos) {
+                    HeBlockUtils.open(this.anvilPos, Direction.UP);
+                } else {
+                    HeBlockUtils.open(this.anvilPos);
+                }
+                this.setDelay();
+            }
+        }
+    }
+
+    private boolean needsNaming(ItemStack stack) {
+        if (stack.getItem() != Items.FILLED_MAP) {
+            return false;
+        }
+        Component customName = stack.getHoverName();
+        return customName == null || !this.mapName.equals(customName.getString());
     }
 
     private void drawMap() {
@@ -435,16 +532,29 @@ public class AutoPrinterMap extends WalkModule {
         Inventory playerInventory = this.mc.player.getInventory();
         boolean hasEmptyMaps = false;
         boolean hasGlassPanes = false;
+        boolean hasAnvils = false;
+        boolean hasXpBottles = false;
         for (int i = 0; i < 36; ++i) {
             Item item = playerInventory.getItem(i).getItem();
             if (item == Items.GLASS_PANE) {
                 hasGlassPanes = true;
                 continue;
             }
-            if (item != Items.MAP) continue;
-            hasEmptyMaps = true;
+            if (item == Items.MAP) {
+                hasEmptyMaps = true;
+                continue;
+            }
+            if (item == Items.ANVIL) {
+                hasAnvils = true;
+                continue;
+            }
+            if (item == Items.EXPERIENCE_BOTTLE) {
+                hasXpBottles = true;
+            }
         }
-        if (hasEmptyMaps && hasGlassPanes) {
+        boolean needAnvil = !hasAnvils && !(this.mc.level.getBlockState(this.anvilPos).getBlock() instanceof AnvilBlock);
+        boolean needXp = !hasXpBottles && this.mc.player.experienceLevel < 1;
+        if (hasEmptyMaps && hasGlassPanes && !needAnvil && !needXp) {
             this.closeNext(Steps.DRAW);
             return;
         }
@@ -460,7 +570,7 @@ public class AutoPrinterMap extends WalkModule {
         this.openKit(this.supplyChestPos, openDirection, screenHandler -> {
             ItemStack supplyStack = this.nextScreenStack(itemStack -> {
                 Item item = itemStack.getItem();
-                return needsEmptyMaps && item == Items.MAP || needsGlassPanes && item == Items.GLASS_PANE;
+                return needsEmptyMaps && item == Items.MAP || needsGlassPanes && item == Items.GLASS_PANE || needAnvil && item == Items.ANVIL || needXp && item == Items.EXPERIENCE_BOTTLE;
             });
             if (supplyStack.isEmpty()) {
                 this.warning("无法补给, 稍后重启", new Object[0]);
@@ -470,8 +580,12 @@ public class AutoPrinterMap extends WalkModule {
             int emptySlot = this.getFirstEmptySlot();
             if (emptySlot != -1) {
                 this.info("补给: %s", new Object[]{Names.get(supplyStack)});
-                int slotId = SlotUtils.indexToId((int)emptySlot);
-                HeInvUtils.moveOneFromSlot(this.getCurScreenSlot(), slotId);
+                if (supplyStack.getItem() == Items.EXPERIENCE_BOTTLE) {
+                    InvUtils.shiftClick().slotId(this.getCurScreenSlot());
+                } else {
+                    int slotId = SlotUtils.indexToId((int)emptySlot);
+                    HeInvUtils.moveOneFromSlot(this.getCurScreenSlot(), slotId);
+                }
                 this.setDelay();
             } else {
                 ItemStack carpetStack = this.nextPlayerStack(itemStack -> HeItemUtils.isCarpet(itemStack.getItem()));
@@ -697,6 +811,7 @@ public class AutoPrinterMap extends WalkModule {
                 for (String schematicName : nameArray) {
                     if (!schematicName.equals(selectedPlacement.getName())) continue;
                     this.info("继续打印", new Object[0]);
+                    this.mapName = schematicName;
                     this.prepare();
                     return;
                 }
@@ -713,6 +828,7 @@ public class AutoPrinterMap extends WalkModule {
         SchematicPlacement newPlacement = SchematicPlacement.createFor((LitematicaSchematic)litematicaSchematic, this.mapOrigin, nameArray[0], true, true);
         placementManager.addSchematicPlacement(newPlacement, false);
         placementManager.setSelectedSchematicPlacement(newPlacement);
+        this.mapName = nameArray[0];
         this.info("加载投影: %s", new Object[]{path.getFileName()});
         this.delayNext(Steps.PREPARE);
     }
@@ -780,6 +896,11 @@ public class AutoPrinterMap extends WalkModule {
             this.warning("未识别到<制图台>", new Object[0]);
             return;
         }
+        this.anvilPos = this.findAnvil();
+        if (this.anvilPos == null) {
+            this.warning("未识别到<铁砧>", new Object[0]);
+            return;
+        }
         if (this.itemChestPosMap.size() < HeItemUtils.CARPETS.size()) {
             ArrayList<Item> remainingCarpets = new ArrayList<Item>(HeItemUtils.CARPETS);
             for (Item item : this.itemChestPosMap.keySet()) {
@@ -841,6 +962,21 @@ public class AutoPrinterMap extends WalkModule {
                     BlockPos pos = this.mapCenter.offset(x, y, z);
                     Block block = this.mc.level.getBlockState(pos).getBlock();
                     if (block != Blocks.CARTOGRAPHY_TABLE) continue;
+                    return pos;
+                }
+            }
+        }
+        return null;
+    }
+
+    private BlockPos findAnvil() {
+        int searchRange = 8;
+        for (int y = -2; y <= 1; ++y) {
+            for (int x = -searchRange; x < searchRange; ++x) {
+                for (int z = -searchRange; z < searchRange; ++z) {
+                    BlockPos pos = this.mapCenter.offset(x, y, z);
+                    Block block = this.mc.level.getBlockState(pos).getBlock();
+                    if (!(block instanceof AnvilBlock)) continue;
                     return pos;
                 }
             }
@@ -949,7 +1085,7 @@ public class AutoPrinterMap extends WalkModule {
     }
 
     private void setupPrinterSupplier() {
-        LitematicaPrinter printer = (LitematicaPrinter)Modules.get().get(LitematicaPrinter.class);
+        Printer printer = (Printer)Modules.get().get(Printer.class);
         printer.setBlockPosSupplier(() -> {
             if (this.currentPrintPos == null) {
                 return Collections.emptyList();
@@ -989,7 +1125,7 @@ public class AutoPrinterMap extends WalkModule {
         String names = files.stream().map(File::getName).map(name -> {
             int dotIndex = name.indexOf(46);
             return dotIndex > 0 ? name.substring(0, dotIndex) : name;
-        }).collect(Collectors.joining(","));
+        }).sorted(NumberNameComparator.INSTANCE).collect(Collectors.joining(","));
         if (!names.isEmpty()) {
             this.info("投影文件已更新, 请重新打开界面 : %s", new Object[]{names});
             this.schematicName.set(names);

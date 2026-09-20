@@ -180,7 +180,7 @@ public class AutoEnchantment extends StepModule {
     private long lastRenameTime;
 
     public AutoEnchantment() {
-        super("自动附魔", "自动附魔(祛魔)和改名, 附魔需要搭配附魔平台使用（但仅改名时可以随处使用）。快捷栏需要拿一些铁砧。");
+        super("A自动附魔", "自动附魔(祛魔)和改名, 附魔需要搭配附魔平台使用（但仅改名时可以随处使用）。快捷栏需要拿一些铁砧。");
         this.enchantmentPosMap = new HashMap<ResourceKey<Enchantment>, BlockPos>();
         this.needTakeBook = new LinkedList();
         this.onlyRenameItem = Items.AIR;

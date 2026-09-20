@@ -93,7 +93,7 @@ extends BaseModule {
     private final Queue<ServerboundSignUpdatePacket> pendingPackets;
 
     public AutoSignPlus() {
-        super("自动签名", "自动写牌子。${name}:玩家id; $time{yyyy.mm.dd hh:mm}:时间可自定义表达式", 10);
+        super("L自动签名", "自动写牌子。${name}:玩家ID; $time{yyyy.MM.dd HH:mm}:时间可自定义表达式", 10);
         this.pendingPackets = new ArrayDeque<ServerboundSignUpdatePacket>();
     }
 

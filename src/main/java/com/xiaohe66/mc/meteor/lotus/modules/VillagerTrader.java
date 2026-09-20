@@ -165,7 +165,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
     private int tradeIndex;
 
     public VillagerTrader() {
-        super("自动村民交易", "自动和村民交易。展示框下2格的盒子卸货、最近的木桶补绿宝石, 展示框放书的箱子补给书");
+        super("A自动村民交易", "自动和村民交易。展示框下2格的盒子卸货、最近的木桶补绿宝石, 展示框放书的箱子补给书");
         this.villagerList = Collections.emptyList();
         this.putPosMap = Collections.emptyMap();
         this.buyVillagerItemList = Collections.emptyList();

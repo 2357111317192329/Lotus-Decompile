@@ -1,46 +1,26 @@
 /*
  * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  meteordevelopment.meteorclient.events.render.Render3DEvent
- *  meteordevelopment.meteorclient.renderer.ShapeMode
- *  meteordevelopment.meteorclient.settings.EnumSetting$Builder
- *  meteordevelopment.meteorclient.settings.Setting
- *  meteordevelopment.meteorclient.utils.player.FindItemResult
- *  meteordevelopment.meteorclient.utils.player.InvUtils
- *  meteordevelopment.meteorclient.utils.render.color.Color
- *  meteordevelopment.meteorclient.utils.world.BlockUtils
- *  meteordevelopment.orbit.EventHandler
- *  net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
- *  net.minecraft.util.Hand
- *  net.minecraft.entity.Entity
- *  net.minecraft.entity.decoration.ItemFrameEntity
- *  net.minecraft.item.ItemStack
- *  net.minecraft.item.Items
- *  net.minecraft.util.math.BlockPos
- *  net.minecraft.util.math.Direction
- *  net.minecraft.util.math.Box
- *  net.minecraft.util.math.Vec3i
- *  net.minecraft.util.hit.HitResult$Type
- *  net.minecraft.util.hit.BlockHitResult
- *  net.minecraft.client.network.ClientPlayerEntity
  */
 package com.xiaohe66.mc.meteor.lotus.modules;
 
+import com.xiaohe66.mc.meteor.lotus.modules.placemap.AutoPlaceOrder;
+import com.xiaohe66.mc.meteor.lotus.modules.placemap.PlaceMapPos;
 import com.xiaohe66.mc.meteor.lotus.modules.step.Steps;
 import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
-import com.xiaohe66.mc.meteor.lotus.modules.StepModule;
-import com.xiaohe66.mc.meteor.lotus.modules.placemap.PlaceMapPos;
-
-import com.xiaohe66.mc.meteor.lotus.modules.placemap.AutoPlaceOrder;
+import com.xiaohe66.mc.meteor.lotus.util.NumberNameComparator;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.settings.EnumSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
+import meteordevelopment.meteorclient.utils.player.SlotUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.orbit.EventHandler;
@@ -49,12 +29,16 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.item.BundleItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -73,13 +57,13 @@ public class AutoPlaceMap extends StepModule {
     private int placeIndex;
 
     public AutoPlaceMap() {
-        super("自动贴画", "开启功能后, 给2个角放置展示框后自动贴画。由<hn2>友情赞助开发");
+        super("M自动贴画", "开启功能后, 给2个角放置展示框后自动贴画。支持从收纳袋取画, 超出手长范围的位置会等靠近后再贴。由<hn2>友情赞助开发");
         this.wasRightClicking = false;
         this.placePosList = new ArrayList<PlaceMapPos>();
-        this.addStep(Steps.PREPARE, this::preparePlace);
-        this.addStep(Steps.PLACING, this::place);
+        this.addStep(Steps.CHECK, this::preparePlace);
+        this.addStep(Steps.PLACE, this::place);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (this.mc.player == null || !this.isActive() || this.step == Steps.PLACING) {
+            if (this.mc.player == null || !this.isActive() || this.step == Steps.PLACE) {
                 return;
             }
             boolean rightClicking = this.mc.options.keyUse.isDown();
@@ -111,66 +95,166 @@ public class AutoPlaceMap extends StepModule {
         this.readyMap();
         this.setDelay();
         this.placeIndex = 1;
-        this.step = Steps.PLACING;
+        this.step = Steps.PLACE;
     }
 
     private void place() {
-        int startIndex = this.placeIndex;
-        do {
-            PlaceMapPos placeMapPos;
-            boolean success;
-            if (!(success = this.doPlace(placeMapPos = this.placePosList.get(this.placeIndex)))) {
-                return;
+        HashMap<String, Integer> needCount = new HashMap<String, Integer>();
+        for (PlaceMapPos placeMapPos : this.placePosList) {
+            ItemFrame itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
+            if (itemFrame == null || itemFrame.getItem().isEmpty()) {
+                needCount.merge(placeMapPos.getName(), 1, Integer::sum);
             }
-            ++this.placeIndex;
-            if (this.placeIndex < this.placePosList.size()) continue;
-            this.placeIndex = 0;
-        } while (this.placeIndex != startIndex);
-        this.warning("放置完毕", new Object[0]);
-        this.toggle();
+        }
+        if (needCount.isEmpty()) {
+            this.warning("放置完毕", new Object[0]);
+            this.toggle();
+            return;
+        }
+        Set<String> missingNames = this.subtractInventoryCounts(needCount);
+        if (missingNames.isEmpty() || !this.moveMissingToInventory(missingNames)) {
+            PlaceMapPos mainHandPos = null;
+            ItemFrame mainHandFrame = null;
+            PlaceMapPos hotbarPos = null;
+            ItemFrame hotbarFrame = null;
+            PlaceMapPos otherPos = null;
+            ItemFrame otherFrame = null;
+            int size = this.placePosList.size();
+            for (int i = 0; i < size; ++i) {
+                PlaceMapPos placeMapPos = this.placePosList.get(this.placeIndex);
+                ++this.placeIndex;
+                if (this.placeIndex >= size) {
+                    this.placeIndex = 0;
+                }
+                ItemFrame itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
+                if ((itemFrame == null || itemFrame.getItem().isEmpty()) && !this.isOutOfReach(placeMapPos.getBlockPos(), itemFrame)) {
+                    if (itemFrame == null) {
+                        if (otherPos == null) {
+                            otherPos = placeMapPos;
+                        }
+                    } else {
+                        FindItemResult mapResult = this.findMap(placeMapPos.getName());
+                        if (mapResult.found()) {
+                            if (mapResult.isMainHand()) {
+                                mainHandPos = placeMapPos;
+                                mainHandFrame = itemFrame;
+                                break;
+                            }
+                            if (mapResult.isHotbar()) {
+                                if (hotbarPos == null) {
+                                    hotbarPos = placeMapPos;
+                                    hotbarFrame = itemFrame;
+                                }
+                            } else if (otherPos == null) {
+                                otherPos = placeMapPos;
+                                otherFrame = itemFrame;
+                            }
+                        }
+                    }
+                }
+            }
+            if (mainHandPos != null) {
+                this.doPlace(mainHandPos, mainHandFrame);
+            } else if (hotbarPos != null) {
+                this.doPlace(hotbarPos, hotbarFrame);
+            } else if (otherPos != null) {
+                this.doPlace(otherPos, otherFrame);
+            } else if (!missingNames.isEmpty() && this.findBundleSlotWithAny(missingNames) == -1) {
+                this.info("缺少<地图画>, 身上和收纳袋中都没有: %s", new Object[]{missingNames});
+            } else {
+                this.info("剩余位置超出手长范围, 等待玩家靠近", new Object[0]);
+                this.setDelay(20);
+            }
+        }
     }
 
-    /*
-     * Enabled aggressive block sorting
-     */
-    private boolean doPlace(PlaceMapPos placeMapPos) {
-        BlockPos placePos = placeMapPos.getBlockPos();
-        ItemFrame itemFrame = this.getItemFrameAtPosition(placePos);
-        if (itemFrame == null) {
-            FindItemResult findItemResult = this.findFrame();
-            if (findItemResult.found()) {
-                HeInvUtils.swapToSelectedSlot(findItemResult.slot());
-                BlockUtils.place((BlockPos)placePos, (FindItemResult)findItemResult, (int)0);
-                HeInvUtils.swapToSelectedSlot(findItemResult.slot());
-                HeInvUtils.sendCloseScreenPacket();
-                this.setDelay();
-                return false;
+    private Set<String> subtractInventoryCounts(Map<String, Integer> needCount) {
+        for (int i = 0; i < 36; ++i) {
+            ItemStack stack = this.getItemStack(i);
+            Component customName = stack.getCustomName();
+            if (stack.getItem() == Items.FILLED_MAP && customName != null) {
+                needCount.merge(customName.getString(), -stack.getCount(), Integer::sum);
             }
-            this.info("缺少<展示框>", new Object[0]);
-            this.toggle();
-            return false;
         }
-        ItemStack heldItemStack = itemFrame.getItem();
-        if (!heldItemStack.isEmpty()) {
+        HashSet<String> missingNames = new HashSet<String>();
+        needCount.forEach((name, count) -> {
+            if (count > 0) {
+                missingNames.add(name);
+            }
+        });
+        return missingNames;
+    }
+
+    private void doPlace(PlaceMapPos placeMapPos, ItemFrame itemFrame) {
+        if (itemFrame == null) {
+            FindItemResult frameResult = this.findFrame();
+            if (frameResult.found()) {
+                HeInvUtils.withItemInHand(frameResult.slot(), () -> BlockUtils.place(placeMapPos.getBlockPos(), frameResult, 0));
+                this.setDelay();
+            } else {
+                this.info("缺少<展示框>", new Object[0]);
+                this.toggle();
+            }
+        } else {
+            FindItemResult mapResult = this.findMap(placeMapPos.getName());
+            if (mapResult.found()) {
+                if (mapResult.isHotbar()) {
+                    if (mapResult.getHand() == null) {
+                        InvUtils.swap(mapResult.slot(), false);
+                    } else {
+                        this.interactEntity((Entity)itemFrame);
+                        this.setDelay();
+                    }
+                } else {
+                    HeInvUtils.swap(mapResult.slot(), 7);
+                }
+            } else {
+                this.info("缺少<地图画>:" + placeMapPos.getName(), new Object[0]);
+                this.setDelay();
+            }
+        }
+    }
+
+    private boolean moveMissingToInventory(Set<String> missingNames) {
+        if (!(this.mc.player.containerMenu instanceof InventoryMenu)) {
+            HeInvUtils.closeCurScreen();
+            this.setDelay();
             return true;
         }
-        FindItemResult findItemResult = this.findMap(placeMapPos.getName());
-        if (!findItemResult.found()) {
-            this.info("缺少<地图画>:" + placeMapPos.getName(), new Object[0]);
-            this.setDelay();
+        int bundleSlot = this.findBundleSlotWithAny(missingNames);
+        if (bundleSlot == -1) {
             return false;
         }
-        if (!findItemResult.isHotbar()) {
-            HeInvUtils.swap(findItemResult.slot(), 7);
+        int emptySlot = this.getFirstEmptySlot();
+        if (emptySlot == -1) {
             return false;
         }
-        if (findItemResult.getHand() == null) {
-            InvUtils.swap((int)findItemResult.slot(), (boolean)false);
-            return false;
-        }
-        this.interactEntity((Entity)itemFrame);
+        HeInvUtils.stopSprinting();
+        HeInvUtils.moveOneFromSlot(SlotUtils.indexToId(bundleSlot), SlotUtils.indexToId(emptySlot));
+        HeInvUtils.startSprinting();
         this.setDelay();
         return true;
+    }
+
+    private int findBundleSlotWithAny(Set<String> names) {
+        for (int i = 0; i < 36; ++i) {
+            ItemStack stack = this.getItemStack(i);
+            if (!(stack.getItem() instanceof BundleItem)) continue;
+            BundleContents contents = stack.get(DataComponents.BUNDLE_CONTENTS);
+            if (contents == null) continue;
+            for (ItemStack bundleStack : contents.itemCopyStream().toList()) {
+                Component customName = bundleStack.getCustomName();
+                if (bundleStack.getItem() == Items.FILLED_MAP && customName != null && names.contains(customName.getString())) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private boolean isOutOfReach(BlockPos pos, ItemFrame itemFrame) {
+        double range = itemFrame == null ? this.mc.player.blockInteractionRange() : this.mc.player.entityInteractionRange();
+        return this.mc.player.getEyePosition().distanceToSqr(pos.getCenter()) > range * range;
     }
 
     private FindItemResult findMap(String mapName) {
@@ -200,30 +284,56 @@ public class AutoPlaceMap extends StepModule {
             this.blockPos1 = new BlockPos((Vec3i)framePos);
         } else {
             this.blockPos2 = new BlockPos((Vec3i)framePos);
-            this.step = Steps.PREPARE;
+            this.step = Steps.CHECK;
         }
     }
 
     private void readyMap() {
-        Component customName;
-        ItemStack mapStack;
-        int i;
-        ArrayList<String> mapNames = new ArrayList<String>();
-        for (i = 0; i < 36; ++i) {
-            mapStack = this.getItemStack(i);
-            if (mapStack.getItem() != Items.FILLED_MAP || (customName = mapStack.getCustomName()) == null) continue;
-            mapNames.add(customName.getString());
+        int emptyFrameCount = 0;
+        for (PlaceMapPos placeMapPos : this.placePosList) {
+            ItemFrame itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
+            if (itemFrame != null && !itemFrame.getItem().isEmpty()) {
+                placeMapPos.setDone(true);
+            } else {
+                ++emptyFrameCount;
+            }
         }
-        if (mapNames.size() < this.placePosList.size()) {
-            this.info("地图画数量不对", new Object[0]);
+        ArrayList<String> mapNames = new ArrayList<String>();
+        for (int i = 0; i < 36; ++i) {
+            ItemStack stack = this.getItemStack(i);
+            if (stack.getItem() == Items.FILLED_MAP) {
+                this.addMapNames(mapNames, stack);
+                continue;
+            }
+            if (!(stack.getItem() instanceof BundleItem)) continue;
+            BundleContents contents = stack.get(DataComponents.BUNDLE_CONTENTS);
+            if (contents == null) continue;
+            for (ItemStack bundleStack : contents.itemCopyStream().toList()) {
+                if (bundleStack.getItem() != Items.FILLED_MAP) continue;
+                this.addMapNames(mapNames, bundleStack);
+            }
+        }
+        if (mapNames.size() < emptyFrameCount) {
+            this.info("地图画数量不对, 还需要[%s]张, 身上和收纳袋中只有[%s]张", new Object[]{emptyFrameCount, mapNames.size()});
             this.toggle();
         } else {
-            mapNames.sort(null);
-            for (i = 0; i < this.placePosList.size(); ++i) {
-                PlaceMapPos placeMapPos = this.placePosList.get(i);
-                String mapName = mapNames.get(i);
-                placeMapPos.setName(mapName);
+            mapNames.sort(NumberNameComparator.INSTANCE);
+            int index = 0;
+            for (PlaceMapPos placeMapPos : this.placePosList) {
+                if (placeMapPos.isDone()) continue;
+                placeMapPos.setName(mapNames.get(index));
+                ++index;
             }
+        }
+    }
+
+    private void addMapNames(List<String> mapNames, ItemStack stack) {
+        Component customName = stack.getCustomName();
+        if (customName == null) {
+            return;
+        }
+        for (int i = 0; i < stack.getCount(); ++i) {
+            mapNames.add(customName.getString());
         }
     }
 
@@ -359,7 +469,7 @@ public class AutoPlaceMap extends StepModule {
         this.blockPos1 = null;
         this.blockPos2 = null;
         this.placePosList.clear();
-        this.step = Steps.INITIAL;
+        this.step = Steps.NONE;
     }
 
     @Override

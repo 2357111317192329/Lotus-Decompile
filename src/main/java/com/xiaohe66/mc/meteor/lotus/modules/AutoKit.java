@@ -1,138 +1,79 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  meteordevelopment.meteorclient.settings.BoolSetting$Builder
- *  meteordevelopment.meteorclient.settings.IntSetting$Builder
- *  meteordevelopment.meteorclient.settings.ItemSetting$Builder
- *  meteordevelopment.meteorclient.settings.Setting
- *  meteordevelopment.meteorclient.utils.misc.Names
- *  meteordevelopment.meteorclient.utils.player.FindItemResult
- *  meteordevelopment.meteorclient.utils.player.InvUtils
- *  net.minecraft.util.Hand
- *  net.minecraft.entity.decoration.ItemFrameEntity
- *  net.minecraft.entity.ItemEntity
- *  net.minecraft.screen.ScreenHandler
- *  net.minecraft.item.Item
- *  net.minecraft.item.ItemStack
- *  net.minecraft.item.Items
- *  net.minecraft.util.math.BlockPos
- *  net.minecraft.util.math.Direction
- *  net.minecraft.util.math.Position
- *  net.minecraft.util.math.Vec3i
- *  net.minecraft.util.math.Vec3d
- *  net.minecraft.block.ShulkerBoxBlock
- *  net.minecraft.network.packet.Packet
- *  net.minecraft.block.BlockState
- *  net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket
- *  net.minecraft.util.hit.BlockHitResult
- */
 package com.xiaohe66.mc.meteor.lotus.modules;
 
-import com.xiaohe66.mc.meteor.lotus.modules.step.Steps;
-import com.xiaohe66.mc.meteor.lotus.util.HeBlockUtils;
-import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
-import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
-import com.xiaohe66.mc.meteor.lotus.modules.WalkModule;
-
-import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
 import com.xiaohe66.mc.meteor.lotus.bo.ItemQty;
-import com.xiaohe66.mc.meteor.lotus.bo.StorageItem;
 import com.xiaohe66.mc.meteor.lotus.bo.StoragePos;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import com.xiaohe66.mc.meteor.lotus.modules.step.Steps;
+import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
+import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
+import com.xiaohe66.mc.meteor.lotus.util.HePosUtils;
+import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
+import com.xiaohe66.mc.meteor.lotus.util.WarehouseHelper;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.IntSetting;
 import meteordevelopment.meteorclient.settings.ItemSetting;
 import meteordevelopment.meteorclient.settings.Setting;
+import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.utils.misc.Names;
-import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Position;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 
-public class AutoKit extends WalkModule {
-    private final Setting<Integer> scanRange = sgGeneral.add(new IntSetting.Builder()
-        .name("扫描范围")
-        .description("检测展示框和箱子的范围")
-        .defaultValue(50)
-        .min(1)
-        .sliderMax(100)
-        .build());
-    private final Setting<Integer> qty = sgGeneral.add(new IntSetting.Builder()
-        .name("操作数")
-        .description("每次操作的物品数量")
-        .min(1)
-        .sliderMax(9)
-        .defaultValue(9)
-        .build());
-    private final Setting<Item> emptyKitItem = sgGeneral.add(new ItemSetting.Builder()
-        .name("空盒标识")
-        .description("空盒箱子展示框上的物品")
-        .defaultValue(Items.WHITE_SHULKER_BOX)
-        .build());
-    private final Setting<Item> finishedKitItem = sgGeneral.add(new ItemSetting.Builder()
-        .name("成品标识")
-        .description("成品kit箱子展示框上的物品")
-        .defaultValue(Items.LIGHT_BLUE_SHULKER_BOX)
-        .build());
-    private final Setting<Item> miscKitItem = sgGeneral.add(new ItemSetting.Builder()
-        .name("杂盒标识")
-        .description("杂盒箱子展示框上的物品")
-        .defaultValue(Items.BLUE_SHULKER_BOX)
-        .build());
-    private final Setting<Boolean> initBtn = sgGeneral.add(new BoolSetting.Builder()
-        .name("初始化")
-        .description("使用前需要先初始化，保存所有箱子位置并读取主手盒子作为模板")
-        .defaultValue(false)
-        .onChanged(this::init)
-        .build());
-    private final Map<ItemBo, StoragePos> itemPosMap;
-    private StoragePos emptyKitPos;
-    private StoragePos finishedKitPos;
-    private StoragePos miscKitPos;
-    private final List<ItemQty> templateItemQtyList;
-    private final Map<ItemBo, Integer> needItemMap;
-    private int itemIndex;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class AutoKit extends WarehouseModule {
+    private final Setting<Integer> scanRange;
+    private final Setting<Integer> operationCount;
+    private final Setting<Integer> takeEmptyCount;
+    private final Setting<Item> emptyBoxMarker;
+    private final Setting<Item> finishBoxMarker;
+    private final Setting<Item> miscBoxMarker;
+    private final Setting<Boolean> initSetting;
+    private final WarehouseHelper warehouseHelper = new WarehouseHelper();
+    private StoragePos emptyPos;
+    private StoragePos finishPos;
+    private StoragePos miscPos;
+    private final List<ItemQty> template = new ArrayList<>(27);
+    private final Map<ItemBo, Integer> needed = new HashMap<>();
+    private int templateIndex;
     private ItemBo currentItem;
-    private StoragePos curOperationPos;
-    private int putKitIndex;
+    private StoragePos currentPos;
+    private StoragePos breakPos;
 
     public AutoKit() {
-        super("自动Kit", "自动装配Kit, 需要在<简易仓库>中使用。由资深猎人<dadou>友情赞助开发。");
-        this.itemPosMap = new LinkedHashMap<ItemBo, StoragePos>();
-        this.templateItemQtyList = new ArrayList<ItemQty>(27);
-        this.needItemMap = new HashMap<ItemBo, Integer>();
-        this.itemIndex = 0;
-        this.putKitIndex = -1;
-        this.addStep(Steps.NEXT, this::nextStep);
-        this.addStep(Steps.PUT_KIT, this::putKit);
+        super("S自动Kit", "自动装配Kit, 需要在<简易仓库>中使用。由资深猎人<dadou>友情赞助开发。");
+        this.scanRange = sgGeneral.add(new IntSetting.Builder().name("扫描范围").description("检测展示框和箱子的范围").defaultValue(50).min(1).sliderMax(100).build());
+        this.operationCount = sgGeneral.add(new IntSetting.Builder().name("操作数").description("每次操作的物品数量").min(1).sliderMax(9).defaultValue(9).build());
+        this.takeEmptyCount = sgGeneral.add(new IntSetting.Builder().name("拿取空盒数").description("拿取空盒时, 需要拿的空盒数量").min(1).sliderMax(9).defaultValue(2).build());
+        this.emptyBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("空盒标识").description("空盒箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.SHULKER_BOX).build());
+        this.finishBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("成品标识").description("成品kit箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.LIGHT_BLUE_SHULKER_BOX).build());
+        this.miscBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("杂盒标识").description("杂盒箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.WHITE_SHULKER_BOX).build());
+        this.initSetting = sgGeneral.add(new BoolSetting.Builder().name("初始化").description("使用前需要先初始化，保存所有箱子位置并读取主手盒子作为模板").defaultValue(false).onChanged(this::doInit).build());
+        this.templateIndex = 0;
+        this.addStep(Steps.NEXT, this::dispatch);
         this.addStep(Steps.PUT_ITEM, this::putItem);
         this.addStep(Steps.TAKE_ITEM, this::takeItem);
-        this.addStep(Steps.PLACE_EMPTY_KIT, this::placeEmptyKit);
-        this.addStep(Steps.TAKE_EMPTY_KIT, this::takeEmptyKit);
-        this.addStep(Steps.PLACE_KIT, this::placeKit);
-        this.addStep(Steps.TAKE_KIT, this::takeKit);
-        this.addStep(Steps.BREAK_KIT, this::breakKit);
+        this.addStep(Steps.PUT_EMPTY_KIT, () -> this.putKit(this.emptyPos));
+        this.addStep(Steps.TAKE_EMPTY_KIT, () -> this.takeEmptyKit(this.emptyPos, this.takeEmptyCount.get()));
+        this.addStep(Steps.PLACE_EMPTY_KIT, () -> {
+            this.placeEmptyKit(this.finishPos);
+            this.templateIndex = 0;
+        });
+        this.addStep(Steps.PLACE_KIT, () -> this.placeKit(this.currentPos, box -> box.readItemQtyMap().containsKey(this.currentItem)));
+        this.addStep(Steps.TAKE_KIT, () -> this.takeKit(this.currentPos, box -> box.hasItem(this.currentItem)));
+        this.addStep(Steps.PUT_KIT, this::putFinishKit);
+        this.addStep(Steps.PUT_MISC_KIT, this::putMiscKit);
+        this.addStep(Steps.BREAK_KIT, () -> this.breakKit(this.breakPos));
     }
 
     @Override
@@ -142,485 +83,302 @@ public class AutoKit extends WalkModule {
 
     @Override
     protected boolean allowQuickStop() {
-        return this.step != Steps.WALKING;
-    }
-
-    private void init(Boolean enabled) {
-        if (!Boolean.TRUE.equals(enabled)) {
-            return;
-        }
-        this.initBtn.set(false);
-        if (this.mc.player == null || this.mc.level == null) {
-            this.warning("玩家或世界未加载", new Object[0]);
-            return;
-        }
-        this.clear();
-        boolean scanPositionsSuccess = this.scanPositions();
-        if (!scanPositionsSuccess) {
-            this.clear();
-            return;
-        }
-        boolean readTemplateSuccess = this.readTemplateFromMainHand();
-        if (!readTemplateSuccess) {
-            this.clear();
-            return;
-        }
-        boolean missItem = false;
-        for (ItemQty itemQty : this.templateItemQtyList) {
-            if (this.itemPosMap.containsKey(itemQty.getItem())) continue;
-            this.warning("未找到物品<" + itemQty.getItem().getName() + ">的存储位置", new Object[0]);
-            missItem = true;
-        }
-        if (missItem) {
-            this.clear();
-            return;
-        }
-        String itemNames = this.itemPosMap.keySet().stream().map(ItemBo::getName).collect(Collectors.joining(","));
-        this.info("成功识别: " + itemNames, new Object[0]);
-        this.info("初始化完毕！", new Object[0]);
+        return this.step != Steps.NEXT;
     }
 
     @Override
     public void onActivate() {
         super.onActivate();
-        if (this.itemPosMap.isEmpty() || this.emptyKitPos == null || this.finishedKitPos == null) {
-            this.warning("启动前没有初始化, 自动初始化", new Object[0]);
-            this.init(false);
-            if (this.itemPosMap.isEmpty() || this.emptyKitPos == null || this.finishedKitPos == null) {
-                this.warning("自动初始化失败", new Object[0]);
+        if (!this.warehouseHelper.hasConfig()) {
+            this.warning("启动前没有初始化, 自动初始化");
+            this.doInit(true);
+            if (!this.warehouseHelper.hasConfig()) {
+                this.warning("自动初始化失败");
                 this.toggle();
                 return;
             }
         }
-        this.itemIndex = 0;
+        this.templateIndex = 0;
         this.currentItem = null;
-        this.curOperationPos = null;
-        this.nextStep();
+        this.currentPos = null;
+        this.dispatch();
     }
 
-    private void nextStep() {
-        ItemStack nextKit = this.nextPlayerStack((ItemStack itemStack) -> HeItemUtils.isShulkerBox(itemStack.getItem()));
-        if (!nextKit.isEmpty()) {
-            this.putKitIndex = this.getCurPlayerSlot();
-            ShulkerBoxReader reader = new ShulkerBoxReader(nextKit);
-            if (reader.matchesQtyTemplate(this.templateItemQtyList)) {
-                this.curOperationPos = this.finishedKitPos;
-                this.gotoTargetIfNeed(this.curOperationPos.getBtnPos(), 0, Steps.PUT_KIT, "存放成品kit");
-            } else if (reader.isEmpty()) {
-                this.curOperationPos = this.emptyKitPos;
-                this.gotoTargetIfNeed(this.curOperationPos.getBtnPos(), 0, Steps.PUT_KIT, "存放空盒");
-            } else {
-                ItemBo firstItemBo;
-                if (reader.isSameItem() && this.itemPosMap.containsKey(firstItemBo = reader.getFirstItemBo())) {
-                    this.curOperationPos = this.itemPosMap.get(firstItemBo);
-                    this.gotoTargetIfNeed(this.curOperationPos.getBtnPos(), 0, Steps.PUT_KIT, "存放满盒");
-                    return;
+    private void doInit(Boolean enabled) {
+        if (Boolean.TRUE.equals(enabled)) {
+            this.initSetting.set(false);
+            if (this.mc.player != null && this.mc.level != null) {
+                try {
+                    boolean success = this.initWarehouse();
+                    if (!success) {
+                        this.clearKit();
+                    }
+                } catch (Exception e) {
+                    this.error("初始化发生异常 : %s", e.getMessage());
                 }
-                this.curOperationPos = this.miscKitPos;
-                this.gotoTargetIfNeed(this.curOperationPos.getBtnPos(), 0, Steps.PUT_KIT, "存放杂盒");
+            } else {
+                this.warning("玩家或世界未加载");
             }
-            return;
         }
-        List<ItemEntity> shulkerEntities = this.mc.level.getEntitiesOfClass(ItemEntity.class, this.mc.player.getBoundingBox().inflate(5.0), e -> HeItemUtils.isShulkerBox(e.getItem().getItem()));
-        if (!shulkerEntities.isEmpty()) {
-            BlockPos testPos;
-            BlockPos canStandPos;
-            BlockPos targetPos = shulkerEntities.getFirst().blockPosition();
-            if (targetPos.getY() != this.mc.player.getBlockY() && (canStandPos = HeBlockUtils.getCanStandPos(testPos = new BlockPos(targetPos.getX(), this.mc.player.getBlockY(), targetPos.getZ()), 1)) != null) {
-                targetPos = canStandPos;
+    }
+
+    private boolean initWarehouse() {
+        this.clearKit();
+        AutoClearUp autoClearUp = Modules.get().get(AutoClearUp.class);
+        this.warehouseHelper.init(this.scanRange.get(), autoClearUp.getEnabledMappings());
+        Map<ItemBo, StoragePos> scanResult = this.warehouseHelper.getMappedPositions();
+        this.finishPos = scanResult.remove(ItemBo.of(this.finishBoxMarker.get()));
+        this.emptyPos = scanResult.remove(ItemBo.of(this.emptyBoxMarker.get()));
+        this.miscPos = scanResult.remove(ItemBo.of(this.miscBoxMarker.get()));
+        if (this.emptyPos == null) {
+            this.warning("未检测到<空盒>位置，请在对应展示框放置" + Names.get(this.emptyBoxMarker.get()));
+            return false;
+        } else if (this.finishPos == null) {
+            this.warning("未检测到<成品盒>位置，请在对应展示框放置" + Names.get(this.finishBoxMarker.get()));
+            return false;
+        } else if (this.miscPos == null) {
+            this.warning("未检测到<杂盒>位置，请在对应展示框放置" + Names.get(this.miscBoxMarker.get()));
+            return false;
+        } else {
+            ItemStack mainHand = this.mc.player.getMainHandItem();
+            if (!HeItemUtils.isShulkerBox(mainHand.getItem())) {
+                this.warning("主手未持有潜影盒，请手持模板盒子后重新初始化");
+                return false;
+            }
+            ShulkerBoxReader reader = new ShulkerBoxReader(mainHand);
+            if (reader.isEmpty()) {
+                this.warning("主手潜影盒为空，请放入模板物品后重新初始化");
+                return false;
+            }
+            this.template.clear();
+            for (ItemStack stack : reader) {
+                if (stack.isEmpty()) {
+                    this.template.add(null);
+                } else {
+                    ItemBo itemBo = new ItemBo(stack);
+                    int count = stack.getCount();
+                    if (count < stack.getMaxStackSize()) {
+                        int half = stack.getMaxStackSize() / 2;
+                        count = count >= half ? half : 1;
+                    }
+                    this.template.add(new ItemQty(itemBo, count));
+                }
+            }
+            if (this.template.isEmpty()) {
+                this.warning("未能从主手盒子读取到模板物品");
+                return false;
+            }
+            this.warehouseHelper.printIdentified();
+            this.info("初始化完毕！");
+            return true;
+        }
+    }
+
+    private void dispatch() {
+        List<ItemEntity> itemEntities = this.mc.level.getEntitiesOfClass(ItemEntity.class, this.mc.player.getBoundingBox().inflate(5.0F), entity -> HeItemUtils.isShulkerBox(entity.getItem().getItem()));
+        if (!itemEntities.isEmpty()) {
+            ItemEntity itemEntity = itemEntities.getFirst();
+            BlockPos targetPos = null;
+            if (itemEntity.getY() != (double) this.mc.player.getBlockY()) {
+                targetPos = HePosUtils.getBlockPos(itemEntity.position());
+            }
+            if (targetPos == null) {
+                targetPos = itemEntity.blockPosition();
             }
             this.gotoTargetIfNeed(targetPos, 0, Steps.NEXT, "捡kit");
-            return;
-        }
-        this.step = Steps.PUT_ITEM;
-    }
-
-    private void putKit() {
-        if (this.notInOperationRange(this.curOperationPos)) {
-            this.gotoBtnPos(this.curOperationPos, "<存kit>距离不够，尝试移动", Steps.PUT_KIT);
-            return;
-        }
-        ItemStack kitItemStack = this.getItemStack(this.putKitIndex);
-        if (!HeItemUtils.isShulkerBox(kitItemStack.getItem())) {
-            this.warning("放kit, 但身上没有...", new Object[0]);
-            this.step = Steps.NEXT;
-            return;
-        }
-        this.openChest(this.curOperationPos.getPutPos(), (AbstractContainerMenu inventory) -> {
-            FindItemResult emptyResult = InvUtils.findEmpty();
-            if (emptyResult.found()) {
-                InvUtils.shiftClick().slot(this.putKitIndex);
-                this.delayCloseNext(Steps.NEXT);
-            } else {
-                this.breakStep("<存kit>箱满，无法存放");
-            }
-        });
-    }
-
-    private void takeEmptyKit() {
-        if (this.notInOperationRange(this.emptyKitPos)) {
-            this.gotoBtnPos(this.emptyKitPos, "<拿空盒>距离不够，尝试移动", Steps.TAKE_EMPTY_KIT);
-            return;
-        }
-        this.openChest(this.emptyKitPos.getTakePos(), (AbstractContainerMenu inventory) -> {
-            ItemStack nextScreenStack = this.nextScreenStack((ItemStack itemStack) -> {
-                if (HeItemUtils.isShulkerBox(itemStack.getItem())) {
-                    ShulkerBoxReader reader = new ShulkerBoxReader(itemStack);
-                    return reader.isEmpty();
+        } else {
+            int emptyCount = 0;
+            int firstSlot = -1;
+            while (true) {
+                ShulkerBoxReader box = this.findShulkerInPlayer(boxReader -> true);
+                if (box == null) {
+                    break;
                 }
-                return false;
-            });
-            if (!nextScreenStack.isEmpty()) {
-                this.info("拿取空盒", new Object[0]);
-                InvUtils.shiftClick().slotId(this.getCurScreenSlot());
-                this.delayCloseNext(Steps.PLACE_EMPTY_KIT);
-                return;
-            }
-            this.breakStep("<空盒箱>缺少空潜影盒");
-        });
-    }
-
-    private void placeEmptyKit() {
-        BlockState finishedKiBlockState = this.mc.level.getBlockState(this.finishedKitPos.getKitPos());
-        if (finishedKiBlockState.getBlock() instanceof ShulkerBoxBlock) {
-            this.step = Steps.PUT_ITEM;
-            return;
-        }
-        if (!finishedKiBlockState.isAir()) {
-            this.breakStep("<位置>被占用: " + Names.get(this.finishedKitPos.getItem().getItem()));
-            return;
-        }
-        FindItemResult findItemResult = HeInvUtils.findShulkerBox(Items.AIR);
-        if (!findItemResult.found()) {
-            this.step = Steps.TAKE_EMPTY_KIT;
-            return;
-        }
-        if (!findItemResult.isMainHand()) {
-            HeInvUtils.swap(findItemResult.slot(), this.getMainSlot());
-            this.setDelay();
-            return;
-        }
-        if (this.notInOperationRange(this.finishedKitPos)) {
-            this.gotoTarget(this.finishedKitPos.getBtnPos(), 0, Steps.PLACE_EMPTY_KIT);
-            return;
-        }
-        this.info("放置空盒", new Object[0]);
-        HeBlockUtils.place(this.finishedKitPos.getKitPos(), this.getMainSlot(), true, Direction.DOWN);
-        this.itemIndex = 0;
-        this.delayNext(Steps.PUT_ITEM);
-    }
-
-    private void takeKit() {
-        if (this.notInOperationRange(this.curOperationPos)) {
-            this.gotoBtnPos(this.curOperationPos, "<拿kit>距离不够，尝试移动", Steps.TAKE_KIT);
-            return;
-        }
-        this.openChest(this.curOperationPos.getTakePos(), (AbstractContainerMenu inventory) -> {
-            ItemStack nextScreenStack = this.nextScreenStack((ItemStack itemStack) -> {
-                if (HeItemUtils.isShulkerBox(itemStack.getItem())) {
-                    ShulkerBoxReader reader = new ShulkerBoxReader(itemStack);
-                    return reader.hasItem(this.currentItem);
+                if (!box.isEmpty()) {
+                    if (box.matchesQtyTemplate(this.template)) {
+                        this.step = Steps.PUT_KIT;
+                    } else {
+                        this.step = Steps.PUT_MISC_KIT;
+                    }
+                    return;
                 }
-                return false;
-            });
-            if (nextScreenStack.isEmpty()) {
-                this.breakStep("<" + Names.get(this.currentItem.getItem()) + ">库存不足");
-                return;
+                int slot = this.getCurPlayerSlot();
+                if (firstSlot == slot) {
+                    break;
+                }
+                if (firstSlot == -1) {
+                    firstSlot = slot;
+                }
+                ++emptyCount;
+                if (emptyCount >= this.takeEmptyCount.get()) {
+                    this.step = Steps.PUT_EMPTY_KIT;
+                    return;
+                }
             }
-            this.info("拿取kit: " + Names.get(this.currentItem.getItem()), new Object[0]);
-            InvUtils.shiftClick().slotId(this.getCurScreenSlot());
-            this.delayCloseNext(Steps.PLACE_KIT);
-        });
+            this.needed.clear();
+            int end = Math.min(this.template.size(), this.templateIndex + this.operationCount.get());
+            for (int i = this.templateIndex; i < end; ++i) {
+                ItemQty qty = this.template.get(i);
+                this.needed.merge(qty.getItem(), qty.getCount(), Integer::sum);
+            }
+            if (this.needed.isEmpty()) {
+                this.kitFull();
+            } else {
+                Set<ItemBo> neededSet = this.needed.keySet();
+                Map<ItemBo, Integer> owned = HeInvUtils.countItems(this.warehouseHelper.getLockedSlots(), neededSet);
+                HashSet<ItemBo> satisfied = new HashSet<>();
+                for (Map.Entry<ItemBo, Integer> entry : this.needed.entrySet()) {
+                    ItemBo itemBo = entry.getKey();
+                    Integer have = owned.get(itemBo);
+                    if (have != null) {
+                        Integer need = entry.getValue();
+                        if (have >= need) {
+                            satisfied.add(itemBo);
+                        } else {
+                            this.needed.put(itemBo, need - have);
+                        }
+                    }
+                }
+                if (satisfied.equals(this.needed)) {
+                    this.step = Steps.PUT_ITEM;
+                } else {
+                    for (ItemBo itemBo : satisfied) {
+                        this.needed.remove(itemBo);
+                    }
+                    this.step = Steps.TAKE_ITEM;
+                }
+            }
+        }
     }
 
-    private void placeKit() {
-        BlockState finishedKitBlockState = this.mc.level.getBlockState(this.curOperationPos.getKitPos());
-        if (!finishedKitBlockState.isAir()) {
-            if (finishedKitBlockState.getBlock() instanceof ShulkerBoxBlock) {
-                this.step = Steps.TAKE_ITEM;
-            } else {
-                this.breakStep("<kit位置>被占用");
-            }
-            return;
-        }
-        ItemStack nextItemStack = this.nextPlayerStack((ItemStack itemStack) -> HeItemUtils.isShulkerBox(itemStack.getItem()));
-        if (nextItemStack.isEmpty()) {
-            this.step = Steps.TAKE_KIT;
-            return;
-        }
-        if (this.notInOperationRange(this.curOperationPos)) {
-            this.gotoBtnPos(this.curOperationPos, "去拿kit", Steps.PLACE_KIT);
-            return;
-        }
-        if (this.swapToMainHand(this.getCurPlayerSlot())) {
-            return;
-        }
-        this.info("放置盒子:" + Names.get(this.curOperationPos.getItem().getItem()), new Object[0]);
-        HeBlockUtils.place(this.curOperationPos.getKitPos(), this.getMainSlot(), true, Direction.DOWN);
-        this.delayNext(Steps.TAKE_ITEM);
+    private void putFinishKit() {
+        this.putKit(this.finishPos, box -> box.matchesQtyTemplate(this.template));
+    }
+
+    private void putMiscKit() {
+        this.putKit(this.miscPos, box -> !box.isEmpty() && !box.matchesQtyTemplate(this.template));
     }
 
     private void takeItem() {
-        ItemBo itemBo;
-        ItemBo nearestItemBo;
-        if (this.needItemMap.isEmpty()) {
-            ItemQty itemQty;
-            int endIndex = Math.min(this.templateItemQtyList.size(), this.itemIndex + this.qty.get());
-            for (int index = this.itemIndex; index < endIndex; ++index) {
-                itemQty = this.templateItemQtyList.get(index);
-                this.needItemMap.merge(itemQty.getItem(), itemQty.getCount(), Integer::sum);
-            }
-            if (!this.needItemMap.isEmpty()) {
-                for (int slot = 0; slot < 36; ++slot) {
-                    Integer remainCount;
-                    ItemStack itemStack = this.getItemStack(slot);
-                    nearestItemBo = new ItemBo(itemStack);
-                    remainCount = this.needItemMap.get(nearestItemBo);
-                    if (remainCount == null) continue;
-                    if (itemStack.getCount() >= remainCount) {
-                        this.needItemMap.remove(nearestItemBo);
-                        continue;
-                    }
-                    this.needItemMap.put(nearestItemBo, remainCount - itemStack.getCount());
+        if (this.needed.isEmpty()) {
+            this.info("拿够操作数, 去放");
+            this.closeNext(Steps.PUT_ITEM);
+        } else {
+            ItemBo itemBo = this.warehouseHelper.findNearestUnmapped(this.needed.keySet());
+            if (itemBo == null) {
+                this.warning("缺少盒装kit: %s", itemBo.getName());
+                this.toggle();
+            } else {
+                this.currentPos = this.warehouseHelper.getUnmappedPosition(itemBo);
+                this.currentItem = itemBo;
+                BlockState state = this.mc.level.getBlockState(this.currentPos.getKitPos());
+                if (state.isAir()) {
+                    this.info("需要放kit");
+                    this.closeNext(Steps.PLACE_KIT);
+                } else if (!(state.getBlock() instanceof ShulkerBoxBlock)) {
+                    this.breakStep("<kit位置>被占用");
+                } else if (this.notInOperationRange(this.currentPos)) {
+                    this.info("[%s]距离不够", this.currentItem.getName());
+                    HeInvUtils.closeCurScreen();
+                    this.gotoTarget(this.currentPos.getBtnPos(), 0, Steps.TAKE_ITEM);
+                } else {
+                    this.openChest(this.currentPos.getKitPos(), container -> {
+                        Integer need = this.needed.get(itemBo);
+                        int takeCount = Math.min(need, itemBo.getItem().getDefaultMaxStackSize());
+                        ItemStack stack = this.findScreenStack(s -> itemBo.isSameItem(s) && s.getCount() >= takeCount);
+                        if (stack.isEmpty()) {
+                            this.breakPos = this.currentPos;
+                            this.closeNext(Steps.BREAK_KIT);
+                        } else {
+                            int count = stack.getCount();
+                            this.info("拿取物品: " + Names.get(itemBo.getItem()));
+                            InvUtils.shiftClick().slotId(this.getCurScreenSlot());
+                            if (need <= count) {
+                                this.needed.remove(itemBo);
+                            } else {
+                                this.needed.put(itemBo, need - count);
+                            }
+                            this.setDelay();
+                        }
+                    });
                 }
             }
-            if (this.needItemMap.isEmpty()) {
-                HeInvUtils.closeCurScreen();
-                this.step = Steps.PUT_ITEM;
-                return;
-            }
         }
-        Vec3 playerPos = this.mc.player.position();
-        double nearestDistance = Double.MAX_VALUE;
-        nearestItemBo = null;
-        for (ItemBo needItemBo : this.needItemMap.keySet()) {
-            StoragePos storagePos = this.itemPosMap.get(needItemBo);
-            double distance = playerPos.distanceTo(storagePos.getBtnPos().getCenter());
-            if (!(distance < nearestDistance)) continue;
-            nearestDistance = distance;
-            nearestItemBo = needItemBo;
-        }
-        this.curOperationPos = this.itemPosMap.get(nearestItemBo);
-        BlockState kitBlockState = this.mc.level.getBlockState(this.curOperationPos.getKitPos());
-        if (kitBlockState.isAir()) {
-            this.currentItem = nearestItemBo;
-            this.step = Steps.PLACE_KIT;
-            return;
-        }
-        if (!(kitBlockState.getBlock() instanceof ShulkerBoxBlock)) {
-            this.breakStep("<kit位置>被占用");
-            return;
-        }
-        if (this.notInOperationRange(this.curOperationPos)) {
-            HeInvUtils.closeCurScreen();
-            this.gotoTarget(this.curOperationPos.getBtnPos(), 0, Steps.TAKE_ITEM);
-            return;
-        }
-        itemBo = nearestItemBo;
-        this.openChest(this.curOperationPos.getKitPos(), (AbstractContainerMenu screenHandler) -> {
-            Integer needCount = this.needItemMap.get(itemBo);
-            int takeCount = Math.min(needCount, itemBo.getItem().getDefaultMaxStackSize());
-            ItemStack nextItemStack = this.nextScreenStack((ItemStack itemStack) -> AutoKit.matchesItem(itemBo, takeCount, itemStack));
-            if (nextItemStack.isEmpty()) {
-                this.info("kit已空，挖掉重放: " + Names.get(itemBo.getItem()), new Object[0]);
-                this.currentItem = itemBo;
-                this.delayCloseNext(Steps.BREAK_KIT);
-                return;
-            }
-            int gotCount = nextItemStack.getCount();
-            this.info("拿取物品: " + Names.get(itemBo.getItem()), new Object[0]);
-            InvUtils.shiftClick().slotId(this.getCurScreenSlot());
-            if (needCount <= gotCount) {
-                this.needItemMap.remove(itemBo);
-            } else {
-                this.needItemMap.put(itemBo, needCount - gotCount);
-            }
-            this.setDelay();
-        });
     }
 
     private void putItem() {
-        ItemQty itemQty = this.templateItemQtyList.get(this.itemIndex);
-        ItemStack nextItemStack = this.nextPlayerStack((ItemStack itemStack) -> AutoKit.matchesQty(itemQty, itemStack));
-        if (nextItemStack.isEmpty()) {
-            this.closeScreen();
-            this.needItemMap.clear();
-            this.step = Steps.TAKE_ITEM;
-            return;
-        }
-        BlockState finishedKitBlockState = this.mc.level.getBlockState(this.finishedKitPos.getKitPos());
-        if (finishedKitBlockState.isAir()) {
-            this.curOperationPos = this.finishedKitPos;
-            this.closeScreen();
-            this.step = Steps.PLACE_EMPTY_KIT;
-            return;
-        }
-        if (!(finishedKitBlockState.getBlock() instanceof ShulkerBoxBlock)) {
-            this.closeScreen();
-            this.breakStep("<成品位置>被占用");
-            return;
-        }
-        if (this.notInOperationRange(this.finishedKitPos)) {
-            this.closeScreen();
-            this.gotoBtnPos(this.finishedKitPos, "<放" + itemQty.getItem().getName() + ">距离不够, 尝试移动", Steps.PUT_ITEM);
-            return;
-        }
-        this.openChest(this.finishedKitPos.getKitPos(), (AbstractContainerMenu screenHandler) -> {
-            if (this.hasScreenFull()) {
-                this.setBreakFullKit();
-                return;
-            }
-            ItemStack itemStack = screenHandler.getSlot(this.itemIndex).getItem();
-            boolean isEmpty = itemStack.isEmpty();
-            if (isEmpty) {
-                int playerSlot = this.getCurPlayerSlot();
-                if (itemQty.getCount() == itemStack.getCount()) {
-                    InvUtils.shiftClick().slot(playerSlot);
-                } else if (itemQty.getCount() == 1) {
-                    HeInvUtils.moveOneFromIndex(playerSlot, this.itemIndex);
+        if (this.templateIndex >= this.template.size()) {
+            this.kitFull();
+        } else {
+            ItemQty qty = this.template.get(this.templateIndex);
+            ItemStack stack = this.findPlayerStack(s -> this.warehouseHelper.isUnlockedSlot(this.getCurPlayerSlot()) && matchesTemplate(qty, s));
+            if (stack.isEmpty()) {
+                this.info("放物品但身上没有, next");
+                this.closeNext(Steps.NEXT);
+            } else {
+                BlockState state = this.mc.level.getBlockState(this.finishPos.getKitPos());
+                if (state.isAir()) {
+                    this.info("需要补空盒");
+                    this.closeNext(Steps.PLACE_EMPTY_KIT);
+                } else if (!(state.getBlock() instanceof ShulkerBoxBlock)) {
+                    this.closeScreen();
+                    this.breakStep("<成品位置>被占用");
+                } else if (this.notInOperationRange(this.finishPos)) {
+                    this.closeScreen();
+                    this.gotoBtnPos(this.finishPos, "<放" + qty.getItem().getName() + ">距离不够, 尝试移动", Steps.PUT_ITEM);
                 } else {
-                    HeInvUtils.moveHalfFromIndex(playerSlot, this.itemIndex);
+                    this.openChest(this.finishPos.getKitPos(), container -> {
+                        if (this.isContainerFull()) {
+                            this.kitFull();
+                        } else {
+                            ItemStack slotStack = container.getSlot(this.templateIndex).getItem();
+                            if (slotStack.isEmpty()) {
+                                int slot = this.getCurPlayerSlot();
+                                if (qty.getCount() == stack.getCount()) {
+                                    InvUtils.shiftClick().slot(slot);
+                                } else if (qty.getCount() == 1) {
+                                    HeInvUtils.moveOneFromSlot(slot, this.templateIndex);
+                                } else {
+                                    HeInvUtils.moveHalfFromSlot(slot, this.templateIndex);
+                                }
+                                this.info("放入[%s]x[%s]", qty.getItem().getName(), qty.getCount());
+                                this.setDelay();
+                            } else if (!qty.equals(new ItemQty(slotStack))) {
+                                this.kitFull();
+                                return;
+                            }
+                            ++this.templateIndex;
+                        }
+                    });
                 }
             }
-            ++this.itemIndex;
-            if (this.itemIndex >= this.templateItemQtyList.size()) {
-                this.setBreakFullKit();
-            } else if (!isEmpty) {
-                this.setDelay();
-            }
-        });
+        }
     }
 
-    private void breakKit() {
-        if (this.notInOperationRange(this.curOperationPos)) {
-            this.gotoBtnPos(this.curOperationPos, "<挖盒子>距离不够, 尝试移动", Steps.BREAK_KIT);
-            return;
-        }
-        Vec3 hitPos = Vec3.atCenterOf(this.curOperationPos.getBtnPos()).add(0.0, -0.5, 0.0);
-        BlockHitResult hitResult = new BlockHitResult(hitPos, Direction.UP, this.curOperationPos.getBtnPos(), false);
-        ServerboundUseItemOnPacket packet = new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, hitResult, 0);
-        this.mc.getConnection().send(packet);
-        this.step = Steps.NEXT;
-        this.setDelay(40);
-    }
-
-    private boolean scanPositions() {
-        List<ItemFrame> itemFrames = this.mc.level.getEntitiesOfClass(ItemFrame.class, this.mc.player.getBoundingBox().inflate((double)this.scanRange.get()), framex -> !framex.getItem().isEmpty());
-        int playerY = this.mc.player.blockPosition().getY();
-        Vec3 playerPos = this.mc.player.position();
-        for (ItemFrame frame : itemFrames) {
-            StoragePos oldPos;
-            StoragePos nearerPos;
-            double distance;
-            BlockPos attachedBlockPos = frame.getPos();
-            if (attachedBlockPos.getY() < playerY || attachedBlockPos.getY() > playerY + 4 || (distance = attachedBlockPos.getCenter().distanceTo(playerPos)) > (double)this.scanRange.get()) continue;
-            ItemStack frameHeldItemStack = frame.getItem();
-            ItemBo itemBo = new ItemBo(frameHeldItemStack);
-            Item item = itemBo.getItem();
-            StoragePos pos = this.checkAndBuildStoragePos(frame, com.xiaohe66.mc.meteor.lotus.bo.StorageItem.valueOf(itemBo));
-            if (pos == null) continue;
-            if (item == this.emptyKitItem.get()) {
-                this.emptyKitPos = this.keepNearer(pos, this.emptyKitPos, playerPos);
-                continue;
-            }
-            if (item == this.finishedKitItem.get()) {
-                this.finishedKitPos = this.keepNearer(pos, this.finishedKitPos, playerPos);
-                continue;
-            }
-            if (item == this.miscKitItem.get()) {
-                this.miscKitPos = this.keepNearer(pos, this.miscKitPos, playerPos);
-                continue;
-            }
-            if (HeItemUtils.isShulkerBox(item) || (nearerPos = this.keepNearer(pos, oldPos = this.itemPosMap.get(itemBo), playerPos)) != pos) continue;
-            this.itemPosMap.put(itemBo, pos);
-        }
-        if (this.emptyKitPos == null) {
-            this.warning("未检测到<空盒位置>，请在对应展示框放置" + Names.get(this.emptyKitItem.get()), new Object[0]);
-            return false;
-        }
-        if (this.finishedKitPos == null) {
-            this.warning("未检测到<成品位置>，请在对应展示框放置" + Names.get(this.finishedKitItem.get()), new Object[0]);
-            return false;
-        }
-        if (this.miscKitPos == null) {
-            this.warning("未检测到<杂盒位置>，请在对应展示框放置" + Names.get(this.miscKitItem.get()), new Object[0]);
-            return false;
-        }
-        if (this.itemPosMap.isEmpty()) {
-            this.warning("未检测到<物品>位置>", new Object[0]);
-            return false;
-        }
-        return true;
-    }
-
-    private boolean readTemplateFromMainHand() {
-        ItemStack mainHandStack = this.mc.player.getMainHandItem();
-        if (!HeItemUtils.isShulkerBox(mainHandStack.getItem())) {
-            this.warning("主手未持有潜影盒，请手持模板盒子后重新初始化", new Object[0]);
-            return false;
-        }
-        ShulkerBoxReader reader = new ShulkerBoxReader(mainHandStack);
-        if (reader.isEmpty()) {
-            this.warning("主手潜影盒为空，请放入模板物品后重新初始化", new Object[0]);
-            return false;
-        }
-        this.templateItemQtyList.clear();
-        Iterator<ItemStack> iterator = reader.iterator();
-        while (iterator.hasNext()) {
-            ItemStack itemStack = iterator.next();
-            if (itemStack.isEmpty()) continue;
-            ItemBo itemBo = new ItemBo(itemStack);
-            int count = itemStack.getCount();
-            if (count < itemStack.getMaxStackSize()) {
-                int halfMaxCount = itemStack.getMaxStackSize() / 2;
-                count = count >= halfMaxCount ? halfMaxCount : 1;
-            }
-            this.templateItemQtyList.add(new ItemQty(itemBo, count));
-        }
-        if (this.templateItemQtyList.isEmpty()) {
-            this.warning("未能从主手盒子读取到模板物品", new Object[0]);
-            return false;
-        }
-        return true;
-    }
-
-    private StoragePos keepNearer(StoragePos newPos, StoragePos oldPos, Vec3 playerPos) {
-        double oldDistance;
-        if (oldPos == null) {
-            return newPos;
-        }
-        double newDistance = newPos.getBtnPos().distToCenterSqr((Position)playerPos);
-        return newDistance < (oldDistance = oldPos.getBtnPos().distToCenterSqr((Position)playerPos)) ? newPos : oldPos;
-    }
-
-    private void setBreakFullKit() {
-        this.info("kit已满，挖掉存放", new Object[0]);
-        this.itemIndex = 0;
-        this.curOperationPos = this.finishedKitPos;
+    private void kitFull() {
+        this.info("kit已满，挖掉存放");
+        this.templateIndex = 0;
+        this.breakPos = this.finishPos;
         this.delayCloseNext(Steps.BREAK_KIT);
     }
 
-    private static boolean matchesQty(ItemQty itemQty, ItemStack itemStack) {
-        return itemQty.getItem().isSameItem(itemStack) && itemStack.getCount() % itemQty.getCount() == 0;
+    private static boolean matchesTemplate(ItemQty qty, ItemStack stack) {
+        return qty.getItem().isSameItem(stack) && stack.getCount() % qty.getCount() == 0;
     }
 
-    private static boolean matchesItem(ItemBo itemBo, int count, ItemStack itemStack) {
-        return itemBo.isSameItem(itemStack) && itemStack.getCount() >= count;
-    }
-
-    private void clear() {
-        this.itemPosMap.clear();
-        this.emptyKitPos = null;
-        this.finishedKitPos = null;
-        this.miscKitPos = null;
+    private void clearKit() {
+        this.warehouseHelper.clear();
+        this.emptyPos = null;
+        this.finishPos = null;
+        this.miscPos = null;
     }
 
     @Override
     public void onDeactivate() {
         super.onDeactivate();
-        this.itemIndex = 0;
+        this.templateIndex = 0;
         this.currentItem = null;
-        this.curOperationPos = null;
+        this.currentPos = null;
         HeInvUtils.closeCurScreen();
     }
 }

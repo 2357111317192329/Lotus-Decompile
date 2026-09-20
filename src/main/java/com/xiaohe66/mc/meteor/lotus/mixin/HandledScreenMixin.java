@@ -20,7 +20,9 @@
 package com.xiaohe66.mc.meteor.lotus.mixin;
 
 import com.xiaohe66.mc.meteor.lotus.event.ScreenCloseEvent;
+import com.xiaohe66.mc.meteor.lotus.event.DrawMouseoverTooltipEvent;
 import com.xiaohe66.mc.meteor.lotus.event.HandledScreenRenderEvent;
+import com.xiaohe66.mc.meteor.lotus.event.IsPointOverSlotEvent;
 import com.xiaohe66.mc.meteor.lotus.event.MouseClickEvent;
 import com.xiaohe66.mc.meteor.lotus.event.MouseDragEvent;
 import com.xiaohe66.mc.meteor.lotus.event.MouseReleaseEvent;
@@ -33,6 +35,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -48,6 +51,8 @@ implements MenuAccess<T> {
     protected int leftPos;
     @Shadow
     protected int topPos;
+    @Shadow
+    protected Slot hoveredSlot;
 
     @Inject(
         method = "extractContents",
@@ -55,7 +60,26 @@ implements MenuAccess<T> {
     )
     private void onRender(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         Screen screen = (Screen)(Object)this;
-        MeteorClient.EVENT_BUS.post(HandledScreenRenderEvent.get(context, screen.getFont(), mouseX, mouseY));
+        MeteorClient.EVENT_BUS.post(HandledScreenRenderEvent.get(context, screen.getFont(), mouseX, mouseY, this.hoveredSlot));
+    }
+
+    @Inject(method={"isHovering(Lnet/minecraft/world/inventory/Slot;DD)Z"}, at={@At(value="HEAD")}, cancellable=true)
+    private void onIsPointOverSlot(Slot slot, double mouseX, double mouseY, CallbackInfoReturnable<Boolean> cir) {
+        IsPointOverSlotEvent event = IsPointOverSlotEvent.get(slot, mouseX, mouseY);
+        MeteorClient.EVENT_BUS.post(event);
+        if (event.isCancelled()) {
+            cir.setReturnValue(event.getResult());
+            cir.cancel();
+        }
+    }
+
+    @Inject(method={"extractTooltip(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V"}, at={@At(value="HEAD")}, cancellable=true)
+    private void onDrawMouseoverTooltip(GuiGraphicsExtractor context, int mouseX, int mouseY, CallbackInfo ci) {
+        DrawMouseoverTooltipEvent event = DrawMouseoverTooltipEvent.get(context, mouseX, mouseY);
+        MeteorClient.EVENT_BUS.post(event);
+        if (event.isCancelled()) {
+            ci.cancel();
+        }
     }
 
     @Inject(method={"mouseScrolled"}, at={@At(value="HEAD")}, cancellable=true)

@@ -32,6 +32,10 @@ public class StorageWarp {
         this.readers = new ShulkerBoxReader[stacks.length];
     }
 
+    public int getSize() {
+        return this.stacks.length;
+    }
+
     public ItemStack getStack(int index) {
         return this.stacks[index];
     }
