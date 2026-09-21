@@ -97,6 +97,7 @@ public class GatherOrder extends Module {
     }
 
     public void onActivate() {
+        loadPoems();
         this.lastSendTime = 0L;
     }
 
@@ -149,7 +150,7 @@ public class GatherOrder extends Module {
                 long currentTime = System.currentTimeMillis();
                 long remaining = cooldown - (currentTime - this.lastSendTime);
                 if (remaining > 0) {
-                    this.debugInfo("收到集结指令, 冷却中, 剩余[%s]秒", new Object[]{remaining / 1000L});
+                    this.debugInfo("收到集结指令, 冷却中, 剩余[%s]秒",0L, new Object[]{remaining / 1000L});
                     return;
                 }
                 String resolvedMessage = this.resolveMessage();
@@ -157,29 +158,30 @@ public class GatherOrder extends Module {
                     return;
                 }
                 int delay = this.randomDelayMillis();
-                this.debugInfo("收到集结指令, 冷却通过, 将在[%s]毫秒后发送[%s]", new Object[]{delay, resolvedMessage});
+                this.debugInfo("收到集结指令, 冷却通过, 将在[%s]毫秒后发送[%s]",0L, new Object[]{delay, resolvedMessage});
                 TaskUtils.run(() -> ChatUtils.sendPlayerMsg(resolvedMessage), (long)delay, TimeUnit.MILLISECONDS);
                 this.lastSendTime = currentTime;
+                this.debugInfo("已發送完畢",(long)(delay+50));
             }
         } finally {
             this.processingMessage = false;
         }
     }
 
-    private void debugInfo(String format, Object... args) {
+    private void debugInfo(String format,long delay, Object... args) {
         if (!this.debugMode.get()) {
             return;
         }
         // 限速: 每秒最多输出1条调试信息, 防止聊天刷屏时淹没客户端
-        long now = System.currentTimeMillis();
-        if (now - this.lastDebugTime < 1000L) {
-            return;
-        }
-        this.lastDebugTime = now;
+        //long now = System.currentTimeMillis();
+        //if (now - this.lastDebugTime < 1000L) {
+        //    return;
+        //}
+        //this.lastDebugTime = now;
         // 不能在事件派发内同步显示: Module.info 会 addMessage 触发嵌套的 ReceiveMessageEvent(单例),
         // 会污染外层事件导致原消息被取代/重复。因此延迟到独立线程, 在事件派发完全结束后再显示,
         // 且直接使用原本的 info(格式, 参数) 路径, 保持与普通 info 完全一致的格式。
-        TaskUtils.run(() -> this.info(format, args), 0L, TimeUnit.MILLISECONDS);
+        TaskUtils.run(() -> this.info(format, args), delay, TimeUnit.MILLISECONDS);
     }
 
     private int randomDelayMillis() {
