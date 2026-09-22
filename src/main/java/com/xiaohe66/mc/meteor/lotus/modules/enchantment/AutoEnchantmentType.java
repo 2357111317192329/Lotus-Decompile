@@ -32,8 +32,7 @@ public enum AutoEnchantmentType {
     爆炸鞋子(Enchantments.BLAST_PROTECTION, Enchantments.DEPTH_STRIDER, Enchantments.UNBREAKING, Enchantments.FEATHER_FALLING, Enchantments.MENDING),
     鞘翅(Enchantments.UNBREAKING, Enchantments.MENDING),
     三叉戟(Enchantments.IMPALING, Enchantments.CHANNELING, Enchantments.LOYALTY, Enchantments.UNBREAKING, Enchantments.MENDING),
-    无限弓(Enchantments.POWER, Enchantments.INFINITY, Enchantments.UNBREAKING),
-    矛(Enchantments.LUNGE, Enchantments.LOOTING, Enchantments.SHARPNESS, Enchantments.FIRE_ASPECT, Enchantments.UNBREAKING, Enchantments.KNOCKBACK, Enchantments.MENDING);
+    无限弓(Enchantments.POWER, Enchantments.INFINITY, Enchantments.UNBREAKING);
 
     private final Set<RegistryKey<Enchantment>> enchantments;
 

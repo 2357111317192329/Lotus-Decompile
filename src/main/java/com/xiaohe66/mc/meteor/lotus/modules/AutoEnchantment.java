@@ -107,7 +107,7 @@ public class AutoEnchantment extends StepModule {
     private static final Logger log = LoggerFactory.getLogger(AutoEnchantment.class);
     private static final int USE_STATE = -2;
     private static final int TAKE_BOOK_STATE = -3;
-    private static final Set<Item> ENCHANTABLE_ITEMS = Set.of(Items.DIAMOND_PICKAXE, Items.DIAMOND_AXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_HOE, Items.SHEARS, Items.FLINT_AND_STEEL, Items.DIAMOND_SWORD, Items.DIAMOND_SPEAR, Items.BOW, Items.CROSSBOW, Items.TRIDENT, Items.MACE, Items.DIAMOND_HELMET, Items.TURTLE_HELMET, Items.DIAMOND_CHESTPLATE, Items.ELYTRA, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS, Items.FISHING_ROD, Items.BOOK, Items.ENCHANTED_BOOK);
+    private static final Set<Item> ENCHANTABLE_ITEMS = Set.of(Items.DIAMOND_PICKAXE, Items.DIAMOND_AXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_HOE, Items.SHEARS, Items.FLINT_AND_STEEL, Items.DIAMOND_SWORD, Items.BOW, Items.CROSSBOW, Items.TRIDENT, Items.MACE, Items.DIAMOND_HELMET, Items.TURTLE_HELMET, Items.DIAMOND_CHESTPLATE, Items.ELYTRA, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS, Items.FISHING_ROD, Items.BOOK, Items.ENCHANTED_BOOK);
     public final Setting<AutoEnchantmentXpSource> xpSource = sgGeneral.add(new EnumSetting.Builder<AutoEnchantmentXpSource>()
         .name("经验来源")
         .description("缺少经验时经验的来源类型")

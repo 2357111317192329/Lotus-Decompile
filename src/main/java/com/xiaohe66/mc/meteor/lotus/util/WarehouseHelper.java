@@ -60,7 +60,7 @@ public class WarehouseHelper {
 
     /** Find the nearest unmapped position whose item is in the given set. */
     public ItemBo findNearestUnmapped(Set<ItemBo> itemBos) {
-        var playerPos = MeteorClient.mc.player.getEntityPos();
+        var playerPos = MeteorClient.mc.player.getPos();
         double minDistance = Double.MAX_VALUE;
         ItemBo nearest = null;
         for (ItemBo itemBo : itemBos) {
@@ -78,7 +78,7 @@ public class WarehouseHelper {
 
     /** Find the nearest mapped position whose related item is in the given set. */
     public ItemBo findNearestMapped(Set<ItemBo> itemBos) {
-        var playerPos = MeteorClient.mc.player.getEntityPos();
+        var playerPos = MeteorClient.mc.player.getPos();
         double minDistance = Double.MAX_VALUE;
         ItemBo nearest = null;
         for (ItemBo itemBo : itemBos) {

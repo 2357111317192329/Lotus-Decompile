@@ -269,8 +269,8 @@ extends Module {
 
     protected void interactEntity(Entity entity) {
         Vec3d lookPos;
-        Vec3d playerPos = this.mc.player.getEntityPos();
-        EntityHitResult entityHitResult = ProjectileUtil.raycast((Entity)this.mc.player, (Vec3d)playerPos, (Vec3d)(lookPos = entity.getEntityPos()), (Box)entity.getBoundingBox(), Entity::canHit, (double)playerPos.squaredDistanceTo(lookPos));
+        Vec3d playerPos = this.mc.player.getPos();
+        EntityHitResult entityHitResult = ProjectileUtil.raycast((Entity)this.mc.player, (Vec3d)playerPos, (Vec3d)(lookPos = entity.getPos()), (Box)entity.getBoundingBox(), Entity::canHit, (double)playerPos.squaredDistanceTo(lookPos));
         if (entityHitResult == null) {
             HeRotationUtils.keepRotation(entity.getEyePos());
             EntityHitResult location = new EntityHitResult(entity, entity.getBoundingBox().getCenter());

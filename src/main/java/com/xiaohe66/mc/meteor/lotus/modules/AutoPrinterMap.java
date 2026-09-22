@@ -633,7 +633,7 @@ public class AutoPrinterMap extends WalkModule {
             List<BlockPos> rowPosList = this.printRows.get(this.currentRow);
             int index = Math.clamp((long)this.rowIndex, (int)0, (int)(rowPosList.size() - 1));
             Vec3d targetCenter = rowPosList.get(index).toCenterPos();
-            Vec3d playerPos = this.mc.player.getEntityPos();
+            Vec3d playerPos = this.mc.player.getPos();
             double nearestDistance = Double.MAX_VALUE;
             BlockPos nearestPos = null;
             Item nearestItem = null;
@@ -1088,7 +1088,7 @@ public class AutoPrinterMap extends WalkModule {
             if (this.currentPrintPos == null) {
                 return Collections.emptyList();
             }
-            if (this.mc.player.getEntityPos().distanceTo(this.currentPrintPos.toCenterPos()) > 10.0) {
+            if (this.mc.player.getPos().distanceTo(this.currentPrintPos.toCenterPos()) > 10.0) {
                 return Collections.emptyList();
             }
             return this.getNeededPositions(this.currentPrintPos);

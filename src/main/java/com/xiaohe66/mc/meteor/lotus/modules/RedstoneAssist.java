@@ -99,7 +99,7 @@ import net.minecraft.world.LightType;
 public class RedstoneAssist extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
     private final SettingGroup lightOverlayGroup = settings.createGroup("亮度显示");
-    private final BoolSetting lightOverlay = lightOverlayGroup.add(new BoolSetting.Builder()
+    private final Setting<Boolean> lightOverlay = lightOverlayGroup.add(new BoolSetting.Builder()
         .name("亮度显示")
         .description("渲染亮度数值")
         .defaultValue(true)

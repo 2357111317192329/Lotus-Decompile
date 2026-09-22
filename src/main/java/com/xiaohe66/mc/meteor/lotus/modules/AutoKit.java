@@ -179,7 +179,7 @@ public class AutoKit extends WarehouseModule {
             ItemEntity itemEntity = itemEntities.getFirst();
             BlockPos targetPos = null;
             if (itemEntity.getY() != (double) this.mc.player.getBlockY()) {
-                targetPos = HePosUtils.getBlockPos(itemEntity.getEntityPos());
+                targetPos = HePosUtils.getBlockPos(itemEntity.getPos());
             }
             if (targetPos == null) {
                 targetPos = itemEntity.getBlockPos();

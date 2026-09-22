@@ -29,7 +29,6 @@ import com.xiaohe66.mc.meteor.lotus.event.MouseReleaseEvent;
 import com.xiaohe66.mc.meteor.lotus.event.MouseScrollEvent;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.orbit.ICancellable;
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
@@ -56,20 +55,23 @@ implements ScreenHandlerProvider<T> {
 
     @Inject(
         method = "renderMain",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/ingame/HandledScreen;drawSlots(Lnet/minecraft/client/gui/DrawContext;II)V", shift = Shift.AFTER)
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/ingame/HandledScreen;drawSlots(Lnet/minecraft/client/gui/DrawContext;)V", shift = Shift.AFTER)
     )
     private void onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         Screen screen = (Screen)(Object)this;
         MeteorClient.EVENT_BUS.post(HandledScreenRenderEvent.get(context, screen.getTextRenderer(), mouseX, mouseY, this.focusedSlot));
     }
 
-    @Inject(method={"isPointOverSlot(Lnet/minecraft/screen/slot/Slot;DD)Z"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onIsPointOverSlot(Slot slot, double mouseX, double mouseY, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "renderMain", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/ingame/HandledScreen;getSlotAt(DD)Lnet/minecraft/screen/slot/Slot;", shift = Shift.AFTER))
+    private void onSlotHover(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        Slot slot = this.focusedSlot;
+        if (slot == null) {
+            return;
+        }
         IsPointOverSlotEvent event = IsPointOverSlotEvent.get(slot, mouseX, mouseY);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
-            cir.setReturnValue(event.getResult());
-            cir.cancel();
+            this.focusedSlot = event.getResult() ? slot : null;
         }
     }
 
@@ -93,8 +95,8 @@ implements ScreenHandlerProvider<T> {
     }
 
     @Inject(method={"mouseClicked"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onMouseClicked(Click click, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
-        MouseClickEvent event = MouseClickEvent.get(click.x(), click.y(), click.button(), doubled, this.x, this.y);
+    private void onMouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        MouseClickEvent event = MouseClickEvent.get(mouseX, mouseY, button, false, this.x, this.y);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
             cir.setReturnValue(true);
@@ -103,8 +105,8 @@ implements ScreenHandlerProvider<T> {
     }
 
     @Inject(method={"mouseReleased"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onMouseReleased(Click click, CallbackInfoReturnable<Boolean> cir) {
-        MouseReleaseEvent event = MouseReleaseEvent.get(click.x(), click.y(), click.button(), this.x, this.y);
+    private void onMouseReleased(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        MouseReleaseEvent event = MouseReleaseEvent.get(mouseX, mouseY, button, this.x, this.y);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
             cir.setReturnValue(true);
@@ -113,8 +115,8 @@ implements ScreenHandlerProvider<T> {
     }
 
     @Inject(method={"mouseDragged"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onMouseDragged(Click click, double offsetX, double offsetY, CallbackInfoReturnable<Boolean> cir) {
-        MouseDragEvent event = MouseDragEvent.get(click.x(), click.y(), click.button(), offsetX, offsetY, this.x, this.y);
+    private void onMouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY, CallbackInfoReturnable<Boolean> cir) {
+        MouseDragEvent event = MouseDragEvent.get(mouseX, mouseY, button, deltaX, deltaY, this.x, this.y);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
             cir.setReturnValue(true);

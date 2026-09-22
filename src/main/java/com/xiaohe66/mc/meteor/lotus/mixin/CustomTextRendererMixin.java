@@ -31,7 +31,9 @@ import meteordevelopment.meteorclient.renderer.text.CustomTextRenderer;
 import meteordevelopment.meteorclient.renderer.text.Font;
 import meteordevelopment.meteorclient.renderer.text.FontFace;
 import meteordevelopment.meteorclient.utils.render.color.Color;
+import meteordevelopment.meteorclient.utils.Utils;
 import net.minecraft.client.MinecraftClient;
+import org.lwjgl.BufferUtils;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -64,7 +66,8 @@ public abstract class CustomTextRendererMixin {
 
     @Inject(method={"<init>"}, at={@At(value="RETURN")})
     public void onInit(FontFace fontFace, CallbackInfo ci) throws IOException {
-        ByteBuffer fontBuffer = fontFace.readToDirectByteBuffer();
+        byte[] fontBytes = Utils.readBytes(fontFace.toStream());
+        ByteBuffer fontBuffer = BufferUtils.createByteBuffer(fontBytes.length).put(fontBytes).flip();
         for (int i = 0; i < this.lotus$fixedFonts.length; ++i) {
             this.lotus$fixedFonts[i] = new FontFix(fontBuffer, (int)Math.round(27.0 * ((double)i * 0.5 + 1.0)));
         }
@@ -113,7 +116,7 @@ public abstract class CustomTextRendererMixin {
         }
         if (!this.scaleOnly) {
             this.mesh.end();
-            MeshRenderer.begin().attachments(MinecraftClient.getInstance().getFramebuffer()).pipeline(MeteorRenderPipelines.UI_TEXT).mesh(this.mesh).sampler("u_Texture", this.lotus$fixedFont.texture.getGlTextureView(), this.lotus$fixedFont.texture.getSampler()).end();
+            MeshRenderer.begin().attachments(MinecraftClient.getInstance().getFramebuffer()).pipeline(MeteorRenderPipelines.UI_TEXT).mesh(this.mesh).sampler("u_Texture", this.lotus$fixedFont.texture.getGlTextureView()).end();
         }
         this.building = false;
         this.scale = 1.0;

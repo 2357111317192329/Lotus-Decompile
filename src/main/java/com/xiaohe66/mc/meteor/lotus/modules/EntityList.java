@@ -132,7 +132,7 @@ extends Module {
     private final SettingGroup itemGroup = settings.createGroup("物品");
     public final Setting<List<Item>> items1 = itemGroup.add(new ItemListSetting.Builder()
         .name("重点关注物品")
-        .defaultValue(new Item[]{Items.ELYTRA, Items.SHULKER_BOX, Items.WHITE_SHULKER_BOX, Items.ORANGE_SHULKER_BOX, Items.MAGENTA_SHULKER_BOX, Items.LIGHT_BLUE_SHULKER_BOX, Items.YELLOW_SHULKER_BOX, Items.LIME_SHULKER_BOX, Items.PINK_SHULKER_BOX, Items.GRAY_SHULKER_BOX, Items.LIGHT_GRAY_SHULKER_BOX, Items.CYAN_SHULKER_BOX, Items.PURPLE_SHULKER_BOX, Items.BLUE_SHULKER_BOX, Items.BROWN_SHULKER_BOX, Items.GREEN_SHULKER_BOX, Items.RED_SHULKER_BOX, Items.BLACK_SHULKER_BOX, Items.BUNDLE, Items.WHITE_BUNDLE, Items.ORANGE_BUNDLE, Items.MAGENTA_BUNDLE, Items.LIGHT_BLUE_BUNDLE, Items.YELLOW_BUNDLE, Items.LIME_BUNDLE, Items.PINK_BUNDLE, Items.GRAY_BUNDLE, Items.LIGHT_GRAY_BUNDLE, Items.CYAN_BUNDLE, Items.PURPLE_BUNDLE, Items.BLUE_BUNDLE, Items.BROWN_BUNDLE, Items.GREEN_BUNDLE, Items.RED_BUNDLE, Items.BLACK_BUNDLE, Items.ANCIENT_DEBRIS, Items.NETHERITE_SCRAP, Items.NETHERITE_INGOT, Items.NETHERITE_BLOCK, Items.NETHERITE_SWORD, Items.NETHERITE_AXE, Items.NETHERITE_HOE, Items.NETHERITE_PICKAXE, Items.NETHERITE_SHOVEL, Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS, Items.NETHERITE_SPEAR, Items.END_CRYSTAL, Items.ENCHANTED_GOLDEN_APPLE, Items.MACE, Items.HEAVY_CORE, Items.CREEPER_HEAD, Items.ZOMBIE_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL, Items.PLAYER_HEAD, Items.PIGLIN_HEAD, Items.DRAGON_HEAD})
+        .defaultValue(new Item[]{Items.ELYTRA, Items.SHULKER_BOX, Items.WHITE_SHULKER_BOX, Items.ORANGE_SHULKER_BOX, Items.MAGENTA_SHULKER_BOX, Items.LIGHT_BLUE_SHULKER_BOX, Items.YELLOW_SHULKER_BOX, Items.LIME_SHULKER_BOX, Items.PINK_SHULKER_BOX, Items.GRAY_SHULKER_BOX, Items.LIGHT_GRAY_SHULKER_BOX, Items.CYAN_SHULKER_BOX, Items.PURPLE_SHULKER_BOX, Items.BLUE_SHULKER_BOX, Items.BROWN_SHULKER_BOX, Items.GREEN_SHULKER_BOX, Items.RED_SHULKER_BOX, Items.BLACK_SHULKER_BOX, Items.BUNDLE, Items.WHITE_BUNDLE, Items.ORANGE_BUNDLE, Items.MAGENTA_BUNDLE, Items.LIGHT_BLUE_BUNDLE, Items.YELLOW_BUNDLE, Items.LIME_BUNDLE, Items.PINK_BUNDLE, Items.GRAY_BUNDLE, Items.LIGHT_GRAY_BUNDLE, Items.CYAN_BUNDLE, Items.PURPLE_BUNDLE, Items.BLUE_BUNDLE, Items.BROWN_BUNDLE, Items.GREEN_BUNDLE, Items.RED_BUNDLE, Items.BLACK_BUNDLE, Items.ANCIENT_DEBRIS, Items.NETHERITE_SCRAP, Items.NETHERITE_INGOT, Items.NETHERITE_BLOCK, Items.NETHERITE_SWORD, Items.NETHERITE_AXE, Items.NETHERITE_HOE, Items.NETHERITE_PICKAXE, Items.NETHERITE_SHOVEL, Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS, Items.END_CRYSTAL, Items.ENCHANTED_GOLDEN_APPLE, Items.MACE, Items.HEAVY_CORE, Items.CREEPER_HEAD, Items.ZOMBIE_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL, Items.PLAYER_HEAD, Items.PIGLIN_HEAD, Items.DRAGON_HEAD})
         .onChanged(this::setItems1)
         .build());
     public final Setting<SettingColor> items1Color = itemGroup.add(new ColorSetting.Builder()
@@ -276,7 +276,7 @@ extends Module {
         }
         this.renderFlag = false;
         this.clearLists();
-        RegistryKey worldKey = this.mc.player.getEntityWorld().getRegistryKey();
+        RegistryKey worldKey = this.mc.player.getWorld().getRegistryKey();
         Set displayEntities;
         if (worldKey == ServerWorld.NETHER) {
             displayEntities = this.netherEntitys.get();
@@ -343,7 +343,7 @@ extends Module {
                 PlayerEntity playerEntity = (PlayerEntity)entity;
                 String playerName = playerEntity.getName().getString();
                 Item armorItem = this.getArmorType(playerEntity);
-                float distance = (float)cameraPos.distanceTo(entity.getEntityPos());
+                float distance = (float)cameraPos.distanceTo(entity.getPos());
                 PlayerWarp playerWarp = new PlayerWarp(playerName, armorItem, distance);
                 boolean isFriend = Friends.get().get(playerName) != null;
                 if (isFriend) {
@@ -382,7 +382,7 @@ extends Module {
         ItemWarp itemWarp = targetMap.computeIfAbsent(item, k -> new ItemWarp());
         itemWarp.setItem(item);
         itemWarp.setCount(itemWarp.getCount() + stack.getCount());
-        float distance = (float)cameraPos.distanceTo(entity.getEntityPos());
+        float distance = (float)cameraPos.distanceTo(entity.getPos());
         if (distance < itemWarp.getMinDistance()) {
             itemWarp.setMinDistance(distance);
         }

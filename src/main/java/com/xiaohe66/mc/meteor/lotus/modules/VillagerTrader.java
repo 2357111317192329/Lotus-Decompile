@@ -251,7 +251,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
         double nearestBarrelDistance = Double.MAX_VALUE;
         for (BlockEntity blockEntity : Utils.blockEntities()) {
             BlockEntityType<?> blockEntityType = blockEntity.getType();
-            double distance = this.mc.player.getEntityPos().distanceTo(blockEntity.getPos().toCenterPos());
+            double distance = this.mc.player.getPos().distanceTo(blockEntity.getPos().toCenterPos());
             if (!BlockEntityType.BARREL.equals(blockEntityType) || !(distance < (double)this.supplyRange.get()) || !(distance < nearestBarrelDistance)) continue;
             moneyPos = blockEntity.getPos();
             nearestBarrelDistance = distance;
@@ -449,8 +449,8 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
             this.next();
             return;
         }
-        Vec3d villagerPos = villager.getEntityPos();
-        Vec3d playerPos = this.mc.player.getEntityPos();
+        Vec3d villagerPos = villager.getPos();
+        Vec3d playerPos = this.mc.player.getPos();
         double distance = villagerPos.distanceTo(playerPos);
         if (distance > (double)this.minDistance.get() + 0.5) {
             this.printLog("distance false");
@@ -521,7 +521,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
             }
         }
         VillagerEntityWarp best = null;
-        Vec3d playerPos = this.mc.player.getEntityPos();
+        Vec3d playerPos = this.mc.player.getPos();
         double nearestDistance = Double.MAX_VALUE;
         for (VillagerEntityWarp warp : validVillagerList) {
             this.printLog("warpDay : {}, timeOfDay : {}", warp.getDay(), warp.getTimeOfDay());
@@ -539,7 +539,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
         this.printLog("find next : {}", best.getOperatePosCenter());
         this.currentVillager = best;
         BlockPos targetPos = this.currentVillager.getOperatePos();
-        if (!targetPos.isWithinDistance((Position)this.mc.player.getEntityPos(), 300.0)) {
+        if (!targetPos.isWithinDistance((Position)this.mc.player.getPos(), 300.0)) {
             this.warning("寻路距离过远", new Object[0]);
             this.toggle();
             return;
@@ -599,7 +599,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
     }
 
     private boolean tryPut() {
-        Vec3d playerPos = this.mc.player.getEntityPos();
+        Vec3d playerPos = this.mc.player.getPos();
         ItemBo best = null;
         double nearestDistance = Double.MAX_VALUE;
         for (ItemBo buyVillagerItem : this.buyVillagerItemList) {
@@ -652,7 +652,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
         List<VillagerEntityWarp> villagerList = new ArrayList<VillagerEntityWarp>();
         for (Entity entity : this.mc.world.getEntities()) {
             if (!EntityType.VILLAGER.equals(entity.getType())) continue;
-            double y = entity.getEntityPos().getY() - this.mc.player.getY();
+            double y = entity.getPos().getY() - this.mc.player.getY();
             if (!(y >= -2.0) || !(y <= 2.0)) continue;
             VillagerEntity villager = (VillagerEntity)entity;
             VillagerType currentType = VillagerType.fromEntry(villager.getVillagerData().profession());

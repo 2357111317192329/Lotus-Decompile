@@ -282,7 +282,7 @@ public class ContainerMarkRenderer {
     private void renderItemIcon(WorldEntityRenderEvent event, MatrixStack matrixStack, ItemStack stack, int light, float scale) {
         matrixStack.push();
         matrixStack.scale(scale, scale, scale);
-        this.getItemRenderState(stack).render(matrixStack, event.getCommandQueue(), light, OverlayTexture.DEFAULT_UV, 0);
+        this.getItemRenderState(stack).render(matrixStack, MeteorClient.mc.getBufferBuilders().getEntityVertexConsumers(), light, OverlayTexture.DEFAULT_UV);
         matrixStack.pop();
     }
 

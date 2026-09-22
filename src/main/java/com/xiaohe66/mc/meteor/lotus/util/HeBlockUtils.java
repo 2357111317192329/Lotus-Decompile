@@ -291,7 +291,7 @@ public class HeBlockUtils {
     }
 
     private static boolean placeBlock(BlockPos targetPos, BlockPos clickPos, Direction clickSide, Direction faceDirection) {
-        return HeBlockUtils.placeBlock(targetPos, clickPos, clickSide, faceDirection, new Vec3d((Vector3fc)clickSide.getUnitVector()).multiply(0.5));
+        return HeBlockUtils.placeBlock(targetPos, clickPos, clickSide, faceDirection, new Vec3d(clickSide.getVector()).multiply(0.5));
     }
 
     private static boolean placeBlock(BlockPos targetPos, BlockPos clickPos, Direction clickSide, Direction faceDirection, Vec3d offset) {

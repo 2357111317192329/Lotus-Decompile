@@ -70,7 +70,7 @@ public class WalkModule extends StepModule implements AbstractGameEventListener 
     }
 
     protected void gotoTargetIfNeed(BlockPos targetPos, int range, Step walkingNext, String gotoTargetMsg) {
-        double distance = this.mc.player.getEntityPos().distanceTo(targetPos.toCenterPos());
+        double distance = this.mc.player.getPos().distanceTo(targetPos.toCenterPos());
         if (distance > 1000.0) {
             this.warning("移动距离超过1000格, 功能关闭", new Object[0]);
             this.toggle();

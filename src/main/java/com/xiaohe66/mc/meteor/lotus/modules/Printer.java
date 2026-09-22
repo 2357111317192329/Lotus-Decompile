@@ -418,7 +418,7 @@ public class Printer extends BaseModule {
     }
 
     private BlockPos getPlatformCenterPos() {
-        Vec3d eyePos = this.mc.player.getEntityPos();
+        Vec3d eyePos = this.mc.player.getPos();
         BlockPos basePos = this.mc.player.getBlockPos();
         if (eyePos.getY() - (double)basePos.getY() >= 0.5) {
             basePos = basePos.up();

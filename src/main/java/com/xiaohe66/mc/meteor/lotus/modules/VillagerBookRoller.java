@@ -210,7 +210,7 @@ public class VillagerBookRoller extends WalkModule {
             this.step = Steps.FINDING_TARGET;
             return;
         }
-        double distance = this.mc.player.getEntityPos().distanceTo(this.currentTarget.getOperatePos().toCenterPos());
+        double distance = this.mc.player.getPos().distanceTo(this.currentTarget.getOperatePos().toCenterPos());
         if (distance <= 1.5) {
             this.delayNext(Steps.PLACE_LECTERN);
             return;
@@ -464,7 +464,7 @@ public class VillagerBookRoller extends WalkModule {
                 workPos = lecternPos;
                 break;
             }
-            if (validDirection == null || !((distance = this.mc.player.getEntityPos().distanceTo(villagerPos.toCenterPos())) < nearestDistance)) continue;
+            if (validDirection == null || !((distance = this.mc.player.getPos().distanceTo(villagerPos.toCenterPos())) < nearestDistance)) continue;
             nearestDistance = distance;
             BlockPos operatePos = workPos.offset(validDirection);
             nearestTarget = new VillagerEntityWarp(VillagerType.图书管理员, villager.getUuid(), operatePos, validDirection, workPos);

@@ -96,7 +96,7 @@ public class HeRotationUtils {
 
     public static HeRotation getRotation(BlockPos pos, Direction side) {
         Vec3d center = new Vec3d((double)pos.getX() + 0.5, (double)pos.getY() + 0.5, (double)pos.getZ() + 0.5);
-        Vec3d sideOffset = new Vec3d((Vector3fc)side.getUnitVector()).multiply(0.5);
+        Vec3d sideOffset = new Vec3d(side.getVector()).multiply(0.5);
         Vec3d target = center.add(sideOffset);
         return HeRotationUtils.getRotation(target);
     }

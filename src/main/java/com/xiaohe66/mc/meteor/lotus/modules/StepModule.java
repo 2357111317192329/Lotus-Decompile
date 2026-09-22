@@ -225,11 +225,11 @@ public class StepModule extends BaseModule {
     }
 
     protected boolean notInOperationRange(StoragePos pos) {
-        return this.mc.player.getEntityPos().distanceTo(pos.getBtnPos().toCenterPos()) > 1.0;
+        return this.mc.player.getPos().distanceTo(pos.getBtnPos().toCenterPos()) > 1.0;
     }
 
     protected boolean isTooFar(BlockPos blockPos, double range) {
-        return this.mc.player.getEntityPos().distanceTo(blockPos.toCenterPos()) > range;
+        return this.mc.player.getPos().distanceTo(blockPos.toCenterPos()) > range;
     }
 
     protected boolean isEyeTooFar(BlockPos blockPos, double range) {

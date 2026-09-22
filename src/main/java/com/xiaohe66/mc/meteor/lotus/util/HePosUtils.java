@@ -186,7 +186,7 @@ public class HePosUtils {
         if (freecam != null && freecam.isActive()) {
             return new Vec3d(freecam.pos.x, freecam.pos.y, freecam.pos.z);
         }
-        return MeteorClient.mc.player.getEntityPos();
+        return MeteorClient.mc.player.getPos();
     }
 
     public static Map<ItemBo, StoragePos> scanFrames(int range, int verticalRange) {
@@ -197,7 +197,7 @@ public class HePosUtils {
         List<ItemFrameEntity> frames = MeteorClient.mc.world.getEntitiesByClass(ItemFrameEntity.class,
             new Box(x - range, y, z - range, x + range, y + verticalRange, z + range),
             frame -> !frame.getHeldItemStack().isEmpty());
-        Vec3d playerEyePos = MeteorClient.mc.player.getEntityPos();
+        Vec3d playerEyePos = MeteorClient.mc.player.getPos();
         HashMap<ItemBo, StoragePos> result = new HashMap<>();
         for (ItemFrameEntity frame : frames) {
             ItemStack stack = frame.getHeldItemStack();
@@ -240,7 +240,7 @@ public class HePosUtils {
         List<ItemFrameEntity> frames = MeteorClient.mc.world.getEntitiesByClass(ItemFrameEntity.class,
             new Box(x - range, y, z - range, x + range, y + verticalRange, z + range),
             frame -> !frame.getHeldItemStack().isEmpty());
-        Vec3d playerPosVec = MeteorClient.mc.player.getEntityPos();
+        Vec3d playerPosVec = MeteorClient.mc.player.getPos();
         HashMap<ItemBo, StoragePos> result = new HashMap<>();
         for (ItemFrameEntity frame : frames) {
             ItemStack stack = frame.getHeldItemStack();
@@ -287,7 +287,7 @@ public class HePosUtils {
             return null;
         }
         double range = 2.030625;
-        Vec3d playerPos = MeteorClient.mc.player.getEntityPos();
+        Vec3d playerPos = MeteorClient.mc.player.getPos();
         BlockPos floored = BlockPos.ofFloored(pos);
         BlockPos nearest = null;
         double minDistance = Double.MAX_VALUE;
