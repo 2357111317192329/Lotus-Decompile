@@ -11,8 +11,8 @@ import com.xiaohe66.mc.meteor.lotus.util.enchantment.EnchantmentNode;
 import com.xiaohe66.mc.meteor.lotus.util.enchantment.impl.EnchantmentBookNode;
 import java.util.HashSet;
 import java.util.Set;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.registry.RegistryKey;
 
 public class EnchantmentMargeNode
 implements EnchantmentNode {
@@ -21,7 +21,7 @@ implements EnchantmentNode {
     private final int repairCost;
     private final int cost;
     private int costSum = -1;
-    private Set<ResourceKey<Enchantment>> allEnchantmentKey;
+    private Set<RegistryKey<Enchantment>> allEnchantmentKey;
 
     public EnchantmentMargeNode(EnchantmentNode left, EnchantmentNode right) {
         this.left = left;
@@ -56,9 +56,9 @@ implements EnchantmentNode {
         return this.right;
     }
 
-    public Set<ResourceKey<Enchantment>> getAllEnchantmentKey() {
+    public Set<RegistryKey<Enchantment>> getAllEnchantmentKey() {
         if (this.allEnchantmentKey == null) {
-            Set<ResourceKey<Enchantment>> all = new HashSet<ResourceKey<Enchantment>>();
+            Set<RegistryKey<Enchantment>> all = new HashSet<RegistryKey<Enchantment>>();
             EnchantmentNode node = this.left;
             if (node instanceof EnchantmentMargeNode margeNode) {
                 all.addAll(margeNode.getAllEnchantmentKey());

@@ -55,25 +55,25 @@ import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.ClientRecipeBook;
-import net.minecraft.client.gui.screens.recipebook.RecipeCollection;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.inventory.SmithingMenu;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.Fireworks;
-import net.minecraft.world.item.crafting.display.RecipeDisplay;
-import net.minecraft.world.item.crafting.display.RecipeDisplayEntry;
-import net.minecraft.world.item.crafting.display.RecipeDisplayId;
-import net.minecraft.world.item.crafting.display.SlotDisplayContext;
-import net.minecraft.world.item.equipment.trim.ArmorTrim;
-import net.minecraft.world.level.Level;
+import net.minecraft.client.gui.screen.recipebook.RecipeResultCollection;
+import net.minecraft.client.recipebook.ClientRecipeBook;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.FireworksComponent;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.equipment.trim.ArmorTrim;
+import net.minecraft.recipe.NetworkRecipeId;
+import net.minecraft.recipe.RecipeDisplayEntry;
+import net.minecraft.recipe.display.RecipeDisplay;
+import net.minecraft.recipe.display.SlotDisplayContexts;
+import net.minecraft.screen.CraftingScreenHandler;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.SmithingScreenHandler;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,17 +132,17 @@ extends BaseModule {
         if (!this.doing) {
             return;
         }
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
-        if (screenHandler instanceof CraftingMenu) {
-            CraftingMenu craftingScreenHandler = (CraftingMenu)screenHandler;
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
+        if (screenHandler instanceof CraftingScreenHandler) {
+            CraftingScreenHandler craftingScreenHandler = (CraftingScreenHandler)screenHandler;
             if (this.craftingItems.get().isEmpty()) {
                 return;
             }
             this.doCrafting(craftingScreenHandler);
         } else {
-            screenHandler = this.mc.player.containerMenu;
-            if (screenHandler instanceof SmithingMenu) {
-                SmithingMenu smithingScreenHandler = (SmithingMenu)screenHandler;
+            screenHandler = this.mc.player.currentScreenHandler;
+            if (screenHandler instanceof SmithingScreenHandler) {
+                SmithingScreenHandler smithingScreenHandler = (SmithingScreenHandler)screenHandler;
                 if (this.smithingItem1 == null && this.smithingItem2 == null && this.smithingItem3 == null) {
                     this.finish();
                     return;
@@ -154,7 +154,7 @@ extends BaseModule {
         }
     }
 
-    private void doCrafting(CraftingMenu craftingScreenHandler) {
+    private void doCrafting(CraftingScreenHandler craftingScreenHandler) {
         if (this.needItem == Items.FIREWORK_ROCKET) {
             this.doFireworkCrafting(craftingScreenHandler);
             return;
@@ -163,22 +163,22 @@ extends BaseModule {
             this.margeKit(craftingScreenHandler);
             return;
         }
-        Map<Item, RecipeDisplayId> map = this.getRecipeIdMap();
+        Map<Item, NetworkRecipeId> map = this.getRecipeIdMap();
         if (map.containsKey(this.needItem)) {
-            RecipeDisplayId networkRecipeId = map.get(this.needItem);
-            this.mc.gameMode.handlePlaceRecipe(craftingScreenHandler.containerId, networkRecipeId, true);
-            ContainerInput actionType = this.isDrop ? ContainerInput.THROW : ContainerInput.QUICK_MOVE;
-            this.mc.gameMode.handleContainerInput(craftingScreenHandler.containerId, 0, 1, actionType, (Player)this.mc.player);
+            NetworkRecipeId networkRecipeId = map.get(this.needItem);
+            this.mc.interactionManager.clickRecipe(craftingScreenHandler.syncId, networkRecipeId, true);
+            SlotActionType actionType = this.isDrop ? SlotActionType.THROW : SlotActionType.QUICK_MOVE;
+            this.mc.interactionManager.clickSlot(craftingScreenHandler.syncId, 0, 1, actionType, (PlayerEntity)this.mc.player);
             this.setDelay();
             return;
         }
         this.finish();
     }
 
-    private void doSmithing(SmithingMenu smithingScreenHandler) {
-        ItemStack outputStack = smithingScreenHandler.getSlot(3).getItem();
+    private void doSmithing(SmithingScreenHandler smithingScreenHandler) {
+        ItemStack outputStack = smithingScreenHandler.getSlot(3).getStack();
         if (!outputStack.isEmpty()) {
-            ArmorTrim armorTrim = (ArmorTrim)outputStack.get(DataComponents.TRIM);
+            ArmorTrim armorTrim = (ArmorTrim)outputStack.get(DataComponentTypes.TRIM);
             if (armorTrim != null) {
                 this.smithingTrim = armorTrim;
             }
@@ -187,20 +187,20 @@ extends BaseModule {
             } else {
                 InvUtils.shiftClick().slotId(3);
             }
-        } else if (smithingScreenHandler.getSlot(0).getItem().isEmpty() && this.smithingItem1 != null && this.smithingItem1 != Items.AIR) {
+        } else if (smithingScreenHandler.getSlot(0).getStack().isEmpty() && this.smithingItem1 != null && this.smithingItem1 != Items.AIR) {
             ItemStack nextStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == this.smithingItem1);
             if (nextStack.isEmpty()) {
                 this.finish();
                 return;
             }
             InvUtils.shiftClick().slot(this.getCurPlayerSlot());
-        } else if (smithingScreenHandler.getSlot(1).getItem().isEmpty() && this.smithingItem2 != null && this.smithingItem2 != Items.AIR) {
+        } else if (smithingScreenHandler.getSlot(1).getStack().isEmpty() && this.smithingItem2 != null && this.smithingItem2 != Items.AIR) {
             ItemStack nextStack = this.nextPlayerStack(itemStack -> {
                 if (itemStack.getItem() != this.smithingItem2) {
                     return false;
                 }
                 if (this.smithingTrim != null) {
-                    ArmorTrim armorTrim = (ArmorTrim)itemStack.get(DataComponents.TRIM);
+                    ArmorTrim armorTrim = (ArmorTrim)itemStack.get(DataComponentTypes.TRIM);
                     return !this.smithingTrim.equals((Object)armorTrim);
                 }
                 return true;
@@ -210,7 +210,7 @@ extends BaseModule {
                 return;
             }
             InvUtils.shiftClick().slot(this.getCurPlayerSlot());
-        } else if (smithingScreenHandler.getSlot(2).getItem().isEmpty() && this.smithingItem3 != null && this.smithingItem3 != Items.AIR) {
+        } else if (smithingScreenHandler.getSlot(2).getStack().isEmpty() && this.smithingItem3 != null && this.smithingItem3 != Items.AIR) {
             ItemStack nextStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == this.smithingItem3);
             if (nextStack.isEmpty()) {
                 this.finish();
@@ -221,8 +221,8 @@ extends BaseModule {
         this.setDelay();
     }
 
-    private void margeKit(CraftingMenu craftingScreenHandler) {
-        ItemStack outItemStack = craftingScreenHandler.getResultSlot().getItem();
+    private void margeKit(CraftingScreenHandler craftingScreenHandler) {
+        ItemStack outItemStack = craftingScreenHandler.getOutputSlot().getStack();
         if (outItemStack.getItem() == this.needItem) {
             this.kitPlacedPending = false;
             if (this.isDrop) {
@@ -237,7 +237,7 @@ extends BaseModule {
         boolean needKit = true;
         boolean needColor = true;
         for (int i = 1; i <= 9; ++i) {
-            Item item = craftingScreenHandler.getSlot(i).getItem().getItem();
+            Item item = craftingScreenHandler.getSlot(i).getStack().getItem();
             if (HeItemUtils.isShulkerBox(item)) {
                 needKit = false;
             }
@@ -279,15 +279,15 @@ extends BaseModule {
         if (stack.getItem() != Items.FIREWORK_ROCKET) {
             return -1;
         }
-        Fireworks component = (Fireworks)stack.get(DataComponents.FIREWORKS);
+        FireworksComponent component = (FireworksComponent)stack.get(DataComponentTypes.FIREWORKS);
         if (component == null) {
             return -1;
         }
         return component.flightDuration();
     }
 
-    private void doFireworkCrafting(CraftingMenu craftingScreenHandler) {
-        ItemStack outputStack = craftingScreenHandler.getResultSlot().getItem();
+    private void doFireworkCrafting(CraftingScreenHandler craftingScreenHandler) {
+        ItemStack outputStack = craftingScreenHandler.getOutputSlot().getStack();
         if (outputStack.getItem() == Items.FIREWORK_ROCKET && this.getFireworkFlightDuration(outputStack) == this.needGunpowderCount) {
             if (this.isDrop) {
                 InvUtils.drop().slotId(0);
@@ -300,7 +300,7 @@ extends BaseModule {
         int paperCount = 0;
         int gunpowderCount = 0;
         for (int i = 1; i <= 9; ++i) {
-            ItemStack stack = craftingScreenHandler.getSlot(i).getItem();
+            ItemStack stack = craftingScreenHandler.getSlot(i).getStack();
             if (stack.getItem() == Items.PAPER) {
                 ++paperCount;
                 continue;
@@ -324,7 +324,7 @@ extends BaseModule {
             }
         } else if (gunpowderCount > this.needGunpowderCount) {
             for (int i = 1; i <= 9; ++i) {
-                if (craftingScreenHandler.getSlot(i).getItem().getItem() != Items.GUNPOWDER) continue;
+                if (craftingScreenHandler.getSlot(i).getStack().getItem() != Items.GUNPOWDER) continue;
                 InvUtils.shiftClick().slotId(i);
                 this.setDelay();
                 return;
@@ -346,16 +346,16 @@ extends BaseModule {
         if (!this.isReady()) {
             return;
         }
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
-        if (screenHandler instanceof CraftingMenu) {
-            CraftingMenu craftingScreenHandler = (CraftingMenu)screenHandler;
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
+        if (screenHandler instanceof CraftingScreenHandler) {
+            CraftingScreenHandler craftingScreenHandler = (CraftingScreenHandler)screenHandler;
             if (!isDrop && !InvUtils.find(ItemStack::isEmpty, (int)0, (int)35).found()) {
                 this.info("需要至少留一个空位", new Object[0]);
                 return;
             }
             Item needItem = Items.AIR;
-            Slot outputSlot = craftingScreenHandler.getResultSlot();
-            ItemStack outItemStack = outputSlot.getItem();
+            Slot outputSlot = craftingScreenHandler.getOutputSlot();
+            ItemStack outItemStack = outputSlot.getStack();
             if (!outItemStack.isEmpty()) {
                 if (!this.craftingItems.get().contains(outItemStack.getItem())) {
                     this.craftingItems.get().add(outItemStack.getItem());
@@ -363,8 +363,8 @@ extends BaseModule {
                 needItem = outItemStack.getItem();
             }
             if (needItem == Items.AIR) {
-                Map<Item, RecipeDisplayId> recipeIdMap = this.getRecipeIdMap();
-                for (Map.Entry<Item, RecipeDisplayId> entry : recipeIdMap.entrySet()) {
+                Map<Item, NetworkRecipeId> recipeIdMap = this.getRecipeIdMap();
+                for (Map.Entry<Item, NetworkRecipeId> entry : recipeIdMap.entrySet()) {
                     Item item = entry.getKey();
                     if (!this.craftingItems.get().contains(item)) continue;
                     needItem = item;
@@ -384,22 +384,22 @@ extends BaseModule {
             this.kitPlacedPending = false;
             this.info("合成物品: " + Names.get(needItem), new Object[0]);
         } else {
-            AbstractContainerMenu smithingHandler = this.mc.player.containerMenu;
-            if (smithingHandler instanceof SmithingMenu) {
-                SmithingMenu smithingScreenHandler = (SmithingMenu)smithingHandler;
+            ScreenHandler smithingHandler = this.mc.player.currentScreenHandler;
+            if (smithingHandler instanceof SmithingScreenHandler) {
+                SmithingScreenHandler smithingScreenHandler = (SmithingScreenHandler)smithingHandler;
                 if (!isDrop && !InvUtils.find(ItemStack::isEmpty, (int)0, (int)35).found()) {
                     this.info("需要至少留一个空位", new Object[0]);
                     return;
                 }
-                ItemStack baseStack = smithingScreenHandler.getSlot(0).getItem();
-                ItemStack additionStack = smithingScreenHandler.getSlot(1).getItem();
-                ItemStack templateStack = smithingScreenHandler.getSlot(2).getItem();
-                ItemStack outputStack = smithingScreenHandler.getSlot(3).getItem();
+                ItemStack baseStack = smithingScreenHandler.getSlot(0).getStack();
+                ItemStack additionStack = smithingScreenHandler.getSlot(1).getStack();
+                ItemStack templateStack = smithingScreenHandler.getSlot(2).getStack();
+                ItemStack outputStack = smithingScreenHandler.getSlot(3).getStack();
                 if (outputStack.isEmpty() && (baseStack.isEmpty() || additionStack.isEmpty() || templateStack.isEmpty())) {
                     return;
                 }
                 if (!outputStack.isEmpty()) {
-                    this.smithingTrim = (ArmorTrim)outputStack.get(DataComponents.TRIM);
+                    this.smithingTrim = (ArmorTrim)outputStack.get(DataComponentTypes.TRIM);
                 }
                 this.smithingItem1 = baseStack.isEmpty() ? null : baseStack.getItem();
                 this.smithingItem2 = additionStack.isEmpty() ? null : additionStack.getItem();
@@ -431,14 +431,14 @@ extends BaseModule {
         this.closeCurScreenIfNeed();
     }
 
-    private Map<Item, RecipeDisplayId> getRecipeIdMap() {
-        HashMap<Item, RecipeDisplayId> recipeIdMap = new HashMap<Item, RecipeDisplayId>();
+    private Map<Item, NetworkRecipeId> getRecipeIdMap() {
+        HashMap<Item, NetworkRecipeId> recipeIdMap = new HashMap<Item, NetworkRecipeId>();
         ClientRecipeBook recipeBook = this.mc.player.getRecipeBook();
-        for (RecipeCollection recipeResultCollection : recipeBook.getCollections()) {
-            List<RecipeDisplayEntry> recipes = recipeResultCollection.getSelectedRecipes(RecipeCollection.CraftableStatus.CRAFTABLE);
+        for (RecipeResultCollection recipeResultCollection : recipeBook.getOrderedResults()) {
+            List<RecipeDisplayEntry> recipes = recipeResultCollection.filter(RecipeResultCollection.RecipeFilterMode.CRAFTABLE);
             for (RecipeDisplayEntry recipe : recipes) {
                 RecipeDisplay recipeDisplay = recipe.display();
-                List<ItemStack> resultStacks = recipeDisplay.result().resolveForStacks(SlotDisplayContext.fromLevel((Level)this.mc.level));
+                List<ItemStack> resultStacks = recipeDisplay.result().getStacks(SlotDisplayContexts.createParameters((World)this.mc.world));
                 for (ItemStack resultStack : resultStacks) {
                     Item item = resultStack.getItem();
                     if (!this.craftingItems.get().contains(item)) continue;

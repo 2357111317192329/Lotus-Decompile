@@ -30,48 +30,48 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.entry.RegistryEntry;
 
 public class EnchantmentUtils {
-    public static final Minecraft mc = Minecraft.getInstance();
+    public static final MinecraftClient mc = MinecraftClient.getInstance();
 
     private EnchantmentUtils() {
     }
 
-    public static Set<ResourceKey<Enchantment>> getEnchantment(ItemStack itemStack) {
+    public static Set<RegistryKey<Enchantment>> getEnchantment(ItemStack itemStack) {
         return EnchantmentUtils.getEnchantment(itemStack, false);
     }
 
-    public static Set<ResourceKey<Enchantment>> getEnchantment(ItemStack itemStack, boolean isMaxLevel) {
-        ItemEnchantments enchantments = EnchantmentHelper.getEnchantmentsForCrafting((ItemStack)itemStack);
+    public static Set<RegistryKey<Enchantment>> getEnchantment(ItemStack itemStack, boolean isMaxLevel) {
+        ItemEnchantmentsComponent enchantments = EnchantmentHelper.getEnchantments((ItemStack)itemStack);
         if (enchantments.isEmpty()) {
             return Collections.emptySet();
         }
-        Set<ResourceKey<Enchantment>> list = new HashSet<ResourceKey<Enchantment>>(enchantments.size());
-        for (Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments.entrySet()) {
-            Holder<Enchantment> registryEntry = (Holder<Enchantment>)entry.getKey();
-            Optional<ResourceKey<Enchantment>> enchantmentKeyOptional = registryEntry.unwrapKey();
+        Set<RegistryKey<Enchantment>> list = new HashSet<RegistryKey<Enchantment>>(enchantments.getSize());
+        for (Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments.getEnchantmentEntries()) {
+            RegistryEntry<Enchantment> registryEntry = (RegistryEntry<Enchantment>)entry.getKey();
+            Optional<RegistryKey<Enchantment>> enchantmentKeyOptional = registryEntry.getKey();
             if (!enchantmentKeyOptional.isPresent() || isMaxLevel && entry.getIntValue() < ((Enchantment)registryEntry.value()).getMaxLevel()) continue;
-            list.add((ResourceKey<Enchantment>)((ResourceKey)enchantmentKeyOptional.get()));
+            list.add((RegistryKey<Enchantment>)((RegistryKey)enchantmentKeyOptional.get()));
         }
         return list;
     }
 
-    public static ResourceKey<Enchantment> getEnchantmentOne(ItemStack itemStack) {
-        ItemEnchantments enchantments = EnchantmentHelper.getEnchantmentsForCrafting((ItemStack)itemStack);
-        for (Object2IntMap.Entry<Holder<Enchantment>> enchantmentEntry : enchantments.entrySet()) {
-            Holder<Enchantment> registryEntry = (Holder<Enchantment>)enchantmentEntry.getKey();
-            Optional<ResourceKey<Enchantment>> enchantmentKeyOptional = registryEntry.unwrapKey();
+    public static RegistryKey<Enchantment> getEnchantmentOne(ItemStack itemStack) {
+        ItemEnchantmentsComponent enchantments = EnchantmentHelper.getEnchantments((ItemStack)itemStack);
+        for (Object2IntMap.Entry<RegistryEntry<Enchantment>> enchantmentEntry : enchantments.getEnchantmentEntries()) {
+            RegistryEntry<Enchantment> registryEntry = (RegistryEntry<Enchantment>)enchantmentEntry.getKey();
+            Optional<RegistryKey<Enchantment>> enchantmentKeyOptional = registryEntry.getKey();
             if (!enchantmentKeyOptional.isPresent()) continue;
-            ResourceKey<Enchantment> enchantmentRegistryKey = (ResourceKey<Enchantment>)enchantmentKeyOptional.get();
+            RegistryKey<Enchantment> enchantmentRegistryKey = (RegistryKey<Enchantment>)enchantmentKeyOptional.get();
             Enchantment enchantment = (Enchantment)registryEntry.value();
             if (enchantmentEntry.getIntValue() != enchantment.getMaxLevel()) continue;
             return enchantmentRegistryKey;
@@ -79,20 +79,20 @@ public class EnchantmentUtils {
         return null;
     }
 
-    public static boolean existAll(List<ResourceKey<Enchantment>> needEnchantmentList, ItemStack itemStack) {
-        Set<ResourceKey<Enchantment>> existSet = EnchantmentUtils.getEnchantment(itemStack);
+    public static boolean existAll(List<RegistryKey<Enchantment>> needEnchantmentList, ItemStack itemStack) {
+        Set<RegistryKey<Enchantment>> existSet = EnchantmentUtils.getEnchantment(itemStack);
         return EnchantmentUtils.existAll(needEnchantmentList, existSet);
     }
 
-    public static boolean existAll(List<ResourceKey<Enchantment>> needEnchantmentList, Set<ResourceKey<Enchantment>> checkSet) {
-        for (ResourceKey<Enchantment> registryKey : needEnchantmentList) {
+    public static boolean existAll(List<RegistryKey<Enchantment>> needEnchantmentList, Set<RegistryKey<Enchantment>> checkSet) {
+        for (RegistryKey<Enchantment> registryKey : needEnchantmentList) {
             if (checkSet.contains(registryKey)) continue;
             return false;
         }
         return true;
     }
 
-    public static EnchantmentMargeNode bestStepSimple(ItemStack equipItemStack, Set<ResourceKey<Enchantment>> missEnchantmentSet) {
+    public static EnchantmentMargeNode bestStepSimple(ItemStack equipItemStack, Set<RegistryKey<Enchantment>> missEnchantmentSet) {
         EnchantmentNode node = EnchantmentUtils.bestStep(equipItemStack, missEnchantmentSet);
         while (node instanceof EnchantmentMargeNode) {
             EnchantmentMargeNode margeNode = (EnchantmentMargeNode)node;
@@ -104,7 +104,7 @@ public class EnchantmentUtils {
         throw new IllegalStateException("不应该运行到这里");
     }
 
-    public static EnchantmentNode bestStep(ItemStack equipItemStack, Set<ResourceKey<Enchantment>> missEnchantmentSet) {
+    public static EnchantmentNode bestStep(ItemStack equipItemStack, Set<RegistryKey<Enchantment>> missEnchantmentSet) {
         EnchantmentEquipNode equipNode = new EnchantmentEquipNode(equipItemStack);
         Set<EnchantmentNode> bookNodeSet = missEnchantmentSet.stream().map(EnchantmentBookNode::new).collect(Collectors.toSet());
         return EnchantmentUtils.bestStep(equipNode, bookNodeSet);
@@ -182,32 +182,32 @@ public class EnchantmentUtils {
     }
 
     public static int getRepairCost(ItemStack itemStack) {
-        return (Integer)itemStack.getOrDefault(DataComponents.REPAIR_COST, 0);
+        return (Integer)itemStack.getOrDefault(DataComponentTypes.REPAIR_COST, 0);
     }
 
-    public static int getAnvilCost(ResourceKey<Enchantment> registryKey) {
+    public static int getAnvilCost(RegistryKey<Enchantment> registryKey) {
         return EnchantmentUtils.getEnchantmentInstance(registryKey).map(Enchantment::getAnvilCost).orElseThrow();
     }
 
-    public static int getMaxLevel(ResourceKey<Enchantment> registryKey) {
+    public static int getMaxLevel(RegistryKey<Enchantment> registryKey) {
         return EnchantmentUtils.getEnchantmentInstance(registryKey).map(Enchantment::getMaxLevel).orElseThrow();
     }
 
-    public static int getCost(ResourceKey<Enchantment> registryKey) {
+    public static int getCost(RegistryKey<Enchantment> registryKey) {
         Enchantment enchantment = EnchantmentUtils.getEnchantmentInstance(registryKey).orElseThrow();
         return Math.max(1, enchantment.getAnvilCost() / 2) * enchantment.getMaxLevel();
     }
 
-    public static int getCost(Set<ResourceKey<Enchantment>> enchantments) {
+    public static int getCost(Set<RegistryKey<Enchantment>> enchantments) {
         int total = 0;
-        for (ResourceKey<Enchantment> enchantment : enchantments) {
+        for (RegistryKey<Enchantment> enchantment : enchantments) {
             total += getCost(enchantment);
         }
         return total;
     }
 
-    public static Optional<Enchantment> getEnchantmentInstance(ResourceKey<Enchantment> registryKey) {
-        return mc.level.registryAccess().lookup(Registries.ENCHANTMENT).map(item -> (Enchantment)item.getValue(registryKey));
+    public static Optional<Enchantment> getEnchantmentInstance(RegistryKey<Enchantment> registryKey) {
+        return mc.world.getRegistryManager().getOptional(RegistryKeys.ENCHANTMENT).map(item -> (Enchantment)item.get(registryKey));
     }
 
     public static int penaltyToWork(int penalty) {

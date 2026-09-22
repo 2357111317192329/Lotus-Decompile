@@ -9,7 +9,7 @@
  */
 package com.xiaohe66.mc.meteor.lotus.modules;
 
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 public record SlotRect(int x, int y, int size, int fillX, int fillY, int index, ItemStack stack) {
 }

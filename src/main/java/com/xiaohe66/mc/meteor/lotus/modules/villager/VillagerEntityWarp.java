@@ -14,18 +14,18 @@ package com.xiaohe66.mc.meteor.lotus.modules.villager;
 import com.xiaohe66.mc.meteor.lotus.modules.villager.VillagerType;
 import java.util.UUID;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.entity.npc.villager.Villager;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 
 public class VillagerEntityWarp {
-    private static final Minecraft mc = Minecraft.getInstance();
+    private static final MinecraftClient mc = MinecraftClient.getInstance();
     private final VillagerType villagerType;
     private final UUID uuid;
     private final BlockPos operatePos;
-    private final Vec3 operatePosCenter;
+    private final Vec3d operatePosCenter;
     private final Direction facing;
     private final BlockPos workPos;
     private long lastTradeTime;
@@ -39,7 +39,7 @@ public class VillagerEntityWarp {
         this.villagerType = villagerType;
         this.uuid = uuid;
         this.operatePos = operatePos;
-        this.operatePosCenter = operatePos.getCenter();
+        this.operatePosCenter = operatePos.toCenterPos();
         this.facing = facing;
         this.workPos = workPos;
     }
@@ -48,9 +48,9 @@ public class VillagerEntityWarp {
         return this.uuid;
     }
 
-    public Villager getVillager() {
+    public VillagerEntity getVillager() {
         try {
-            return (Villager)VillagerEntityWarp.mc.level.getEntities().get(this.uuid);
+            return (VillagerEntity)VillagerEntityWarp.mc.world.getEntityLookup().get(this.uuid);
         }
         catch (Exception exception) {
             ChatUtils.error((String)("获取村民状态异常 : " + exception.getMessage()), (Object[])new Object[0]);
@@ -67,7 +67,7 @@ public class VillagerEntityWarp {
         return this.operatePos;
     }
 
-    public Vec3 getOperatePosCenter() {
+    public Vec3d getOperatePosCenter() {
         return this.operatePosCenter;
     }
 

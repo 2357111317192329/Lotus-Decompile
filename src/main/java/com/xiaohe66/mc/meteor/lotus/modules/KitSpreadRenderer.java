@@ -15,10 +15,10 @@ import java.util.List;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.utils.render.color.Color;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix3x2fStack;
 
 public class KitSpreadRenderer {
@@ -50,13 +50,13 @@ public class KitSpreadRenderer {
         if (readerList.isEmpty()) {
             return;
         }
-        if (this.lastSyncId != MeteorClient.mc.player.containerMenu.containerId) {
+        if (this.lastSyncId != MeteorClient.mc.player.currentScreenHandler.syncId) {
             this.scrollOffset = 0;
-            this.lastSyncId = MeteorClient.mc.player.containerMenu.containerId;
+            this.lastSyncId = MeteorClient.mc.player.currentScreenHandler.syncId;
         }
-        GuiGraphicsExtractor drawContext = event.getDrawContext();
-        drawContext.nextStratum();
-        Matrix3x2fStack matrices = drawContext.pose();
+        DrawContext drawContext = event.getDrawContext();
+        drawContext.createNewRootLayer();
+        Matrix3x2fStack matrices = drawContext.getMatrices();
         matrices.pushMatrix();
         float scaleFactor = this.scale.get().floatValue();
         matrices.scale(scaleFactor, scaleFactor);
@@ -73,7 +73,7 @@ public class KitSpreadRenderer {
             }
             int itemCount = this.compact.get() != false ? (int)stacks.stream().filter(s -> !s.isEmpty()).count() : stacks.size();
             int rowCount = Math.max(1, (itemCount - 1) / 9 + 1);
-            int colCount = Mth.clamp(itemCount, 1, 9);
+            int colCount = MathHelper.clamp(itemCount, 1, 9);
             int boxWidth = colCount * 18 + 4;
             int boxHeight = rowCount * 18 + 4;
             int boxColor = reader.getColor();
@@ -97,7 +97,7 @@ public class KitSpreadRenderer {
                 String countText = "x" + reader.getOriginItemStackCount();
                 int countX = leftPos + boxWidth + 2;
                 int countY = topPos + boxHeight - 9 - 2;
-                drawContext.text(event.getTextRenderer(), countText, countX, countY, Color.GREEN.getPacked(), true);
+                drawContext.drawText(event.getTextRenderer(), countText, countX, countY, Color.GREEN.getPacked(), true);
             }
             topPos += boxHeight + this.spacing.get();
         }
@@ -105,7 +105,7 @@ public class KitSpreadRenderer {
             float inverseScale = 1.0f / scaleFactor;
             matrices.pushMatrix();
             matrices.scale(inverseScale, inverseScale);
-            drawContext.setTooltipForNextFrame(event.getTextRenderer(), tooltipStack, event.getMouseX(), event.getMouseY());
+            drawContext.drawItemTooltip(event.getTextRenderer(), tooltipStack, event.getMouseX(), event.getMouseY());
             matrices.popMatrix();
         }
         matrices.popMatrix();
@@ -124,8 +124,8 @@ public class KitSpreadRenderer {
             totalHeight += (float)(rowCount * 18 + 4 + this.spacing.get());
         }
         float scaleFactor = this.scale.get().floatValue();
-        float maxScroll = Math.min(-(totalHeight += (float)this.spacing.get()) + (float)MeteorClient.mc.getWindow().getGuiScaledHeight() / scaleFactor, 0.0f);
-        this.scrollOffset = (int)Mth.clamp((double)this.scrollOffset + Math.ceil(event.getVerticalAmount()) * 15.0, (double)maxScroll, (double)0.0);
+        float maxScroll = Math.min(-(totalHeight += (float)this.spacing.get()) + (float)MeteorClient.mc.getWindow().getScaledHeight() / scaleFactor, 0.0f);
+        this.scrollOffset = (int)MathHelper.clamp((double)this.scrollOffset + Math.ceil(event.getVerticalAmount()) * 15.0, (double)maxScroll, (double)0.0);
     }
 
     private List<ShulkerBoxReader> collectReaders() {
@@ -138,16 +138,16 @@ public class KitSpreadRenderer {
         return readerList;
     }
 
-    private void drawStack(GuiGraphicsExtractor drawContext, Font textRenderer, ItemStack stack, int x, int y) {
+    private void drawStack(DrawContext drawContext, TextRenderer textRenderer, ItemStack stack, int x, int y) {
         if (stack.isEmpty()) {
             return;
         }
-        drawContext.fakeItem(stack, x, y);
+        drawContext.drawItemWithoutEntity(stack, x, y);
         if (stack.getCount() > 999) {
             String countText = "%.1fk".formatted(Float.valueOf((float)stack.getCount() / 1000.0f));
-            drawContext.itemDecorations(textRenderer, stack, x, y, countText);
+            drawContext.drawStackOverlay(textRenderer, stack, x, y, countText);
         } else {
-            drawContext.itemDecorations(textRenderer, stack, x, y);
+            drawContext.drawStackOverlay(textRenderer, stack, x, y);
         }
     }
 

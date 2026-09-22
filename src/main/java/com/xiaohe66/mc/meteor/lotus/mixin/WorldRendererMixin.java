@@ -14,21 +14,21 @@
  */
 package com.xiaohe66.mc.meteor.lotus.mixin;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.xiaohe66.mc.meteor.lotus.event.WorldEntityRenderEvent;
 import meteordevelopment.meteorclient.MeteorClient;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.state.level.LevelRenderState;
+import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.state.WorldRenderState;
+import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value={LevelRenderer.class})
+@Mixin(value={WorldRenderer.class})
 public abstract class WorldRendererMixin {
-    @Inject(method={"submitEntities"}, at={@At(value="TAIL")})
-    private void onPushEntityRenders(PoseStack matrices, LevelRenderState worldRenderState, SubmitNodeCollector renderQueue, CallbackInfo ci) {
+    @Inject(method={"pushEntityRenders"}, at={@At(value="TAIL")})
+    private void onPushEntityRenders(MatrixStack matrices, WorldRenderState worldRenderState, OrderedRenderCommandQueue renderQueue, CallbackInfo ci) {
         MeteorClient.EVENT_BUS.post(WorldEntityRenderEvent.get(matrices, renderQueue, worldRenderState.cameraRenderState.pos));
     }
 }

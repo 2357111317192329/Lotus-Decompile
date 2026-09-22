@@ -84,17 +84,17 @@ import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.LightLayer;
-import net.minecraft.world.level.block.SnowLayerBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.SnowBlock;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.BlockView;
+import net.minecraft.world.LightType;
 
 public class RedstoneAssist extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -188,19 +188,19 @@ public class RedstoneAssist extends Module {
         if (this.lightOverlay.get()) {
             this.markerPool.freeAll(this.markers);
             this.markers.clear();
-            Vec3 cameraPos = HePosUtils.getCameraPos();
+            Vec3d cameraPos = HePosUtils.getCameraPos();
             int cameraX = (int)Math.floor(cameraPos.x);
             int cameraY = (int)Math.floor(cameraPos.y);
             int cameraZ = (int)Math.floor(cameraPos.z);
             int hRange = this.horizontalRange.get();
             int vRange = this.verticalRange.get();
-            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            BlockPos.Mutable pos = new BlockPos.Mutable();
             for (int x = cameraX - hRange; x <= cameraX + hRange; ++x) {
                 for (int z = cameraZ - hRange; z <= cameraZ + hRange; ++z) {
-                    for (int y = Math.max(this.mc.level.getMinY(), cameraY - vRange); y <= cameraY + vRange && y <= this.mc.level.getHeight(); ++y) {
+                    for (int y = Math.max(this.mc.world.getBottomY(), cameraY - vRange); y <= cameraY + vRange && y <= this.mc.world.getHeight(); ++y) {
                         BlockPos downPos;
                         pos.set(x, y, z);
-                        BlockState blockState = this.mc.level.getBlockState(pos);
+                        BlockState blockState = this.mc.world.getBlockState(pos);
                         if (!blockState.isAir() && HeBlockUtils.isRail(blockState)) continue;
                         BlockUtils.MobSpawn mobSpawn = this.getMobSpawn(pos, blockState, this.spawnThreshold.get());
                         if (mobSpawn == BlockUtils.MobSpawn.Always || mobSpawn == BlockUtils.MobSpawn.Potential) {
@@ -209,7 +209,7 @@ public class RedstoneAssist extends Module {
                             this.markers.add(this.markerPool.get().set(pos, false, lightLevel));
                             continue;
                         }
-                        if (!HeBlockUtils.isReplaceable(blockState, pos) || !this.isValidSpawnBase(downPos = pos.below()) || !HeBlockUtils.isAboveClear(pos) && !this.includeSmallMobs.get()) continue;
+                        if (!HeBlockUtils.isReplaceable(blockState, pos) || !this.isValidSpawnBase(downPos = pos.down()) || !HeBlockUtils.isAboveClear(pos) && !this.includeSmallMobs.get()) continue;
                         int lightLevel = this.getLightLevel(pos);
                         this.markers.add(this.markerPool.get().set(pos, true, lightLevel));
                     }
@@ -235,11 +235,11 @@ public class RedstoneAssist extends Module {
             double centerZ = (double)centerPos.getZ() + 0.5;
             double radiusSq = (double)radius * (double)radius;
             ArrayList<BlockPos> spawnablePosList = new ArrayList<BlockPos>();
-            BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
+            BlockPos.Mutable mutablePos = new BlockPos.Mutable();
             int minX = centerPos.getX() - radius;
             int maxX = centerPos.getX() + radius;
-            int minY = Math.max(this.mc.level.getMinY(), centerPos.getY() - radius);
-            int maxY = Math.min(this.mc.level.getHeight(), centerPos.getY() + radius);
+            int minY = Math.max(this.mc.world.getBottomY(), centerPos.getY() - radius);
+            int maxY = Math.min(this.mc.world.getHeight(), centerPos.getY() + radius);
             int minZ = centerPos.getZ() - radius;
             int maxZ = centerPos.getZ() + radius;
             for (int x = minX; x <= maxX; ++x) {
@@ -250,10 +250,10 @@ public class RedstoneAssist extends Module {
                         double dz = (double)z + 0.5 - centerZ;
                         if (dx * dx + dy * dy + dz * dz > radiusSq) continue;
                         mutablePos.set(x, y, z);
-                        BlockState state = this.mc.level.getBlockState(mutablePos);
+                        BlockState state = this.mc.world.getBlockState(mutablePos);
                         if (!this.isFullOpaqueCube(state, mutablePos)) continue;
                         mutablePos.set(x, y + 1, z);
-                        BlockState aboveState = this.mc.level.getBlockState(mutablePos);
+                        BlockState aboveState = this.mc.world.getBlockState(mutablePos);
                         if (!HeBlockUtils.isReplaceable(aboveState, mutablePos) || HeBlockUtils.isRail(aboveState) || !HeBlockUtils.isAboveClear(mutablePos) && !config.includeSmallMobs.get()) continue;
                         spawnablePosList.add(new BlockPos(x, y, z));
                     }
@@ -472,15 +472,15 @@ public class RedstoneAssist extends Module {
         }
         Color color = config.spawnableBlockColor.get();
         Color lineColor = new Color(color.r, color.g, color.b, Math.min(255, color.a + 100));
-        Vec3 cameraPos = HePosUtils.getCameraPos();
+        Vec3d cameraPos = HePosUtils.getCameraPos();
         double cameraX = cameraPos.x;
         double cameraY = cameraPos.y;
         double cameraZ = cameraPos.z;
         int renderCount = Math.min(spawnablePosList.size(), config.renderLimit.get());
         ArrayList<BlockPos> sortedList = new ArrayList<BlockPos>(spawnablePosList);
         sortedList.sort((pos1, pos2) -> {
-            double dist1 = pos1.distToLowCornerSqr(cameraX, cameraY, cameraZ);
-            double dist2 = pos2.distToLowCornerSqr(cameraX, cameraY, cameraZ);
+            double dist1 = pos1.getSquaredDistance(cameraX, cameraY, cameraZ);
+            double dist2 = pos2.getSquaredDistance(cameraX, cameraY, cameraZ);
             return Double.compare(dist1, dist2);
         });
         for (int i = 0; i < renderCount; ++i) {
@@ -547,41 +547,41 @@ public class RedstoneAssist extends Module {
     }
 
     private int getLightLevel(BlockPos pos) {
-        return this.mc.level.getBrightness(LightLayer.BLOCK, pos);
+        return this.mc.world.getLightLevel(LightType.BLOCK, pos);
     }
 
     private BlockUtils.MobSpawn getMobSpawn(BlockPos pos, BlockState state, int threshold) {
-        boolean isThinSnow = state.getBlock() instanceof SnowLayerBlock && (Integer)state.getValue((Property)SnowLayerBlock.LAYERS) == 1;
+        boolean isThinSnow = state.getBlock() instanceof SnowBlock && (Integer)state.get((Property)SnowBlock.LAYERS) == 1;
         if (!HeBlockUtils.isReplaceable(state, pos) && !isThinSnow) {
             return BlockUtils.MobSpawn.Never;
         }
-        if (!BlockUtils.isValidSpawnBlock(this.mc.level.getBlockState(pos.below()))) {
+        if (!BlockUtils.isValidSpawnBlock(this.mc.world.getBlockState(pos.down()))) {
             return BlockUtils.MobSpawn.Never;
         }
-        if (this.mc.level.getBrightness(LightLayer.BLOCK, pos) > threshold) {
+        if (this.mc.world.getLightLevel(LightType.BLOCK, pos) > threshold) {
             return BlockUtils.MobSpawn.Never;
         }
-        if (this.mc.level.getBrightness(LightLayer.SKY, pos) > threshold) {
+        if (this.mc.world.getLightLevel(LightType.SKY, pos) > threshold) {
             return BlockUtils.MobSpawn.Potential;
         }
         return BlockUtils.MobSpawn.Always;
     }
 
     private boolean isValidSpawnBase(BlockPos pos) {
-        BlockState state = this.mc.level.getBlockState(pos);
-        return state.isRedstoneConductor((BlockGetter)this.mc.level, pos);
+        BlockState state = this.mc.world.getBlockState(pos);
+        return state.isSolidBlock((BlockView)this.mc.world, pos);
     }
 
     private boolean isFullOpaqueCube(BlockState state, BlockPos pos) {
-        return state.isRedstoneConductor((BlockGetter)this.mc.level, pos) && state.canOcclude() && state.isCollisionShapeFullBlock((BlockGetter)this.mc.level, pos);
+        return state.isSolidBlock((BlockView)this.mc.world, pos) && state.isOpaque() && state.isFullCube((BlockView)this.mc.world, pos);
     }
 
     private Direction getCameraFacing() {
         Freecam freecam = (Freecam)Modules.get().get(Freecam.class);
         if (freecam != null && freecam.isActive()) {
-            return Direction.fromYRot((double)freecam.yaw);
+            return Direction.fromHorizontalDegrees((double)freecam.yaw);
         }
-        return this.mc.player.getDirection();
+        return this.mc.player.getHorizontalFacing();
     }
 
     public WWidget getWidget(GuiTheme guiTheme) {
@@ -602,8 +602,8 @@ public class RedstoneAssist extends Module {
             editButton.action = () -> this.mc.setScreen(new SphereEditScreen(guiTheme, config));
             WButton centerButton = (WButton)wTable.add((WWidget)guiTheme.button("定位到玩家")).widget();
             centerButton.action = () -> {
-                Vec3 cameraPos = HePosUtils.getCameraPos();
-                config.center.set(BlockPos.containing(cameraPos));
+                Vec3d cameraPos = HePosUtils.getCameraPos();
+                config.center.set(BlockPos.ofFloored(cameraPos));
             };
             WMinus removeButton = (WMinus)wTable.add((WWidget)guiTheme.minus()).widget();
             removeButton.action = () -> {
@@ -618,8 +618,8 @@ public class RedstoneAssist extends Module {
         WTable addTable = (WTable)wVerticalList.add((WWidget)guiTheme.table()).expandX().widget();
         WButton addButton = (WButton)addTable.add((WWidget)guiTheme.button("添加球体")).expandX().widget();
         addButton.action = () -> {
-            Vec3 cameraPos = HePosUtils.getCameraPos();
-            BlockPos playerPos = BlockPos.containing(cameraPos);
+            Vec3d cameraPos = HePosUtils.getCameraPos();
+            BlockPos playerPos = BlockPos.ofFloored(cameraPos);
             this.sphereConfigs.add(new SphereConfig("球体" + (this.sphereConfigs.size() + 1), playerPos));
             wVerticalList.clear();
             this.fillSphereWidgets(guiTheme, wVerticalList);
@@ -627,9 +627,9 @@ public class RedstoneAssist extends Module {
         addTable.row();
     }
 
-    public CompoundTag toTag() {
-        CompoundTag tag = super.toTag();
-        ListTag sphereList = new ListTag();
+    public NbtCompound toTag() {
+        NbtCompound tag = super.toTag();
+        NbtList sphereList = new NbtList();
         for (SphereConfig config : this.sphereConfigs) {
             sphereList.add(config.settings.toTag());
         }
@@ -637,17 +637,17 @@ public class RedstoneAssist extends Module {
         return tag;
     }
 
-    public Module fromTag(CompoundTag tag) {
+    public Module fromTag(NbtCompound tag) {
         super.fromTag(tag);
         this.sphereConfigs.clear();
         this.spawnableBlocksMap.clear();
         this.scanCooldownMap.clear();
         if (tag.contains("spheres")) {
-            ListTag sphereList = tag.getListOrEmpty("spheres");
-            for (Tag element : sphereList) {
-                if (element.getId() != 10) continue;
-                SphereConfig config = new SphereConfig("", BlockPos.ZERO);
-                config.settings.fromTag((CompoundTag)element);
+            NbtList sphereList = tag.getListOrEmpty("spheres");
+            for (NbtElement element : sphereList) {
+                if (element.getType() != 10) continue;
+                SphereConfig config = new SphereConfig("", BlockPos.ORIGIN);
+                config.settings.fromTag((NbtCompound)element);
                 this.sphereConfigs.add(config);
             }
         }
@@ -668,7 +668,7 @@ public class RedstoneAssist extends Module {
         this.scanCooldownMap.clear();
     }
 
-    public /* synthetic */ Object a(CompoundTag tag) {
+    public /* synthetic */ Object a(NbtCompound tag) {
         return this.fromTag(tag);
     }
 

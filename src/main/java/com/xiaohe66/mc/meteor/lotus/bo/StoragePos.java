@@ -7,7 +7,7 @@
 package com.xiaohe66.mc.meteor.lotus.bo;
 
 import com.xiaohe66.mc.meteor.lotus.bo.StorageItem;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 public class StoragePos {
     private final StorageItem item;

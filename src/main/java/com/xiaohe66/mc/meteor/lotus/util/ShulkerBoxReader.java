@@ -26,18 +26,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.component.ItemContainerContents;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.component.ComponentMap;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ContainerComponent;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 
 public class ShulkerBoxReader
 implements Iterable<ItemStack> {
-    private static final Minecraft mc = Minecraft.getInstance();
+    private static final MinecraftClient mc = MinecraftClient.getInstance();
     private final ItemStack boxItemStack;
     private ItemStack[] cacheItemStackArr;
     private boolean empty = true;
@@ -124,13 +123,13 @@ implements Iterable<ItemStack> {
         Map.Entry<ItemBo, Integer> maxEntry = null;
         for (Map.Entry<ItemBo, Integer> entry : map.entrySet()) {
             ItemBo newItemBo = entry.getKey();
-            double value = entry.getValue().doubleValue() / (double)newItemBo.getItem().getDefaultMaxStackSize();
+            double value = entry.getValue().doubleValue() / (double)newItemBo.getItem().getMaxCount();
             if (!(value > max)) continue;
             max = value;
             maxEntry = entry;
         }
         if (maxEntry == null) {
-            return Items.AIR.getDefaultInstance();
+            return Items.AIR.getDefaultStack();
         }
         ItemBo targetItemBo = (ItemBo)maxEntry.getKey();
         for (ItemStack itemStack : this.readItemStackArr()) {
@@ -139,7 +138,7 @@ implements Iterable<ItemStack> {
             result.setCount(maxEntry.getValue().intValue());
             return result;
         }
-        return Items.AIR.getDefaultInstance();
+        return Items.AIR.getDefaultStack();
     }
 
     public List<ItemStack> getCondensed() {
@@ -148,9 +147,9 @@ implements Iterable<ItemStack> {
             LinkedHashMap<String, ItemStack> map = new LinkedHashMap<String, ItemStack>();
             for (ItemStack itemStack : itemStackArr) {
                 if (itemStack.isEmpty()) continue;
-                DataComponentMap nbtElement = itemStack.getComponents();
+                ComponentMap nbtElement = itemStack.getComponents();
                 String key = String.valueOf(itemStack) + "_" + nbtElement.toString();
-                ItemStack mapItemStack = map.computeIfAbsent(key, string -> itemStack.copyAndClear());
+                ItemStack mapItemStack = map.computeIfAbsent(key, string -> itemStack.copyAndEmpty());
                 int count = mapItemStack.getCount() + itemStack.getCount();
                 mapItemStack.setCount(count);
             }
@@ -174,11 +173,11 @@ implements Iterable<ItemStack> {
     private ItemStack[] readItemStackArr() {
         if (this.cacheItemStackArr == null) {
             ItemStack[] itemStackArr = new ItemStack[27];
-            Arrays.fill(itemStackArr, Items.AIR.getDefaultInstance());
-            DataComponentMap components = this.boxItemStack.getComponents();
-            if (components.has(DataComponents.CONTAINER)) {
-                ItemContainerContents container = components.get(DataComponents.CONTAINER);
-                List<ItemStack> stacks = container.allItemsCopyStream().toList();
+            Arrays.fill(itemStackArr, Items.AIR.getDefaultStack());
+            ComponentMap components = this.boxItemStack.getComponents();
+            if (components.contains(DataComponentTypes.CONTAINER)) {
+                ContainerComponent container = components.get(DataComponentTypes.CONTAINER);
+                List<ItemStack> stacks = container.stream().toList();
                 for (int i = 0; i < stacks.size(); ++i) {
                     ItemStack stack = stacks.get(i);
                     itemStackArr[i] = stack.copy();

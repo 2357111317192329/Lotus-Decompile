@@ -1,7 +1,7 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
 import meteordevelopment.meteorclient.events.Cancellable;
-import net.minecraft.world.inventory.Slot;
+import net.minecraft.screen.slot.Slot;
 
 public class IsPointOverSlotEvent extends Cancellable {
     private static final IsPointOverSlotEvent INSTANCE = new IsPointOverSlotEvent();

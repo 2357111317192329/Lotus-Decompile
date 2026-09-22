@@ -6,7 +6,7 @@
  */
 package com.xiaohe66.mc.meteor.lotus.modules.printer;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 public class BlockPosWarp {
     private final BlockPos blockPos;

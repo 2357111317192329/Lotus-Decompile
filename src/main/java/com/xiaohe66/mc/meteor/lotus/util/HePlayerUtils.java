@@ -10,18 +10,18 @@
 package com.xiaohe66.mc.meteor.lotus.util;
 
 import meteordevelopment.meteorclient.MeteorClient;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
-import net.minecraft.world.entity.player.Input;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.c2s.play.PlayerInputC2SPacket;
+import net.minecraft.util.PlayerInput;
 
 public class HePlayerUtils {
     public static void startSneaking() {
-        Input playerInput = new Input(false, false, false, false, false, true, false);
-        MeteorClient.mc.player.connection.send((Packet)new ServerboundPlayerInputPacket(playerInput));
+        PlayerInput playerInput = new PlayerInput(false, false, false, false, false, true, false);
+        MeteorClient.mc.player.networkHandler.sendPacket((Packet)new PlayerInputC2SPacket(playerInput));
     }
 
     public static void stopSneaking() {
-        Input playerInput = new Input(false, false, false, false, false, false, false);
-        MeteorClient.mc.player.connection.send((Packet)new ServerboundPlayerInputPacket(playerInput));
+        PlayerInput playerInput = new PlayerInput(false, false, false, false, false, false, false);
+        MeteorClient.mc.player.networkHandler.sendPacket((Packet)new PlayerInputC2SPacket(playerInput));
     }
 }

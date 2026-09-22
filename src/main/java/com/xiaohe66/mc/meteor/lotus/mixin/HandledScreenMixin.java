@@ -29,13 +29,13 @@ import com.xiaohe66.mc.meteor.lotus.event.MouseReleaseEvent;
 import com.xiaohe66.mc.meteor.lotus.event.MouseScrollEvent;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.orbit.ICancellable;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.gui.screens.inventory.MenuAccess;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.Slot;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.screen.ingame.ScreenHandlerProvider;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.slot.Slot;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -44,26 +44,26 @@ import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value={AbstractContainerScreen.class})
-public abstract class HandledScreenMixin<T extends AbstractContainerMenu>
-implements MenuAccess<T> {
+@Mixin(value={HandledScreen.class})
+public abstract class HandledScreenMixin<T extends ScreenHandler>
+implements ScreenHandlerProvider<T> {
     @Shadow
-    protected int leftPos;
+    protected int x;
     @Shadow
-    protected int topPos;
+    protected int y;
     @Shadow
-    protected Slot hoveredSlot;
+    protected Slot focusedSlot;
 
     @Inject(
-        method = "extractContents",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;extractSlots(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V", shift = Shift.AFTER)
+        method = "renderMain",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/ingame/HandledScreen;drawSlots(Lnet/minecraft/client/gui/DrawContext;II)V", shift = Shift.AFTER)
     )
-    private void onRender(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    private void onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         Screen screen = (Screen)(Object)this;
-        MeteorClient.EVENT_BUS.post(HandledScreenRenderEvent.get(context, screen.getFont(), mouseX, mouseY, this.hoveredSlot));
+        MeteorClient.EVENT_BUS.post(HandledScreenRenderEvent.get(context, screen.getTextRenderer(), mouseX, mouseY, this.focusedSlot));
     }
 
-    @Inject(method={"isHovering(Lnet/minecraft/world/inventory/Slot;DD)Z"}, at={@At(value="HEAD")}, cancellable=true)
+    @Inject(method={"isPointOverSlot(Lnet/minecraft/screen/slot/Slot;DD)Z"}, at={@At(value="HEAD")}, cancellable=true)
     private void onIsPointOverSlot(Slot slot, double mouseX, double mouseY, CallbackInfoReturnable<Boolean> cir) {
         IsPointOverSlotEvent event = IsPointOverSlotEvent.get(slot, mouseX, mouseY);
         MeteorClient.EVENT_BUS.post(event);
@@ -73,8 +73,8 @@ implements MenuAccess<T> {
         }
     }
 
-    @Inject(method={"extractTooltip(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onDrawMouseoverTooltip(GuiGraphicsExtractor context, int mouseX, int mouseY, CallbackInfo ci) {
+    @Inject(method={"drawMouseoverTooltip(Lnet/minecraft/client/gui/DrawContext;II)V"}, at={@At(value="HEAD")}, cancellable=true)
+    private void onDrawMouseoverTooltip(DrawContext context, int mouseX, int mouseY, CallbackInfo ci) {
         DrawMouseoverTooltipEvent event = DrawMouseoverTooltipEvent.get(context, mouseX, mouseY);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
@@ -84,7 +84,7 @@ implements MenuAccess<T> {
 
     @Inject(method={"mouseScrolled"}, at={@At(value="HEAD")}, cancellable=true)
     private void onMouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount, CallbackInfoReturnable<Boolean> cir) {
-        MouseScrollEvent event = MouseScrollEvent.get(mouseX, mouseY, verticalAmount, this.leftPos, this.topPos);
+        MouseScrollEvent event = MouseScrollEvent.get(mouseX, mouseY, verticalAmount, this.x, this.y);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
             cir.setReturnValue(true);
@@ -93,8 +93,8 @@ implements MenuAccess<T> {
     }
 
     @Inject(method={"mouseClicked"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onMouseClicked(MouseButtonEvent click, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
-        MouseClickEvent event = MouseClickEvent.get(click.x(), click.y(), click.button(), doubled, this.leftPos, this.topPos);
+    private void onMouseClicked(Click click, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
+        MouseClickEvent event = MouseClickEvent.get(click.x(), click.y(), click.button(), doubled, this.x, this.y);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
             cir.setReturnValue(true);
@@ -103,8 +103,8 @@ implements MenuAccess<T> {
     }
 
     @Inject(method={"mouseReleased"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onMouseReleased(MouseButtonEvent click, CallbackInfoReturnable<Boolean> cir) {
-        MouseReleaseEvent event = MouseReleaseEvent.get(click.x(), click.y(), click.button(), this.leftPos, this.topPos);
+    private void onMouseReleased(Click click, CallbackInfoReturnable<Boolean> cir) {
+        MouseReleaseEvent event = MouseReleaseEvent.get(click.x(), click.y(), click.button(), this.x, this.y);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
             cir.setReturnValue(true);
@@ -113,8 +113,8 @@ implements MenuAccess<T> {
     }
 
     @Inject(method={"mouseDragged"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onMouseDragged(MouseButtonEvent click, double offsetX, double offsetY, CallbackInfoReturnable<Boolean> cir) {
-        MouseDragEvent event = MouseDragEvent.get(click.x(), click.y(), click.button(), offsetX, offsetY, this.leftPos, this.topPos);
+    private void onMouseDragged(Click click, double offsetX, double offsetY, CallbackInfoReturnable<Boolean> cir) {
+        MouseDragEvent event = MouseDragEvent.get(click.x(), click.y(), click.button(), offsetX, offsetY, this.x, this.y);
         MeteorClient.EVENT_BUS.post(event);
         if (event.isCancelled()) {
             cir.setReturnValue(true);
@@ -122,7 +122,7 @@ implements MenuAccess<T> {
         }
     }
 
-    @Inject(method={"onClose"}, at={@At(value="HEAD")})
+    @Inject(method={"close"}, at={@At(value="HEAD")})
     private void onClose(CallbackInfo ci) {
         MeteorClient.EVENT_BUS.post(ScreenCloseEvent.get());
     }

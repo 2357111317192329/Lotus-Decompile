@@ -40,15 +40,15 @@ import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.StringSetting;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
-import net.minecraft.world.item.DyeColor;
-import net.minecraft.world.level.block.entity.SignBlockEntity;
-import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.block.entity.SignBlockEntity;
+import net.minecraft.block.entity.SignText;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.AbstractSignEditScreen;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.c2s.play.UpdateSignC2SPacket;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
+import net.minecraft.util.DyeColor;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,11 +90,11 @@ extends BaseModule {
         .description("手动编辑告示牌时，同步更新行文本设置")
         .defaultValue(false)
         .build());
-    private final Queue<ServerboundSignUpdatePacket> pendingPackets;
+    private final Queue<UpdateSignC2SPacket> pendingPackets;
 
     public AutoSignPlus() {
         super("L自动签名", "自动写牌子。${name}:玩家ID; $time{yyyy.MM.dd HH:mm}:时间可自定义表达式", 10);
-        this.pendingPackets = new ArrayDeque<ServerboundSignUpdatePacket>();
+        this.pendingPackets = new ArrayDeque<UpdateSignC2SPacket>();
     }
 
     public void onDeactivate() {
@@ -114,12 +114,12 @@ extends BaseModule {
         SignBlockEntity sign = ((AbstractSignEditScreenAccessor)signEditScreen).meteor$getSign();
         if (this.onlyEmpty.get()) {
             SignText frontText = sign.getFrontText();
-            for (Component text : frontText.getMessages(false)) {
+            for (Text text : frontText.getMessages(false)) {
                 if (!StringUtils.isNotBlank(text.getString())) continue;
                 return;
             }
         }
-        this.pendingPackets.add(new ServerboundSignUpdatePacket(sign.getBlockPos(), true, this.format(this.line1.get()), this.format(this.line2.get()), this.format(this.line3.get()), this.format(this.line4.get())));
+        this.pendingPackets.add(new UpdateSignC2SPacket(sign.getPos(), true, this.format(this.line1.get()), this.format(this.line2.get()), this.format(this.line3.get()), this.format(this.line4.get())));
         openScreenEvent.cancel();
     }
 
@@ -131,7 +131,7 @@ extends BaseModule {
         if (!this.checkAndDecrement()) {
             return;
         }
-        this.mc.player.connection.send((Packet)this.pendingPackets.poll());
+        this.mc.player.networkHandler.sendPacket((Packet)this.pendingPackets.poll());
         this.setDelay();
     }
 
@@ -141,11 +141,11 @@ extends BaseModule {
             return;
         }
         Packet packet = event.packet;
-        if (packet instanceof ServerboundSignUpdatePacket) {
-            ServerboundSignUpdatePacket updatePacket = (ServerboundSignUpdatePacket)packet;
+        if (packet instanceof UpdateSignC2SPacket) {
+            UpdateSignC2SPacket updatePacket = (UpdateSignC2SPacket)packet;
             log.info("UpdateSignC2SPacket : {}", updatePacket);
-            if (updatePacket.isFrontText()) {
-                String[] lineArr = updatePacket.getLines();
+            if (updatePacket.isFront()) {
+                String[] lineArr = updatePacket.getText();
                 this.updateLine(this.line1, lineArr, 0);
                 this.updateLine(this.line2, lineArr, 1);
                 this.updateLine(this.line3, lineArr, 2);
@@ -176,11 +176,11 @@ extends BaseModule {
     }
 
     private void handleOpenScreen(HeOpenScreenEvent event, AbstractSignEditScreen screen) {
-        Component[] originMessageArr;
+        Text[] originMessageArr;
         SignBlockEntity sign = ((AbstractSignEditScreenAccessor)screen).meteor$getSign();
         boolean isAllBlank = true;
         SignText frontText = sign.getFrontText();
-        for (Component text : originMessageArr = frontText.getMessages(false)) {
+        for (Text text : originMessageArr = frontText.getMessages(false)) {
             String lineText = text.getString();
             if (!StringUtils.isNotBlank(lineText)) continue;
             isAllBlank = false;
@@ -188,13 +188,13 @@ extends BaseModule {
         if (this.onlyEmpty.get() && !isAllBlank) {
             return;
         }
-        Component[] lines = new Component[]{this.formatText(this.line1.get()), this.formatText(this.line2.get()), this.formatText(this.line3.get()), this.formatText(this.line4.get())};
+        Text[] lines = new Text[]{this.formatText(this.line1.get()), this.formatText(this.line2.get()), this.formatText(this.line3.get()), this.formatText(this.line4.get())};
         SignText signText = new SignText(lines, lines, DyeColor.BLACK, false);
         event.setSignText(signText);
     }
 
-    private MutableComponent formatText(String text) {
-        return Component.literal(this.format(text));
+    private MutableText formatText(String text) {
+        return Text.literal(this.format(text));
     }
 
     private String format(String text) {

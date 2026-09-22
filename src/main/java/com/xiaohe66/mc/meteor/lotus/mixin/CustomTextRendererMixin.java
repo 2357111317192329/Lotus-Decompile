@@ -31,7 +31,7 @@ import meteordevelopment.meteorclient.renderer.text.CustomTextRenderer;
 import meteordevelopment.meteorclient.renderer.text.Font;
 import meteordevelopment.meteorclient.renderer.text.FontFace;
 import meteordevelopment.meteorclient.utils.render.color.Color;
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -113,7 +113,7 @@ public abstract class CustomTextRendererMixin {
         }
         if (!this.scaleOnly) {
             this.mesh.end();
-            MeshRenderer.begin().attachments(Minecraft.getInstance().getMainRenderTarget()).pipeline(MeteorRenderPipelines.UI_TEXT).mesh(this.mesh).sampler("u_Texture", this.lotus$fixedFont.texture.getTextureView(), this.lotus$fixedFont.texture.getSampler()).end();
+            MeshRenderer.begin().attachments(MinecraftClient.getInstance().getFramebuffer()).pipeline(MeteorRenderPipelines.UI_TEXT).mesh(this.mesh).sampler("u_Texture", this.lotus$fixedFont.texture.getGlTextureView(), this.lotus$fixedFont.texture.getSampler()).end();
         }
         this.building = false;
         this.scale = 1.0;

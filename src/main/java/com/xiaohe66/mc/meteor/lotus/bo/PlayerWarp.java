@@ -3,7 +3,7 @@
  */
 package com.xiaohe66.mc.meteor.lotus.bo;
 
-import net.minecraft.world.item.Item;
+import net.minecraft.item.Item;
 
 public class PlayerWarp {
     private String name;

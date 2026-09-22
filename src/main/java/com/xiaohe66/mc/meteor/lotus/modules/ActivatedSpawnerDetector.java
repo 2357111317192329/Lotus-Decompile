@@ -33,27 +33,26 @@ import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.meteorclient.utils.world.ChunkIterator;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.screens.DisconnectedScreen;
-import net.minecraft.client.gui.screens.LevelLoadingScreen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.SpawnData;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
-import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
-import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.level.chunk.Palette;
-import net.minecraft.world.phys.AABB;
-
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.MobSpawnerBlockEntity;
+import net.minecraft.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.block.enums.TrialSpawnerState;
+import net.minecraft.block.spawner.MobSpawnerEntry;
+import net.minecraft.client.gui.screen.DisconnectedScreen;
+import net.minecraft.client.gui.screen.world.LevelLoadingScreen;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.world.World;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkSection;
+import net.minecraft.world.chunk.Palette;
+import net.minecraft.world.chunk.WorldChunk;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.Writer;
@@ -90,7 +89,7 @@ public class ActivatedSpawnerDetector extends Module {
     private final Setting<Boolean> reduceStashSpam;
     private final Setting<Boolean> airDisturbanceDetection;
     private final Setting<Boolean> ignoreAmethystGeodes;
-    private final Setting<List<net.minecraft.world.level.block.Block>> storageBlocks;
+    private final Setting<List<net.minecraft.block.Block>> storageBlocks;
     private final Setting<Set<EntityType<?>>> storageEntities;
     private final Setting<Boolean> disabledSpawnerDetection;
     public final Setting<Integer> torchScanDistance;
@@ -114,8 +113,8 @@ public class ActivatedSpawnerDetector extends Module {
     private final Setting<Boolean> enablePositionRecord;
 
     private static final Color TRANSPARENT = new Color(0, 0, 0, 0);
-    private static final Set<net.minecraft.world.level.block.Block> AMETHYST_BLOCKS;
-    private static final Set<net.minecraft.world.level.block.Block> LIGHT_BLOCKS;
+    private static final Set<net.minecraft.block.Block> AMETHYST_BLOCKS;
+    private static final Set<net.minecraft.block.Block> LIGHT_BLOCKS;
     private final Set<BlockPos> airDisturbanceSet = Collections.synchronizedSet(new HashSet<>());
     private final Set<BlockPos> detectedSpawners = Collections.synchronizedSet(new HashSet<>());
     private final Set<BlockPos> disabledSpawners = Collections.synchronizedSet(new HashSet<>());
@@ -178,11 +177,11 @@ public class ActivatedSpawnerDetector extends Module {
 
     @EventHandler
     private void onPreTick(TickEvent.Pre event) {
-        if (this.mc.level != null && this.mc.player != null) {
-            Set<LevelChunk> chunks = this.getChunks();
-            for (LevelChunk chunk : chunks) {
+        if (this.mc.world != null && this.mc.player != null) {
+            Set<WorldChunk> chunks = this.getChunks();
+            for (WorldChunk chunk : chunks) {
                 for (BlockEntity blockEntity : new ArrayList<>(chunk.getBlockEntities().values())) {
-                    if (blockEntity instanceof SpawnerBlockEntity spawnerBlockEntity) {
+                    if (blockEntity instanceof MobSpawnerBlockEntity spawnerBlockEntity) {
                         this.checkSpawner(chunk, spawnerBlockEntity);
                     } else if (blockEntity instanceof TrialSpawnerBlockEntity trialSpawnerBlockEntity) {
                         this.checkTrialSpawner(trialSpawnerBlockEntity);
@@ -198,13 +197,13 @@ public class ActivatedSpawnerDetector extends Module {
         }
     }
 
-    private EntityType<?> getEntityType(net.minecraft.world.level.BaseSpawner spawner) {
-        SpawnData spawnData = spawner.nextSpawnData;
+    private EntityType<?> getEntityType(net.minecraft.block.spawner.MobSpawnerLogic spawner) {
+        MobSpawnerEntry spawnData = spawner.spawnEntry;
         if (spawnData == null) {
             return null;
         }
-        CompoundTag tag = spawnData.getEntityToSpawn();
-        Tag idTag = tag == null ? null : tag.get("id");
+        NbtCompound tag = spawnData.getNbt();
+        NbtElement idTag = tag == null ? null : tag.get("id");
         if (idTag == null) {
             return null;
         }
@@ -212,14 +211,14 @@ public class ActivatedSpawnerDetector extends Module {
         if (id == null) {
             return null;
         }
-        return EntityType.byString(id).orElse(null);
+        return EntityType.get(id).orElse(null);
     }
 
     private String getStructureName(SpawnerType spawnerType, EntityType<?> entityType, BlockPos pos) {
         switch (spawnerType) {
             case DUNGEON:
                 if (entityType == EntityType.SPIDER) {
-                    if (this.mc.level.getBlockState(pos.above()).getBlock() == Blocks.BIRCH_PLANKS && this.mansionEnabled.get()) {
+                    if (this.mc.world.getBlockState(pos.up()).getBlock() == Blocks.BIRCH_PLANKS && this.mansionEnabled.get()) {
                         return "林地府邸";
                     }
                 }
@@ -240,12 +239,12 @@ public class ActivatedSpawnerDetector extends Module {
         }
     }
 
-    private Set<LevelChunk> getChunks() {
-        HashSet<LevelChunk> chunks = new HashSet<>();
+    private Set<WorldChunk> getChunks() {
+        HashSet<WorldChunk> chunks = new HashSet<>();
         ChunkIterator iterator = new ChunkIterator(false);
         while (iterator.hasNext()) {
-            ChunkAccess chunk = iterator.next();
-            if (chunk instanceof LevelChunk levelChunk) {
+            Chunk chunk = iterator.next();
+            if (chunk instanceof WorldChunk levelChunk) {
                 chunks.add(levelChunk);
             }
         }
@@ -256,10 +255,10 @@ public class ActivatedSpawnerDetector extends Module {
         return this.detectedSpawners.contains(pos) || this.trialSpawners.contains(pos) || this.disabledSpawners.contains(pos) || this.noStorageSpawners.contains(pos);
     }
 
-    private void checkSpawner(LevelChunk chunk, SpawnerBlockEntity blockEntity) {
-        BlockPos pos = blockEntity.getBlockPos();
+    private void checkSpawner(WorldChunk chunk, MobSpawnerBlockEntity blockEntity) {
+        BlockPos pos = blockEntity.getPos();
         if (!this.isDetected(pos)) {
-            net.minecraft.world.level.BaseSpawner spawner = blockEntity.getSpawner();
+            net.minecraft.block.spawner.MobSpawnerLogic spawner = blockEntity.getLogic();
             EntityType<?> entityType = this.getEntityType(spawner);
             SpawnerType spawnerType = entityType == null ? null : ENTITY_TYPE_MAP.getOrDefault(entityType, SpawnerType.SPAWNER);
             boolean reported = false;
@@ -269,7 +268,7 @@ public class ActivatedSpawnerDetector extends Module {
                 }
                 this.airDisturbanceSet.add(pos);
             } else if (spawner.spawnDelay != 20) {
-                if (this.mc.level.dimension() == Level.NETHER && spawner.spawnDelay == 0) {
+                if (this.mc.world.getRegistryKey() == World.NETHER && spawner.spawnDelay == 0) {
                     return;
                 }
                 reported = this.reportActivated(spawnerType == null ? SpawnerType.SPAWNER : spawnerType, entityType, pos);
@@ -282,9 +281,9 @@ public class ActivatedSpawnerDetector extends Module {
 
     private void checkTrialSpawner(TrialSpawnerBlockEntity blockEntity) {
         if (this.trialSpawnerDetection.get()) {
-            BlockPos pos = blockEntity.getBlockPos();
+            BlockPos pos = blockEntity.getPos();
             if (!this.isDetected(pos)) {
-                if (blockEntity.getState() != TrialSpawnerState.WAITING_FOR_PLAYERS) {
+                if (blockEntity.getSpawnerState() != TrialSpawnerState.WAITING_FOR_PLAYERS) {
                     if (this.chatFeedback.get()) {
                         if (this.showCoordinates.get()) {
                             this.info("§cASD§r | 检测到激活的§c试炼§r刷怪笼！坐标: " + pos.toShortString(), new Object[0]);
@@ -347,8 +346,8 @@ public class ActivatedSpawnerDetector extends Module {
 
     private void torchScan(BlockPos pos) {
         int distance = this.torchScanDistance.get();
-        for (BlockPos blockPos : BlockPos.betweenClosed(pos.offset(-distance, -distance, -distance), pos.offset(distance, distance, distance))) {
-            if (LIGHT_BLOCKS.contains(this.mc.level.getBlockState(blockPos).getBlock())) {
+        for (BlockPos blockPos : BlockPos.iterate(pos.add(-distance, -distance, -distance), pos.add(distance, distance, distance))) {
+            if (LIGHT_BLOCKS.contains(this.mc.world.getBlockState(blockPos).getBlock())) {
                 this.disabledSpawners.add(pos);
                 if (this.chatFeedback.get()) {
                     this.warning("该刷怪笼附近有火把或其他发光方块！", new Object[0]);
@@ -361,10 +360,10 @@ public class ActivatedSpawnerDetector extends Module {
     private boolean hasAirMix(BlockPos pos, OffsetRegion region) {
         boolean hasAir = false;
         boolean hasCaveAir = false;
-        BlockPos min = pos.offset(region.getMinX(), region.getMinY(), region.getMinZ());
-        BlockPos max = pos.offset(region.getMaxX(), region.getMaxY(), region.getMaxZ());
-        for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            net.minecraft.world.level.block.Block block = this.mc.level.getBlockState(blockPos).getBlock();
+        BlockPos min = pos.add(region.getMinX(), region.getMinY(), region.getMinZ());
+        BlockPos max = pos.add(region.getMaxX(), region.getMaxY(), region.getMaxZ());
+        for (BlockPos blockPos : BlockPos.iterate(min, max)) {
+            net.minecraft.block.Block block = this.mc.world.getBlockState(blockPos).getBlock();
             if (block == Blocks.AIR) {
                 hasAir = true;
             } else if (block == Blocks.CAVE_AIR) {
@@ -377,29 +376,29 @@ public class ActivatedSpawnerDetector extends Module {
         return false;
     }
 
-    private boolean isAmethystArea(LevelChunk chunk, BlockPos pos) {
+    private boolean isAmethystArea(WorldChunk chunk, BlockPos pos) {
         if (!this.ignoreAmethystGeodes.get()) {
             return false;
         }
-        if (!this.chunkHasAmethyst(chunk, Math.min(chunk.getSections().length, 20))) {
+        if (!this.chunkHasAmethyst(chunk, Math.min(chunk.getSectionArray().length, 20))) {
             return false;
         }
-        for (BlockPos blockPos : BlockPos.betweenClosed(pos.offset(-5, -5, -5), pos.offset(5, 5, 5))) {
-            if (AMETHYST_BLOCKS.contains(this.mc.level.getBlockState(blockPos).getBlock())) {
+        for (BlockPos blockPos : BlockPos.iterate(pos.add(-5, -5, -5), pos.add(5, 5, 5))) {
+            if (AMETHYST_BLOCKS.contains(this.mc.world.getBlockState(blockPos).getBlock())) {
                 return true;
             }
         }
         return false;
     }
 
-    private boolean chunkHasAmethyst(LevelChunk chunk, int sectionCount) {
-        LevelChunkSection[] sections = chunk.getSections();
+    private boolean chunkHasAmethyst(WorldChunk chunk, int sectionCount) {
+        ChunkSection[] sections = chunk.getSectionArray();
         for (int i = 0; i < sectionCount; ++i) {
-            LevelChunkSection section = sections[i];
-            if (!section.hasOnlyAir()) {
-                Palette<BlockState> palette = section.getStates().data.palette();
+            ChunkSection section = sections[i];
+            if (!section.isEmpty()) {
+                Palette<BlockState> palette = section.getBlockStateContainer().data.palette();
                 for (int j = 0; j < palette.getSize(); ++j) {
-                    if (AMETHYST_BLOCKS.contains(palette.valueFor(j).getBlock())) {
+                    if (AMETHYST_BLOCKS.contains(palette.get(j).getBlock())) {
                         return true;
                     }
                 }
@@ -410,11 +409,11 @@ public class ActivatedSpawnerDetector extends Module {
 
     private boolean hasStorageNearby(BlockPos pos, int distance) {
         Set<EntityType<?>> entityTypes = this.storageEntities.get();
-        for (BlockPos blockPos : BlockPos.betweenClosed(pos.offset(-distance, -distance, -distance), pos.offset(distance, distance, distance))) {
-            if (this.storageBlocks.get().contains(this.mc.level.getBlockState(blockPos).getBlock())) {
+        for (BlockPos blockPos : BlockPos.iterate(pos.add(-distance, -distance, -distance), pos.add(distance, distance, distance))) {
+            if (this.storageBlocks.get().contains(this.mc.world.getBlockState(blockPos).getBlock())) {
                 return true;
             }
-            if (!entityTypes.isEmpty() && !this.mc.level.getEntities((Entity)null, new AABB(blockPos), entity -> entityTypes.contains(entity.getType())).isEmpty()) {
+            if (!entityTypes.isEmpty() && !this.mc.world.getOtherEntities((Entity)null, new Box(blockPos), entity -> entityTypes.contains(entity.getType())).isEmpty()) {
                 return true;
             }
         }
@@ -460,13 +459,13 @@ public class ActivatedSpawnerDetector extends Module {
                 if (this.isInRenderRange(pos)) {
                     boolean shouldRenderRange = this.renderRange.get() && renderRangeBox && (!this.reduceRenderSpam.get() || !this.noStorageSpawners.contains(pos));
                     if (shouldRenderRange) {
-                        AABB box = new AABB(pos.getX() - range, pos.getY() - range, pos.getZ() - range, pos.getX() + range + 1, pos.getY() + range + 1, pos.getZ() + range + 1);
+                        Box box = new Box(pos.getX() - range, pos.getY() - range, pos.getZ() - range, pos.getX() + range + 1, pos.getY() + range + 1, pos.getZ() + range + 1);
                         event.renderer.box(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, rangeSideColor, rangeLineColor, this.shapeMode.get(), 0);
                     }
                     boolean isDisabled = this.disabledSpawners.contains(pos);
                     Color side = isDisabled ? this.disabledSideColor.get() : sideColor;
                     Color line = isDisabled ? this.disabledLineColor.get() : lineColor;
-                    this.renderBox(event, new AABB(pos), side, line);
+                    this.renderBox(event, new Box(pos), side, line);
                 }
             }
         }
@@ -475,7 +474,7 @@ public class ActivatedSpawnerDetector extends Module {
         }
     }
 
-    private void renderBox(Render3DEvent event, AABB box, Color sideColor, Color lineColor) {
+    private void renderBox(Render3DEvent event, Box box, Color sideColor, Color lineColor) {
         if (this.traceLines.get() && !this.nearestOnly.get()) {
             this.renderLine(event, box, lineColor);
         }
@@ -483,18 +482,18 @@ public class ActivatedSpawnerDetector extends Module {
     }
 
     private void renderNearest(Render3DEvent event, Color sideColor, Color lineColor) {
-        AABB box = new AABB(this.nearestSpawner.getX(), this.nearestSpawner.getY(), this.nearestSpawner.getZ(), this.nearestSpawner.getX(), this.nearestSpawner.getY(), this.nearestSpawner.getZ());
+        Box box = new Box(this.nearestSpawner.getX(), this.nearestSpawner.getY(), this.nearestSpawner.getZ(), this.nearestSpawner.getX(), this.nearestSpawner.getY(), this.nearestSpawner.getZ());
         if (this.traceLines.get()) {
             this.renderLine(event, box, lineColor);
         }
         event.renderer.box(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, sideColor, TRANSPARENT, ShapeMode.Sides, 0);
     }
 
-    private void renderLine(Render3DEvent event, AABB box, Color color) {
+    private void renderLine(Render3DEvent event, Box box, Color color) {
         event.renderer.line(RenderUtils.center.x, RenderUtils.center.y, RenderUtils.center.z, box.minX + 0.5, (box.minY + box.maxY) / 2.0, box.minZ + 0.5, color);
     }
 
-    private void cleanUp(Set<LevelChunk> chunks) {
+    private void cleanUp(Set<WorldChunk> chunks) {
         this.airDisturbanceSet.removeIf(pos -> this.isOutOfChunks(pos, chunks));
         this.detectedSpawners.removeIf(pos -> this.isOutOfChunks(pos, chunks));
         this.disabledSpawners.removeIf(pos -> this.isOutOfChunks(pos, chunks));
@@ -502,13 +501,13 @@ public class ActivatedSpawnerDetector extends Module {
         this.noStorageSpawners.removeIf(pos -> this.isOutOfChunks(pos, chunks));
     }
 
-    private boolean isOutOfChunks(BlockPos pos, Set<LevelChunk> chunks) {
-        return !chunks.contains(this.mc.level.getChunk(pos));
+    private boolean isOutOfChunks(BlockPos pos, Set<WorldChunk> chunks) {
+        return !chunks.contains(this.mc.world.getChunk(pos));
     }
 
     private boolean isInRenderRange(BlockPos pos) {
         BlockPos playerPos = new BlockPos(this.mc.player.getBlockX(), pos.getY(), this.mc.player.getBlockZ());
-        return playerPos.closerThan(pos, this.renderDistance.get() * 16);
+        return playerPos.isWithinDistance(pos, this.renderDistance.get() * 16);
     }
 
     @Override

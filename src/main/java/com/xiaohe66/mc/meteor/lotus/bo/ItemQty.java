@@ -4,9 +4,8 @@
 package com.xiaohe66.mc.meteor.lotus.bo;
 
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
-import net.minecraft.world.item.ItemStack;
-
 import java.util.Objects;
+import net.minecraft.item.ItemStack;
 
 public class ItemQty {
     private final ItemBo item;

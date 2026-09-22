@@ -19,11 +19,11 @@ package com.xiaohe66.mc.meteor.lotus.mixin;
 
 import com.xiaohe66.mc.meteor.lotus.event.HeOpenScreenEvent;
 import meteordevelopment.meteorclient.MeteorClient;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.block.entity.SignText;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.AbstractSignEditScreen;
+import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -40,14 +40,14 @@ extends Screen {
     @Final
     private String[] messages;
 
-    protected MixinAbstractSignEditScreen(Component textComponent) {
+    protected MixinAbstractSignEditScreen(Text textComponent) {
         super(textComponent);
     }
 
     @Inject(method={"init"}, at={@At(value="RETURN")})
     private void preventGuiOpen(CallbackInfo ci) {
-        Minecraft mc = Minecraft.getInstance();
-        HeOpenScreenEvent event = HeOpenScreenEvent.get(mc.screen);
+        MinecraftClient mc = MinecraftClient.getInstance();
+        HeOpenScreenEvent event = HeOpenScreenEvent.get(mc.currentScreen);
         MeteorClient.EVENT_BUS.post(event);
         if (event.getSignText() != null) {
             this.text = event.getSignText();

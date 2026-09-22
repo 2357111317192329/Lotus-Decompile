@@ -22,23 +22,23 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.inventory.ShulkerBoxMenu;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.item.ItemStack;
+import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.ShulkerBoxScreenHandler;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
 
 public abstract class BaseModule
 extends Module {
@@ -81,17 +81,17 @@ extends Module {
         return true;
     }
 
-    protected Inventory getPlayerInventory() {
+    protected PlayerInventory getPlayerInventory() {
         return this.mc.player.getInventory();
     }
 
     protected ItemStack getItemStack(int slot) {
-        return this.getPlayerInventory().getItem(slot);
+        return this.getPlayerInventory().getStack(slot);
     }
 
     protected ItemStack getItemStackBySlotId(int slotId) {
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
-        return screenHandler.getSlot(slotId).getItem();
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
+        return screenHandler.getSlot(slotId).getStack();
     }
 
     protected ItemStack nextPlayerStack(Predicate<ItemStack> predicate) {
@@ -153,12 +153,12 @@ extends Module {
     }
 
     protected <T> T findScreenStackByFunction(Function<ItemStack, T> function) {
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
         int maxSlot = this.getScreenMainSize() - 1;
         int startSlot = this.curScreenSlot;
         do {
             this.curScreenSlot = this.curScreenSlot >= maxSlot ? 0 : ++this.curScreenSlot;
-            ItemStack stack = screenHandler.getSlot(this.curScreenSlot).getItem();
+            ItemStack stack = screenHandler.getSlot(this.curScreenSlot).getStack();
             if (!stack.isEmpty()) {
                 T result = function.apply(stack);
                 if (result != null) {
@@ -182,25 +182,25 @@ extends Module {
     }
 
     protected boolean hasScreenFull() {
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
         int size = this.getScreenMainSize();
         for (int i = 0; i < size; ++i) {
-            ItemStack stack = screenHandler.getSlot(i).getItem();
+            ItemStack stack = screenHandler.getSlot(i).getStack();
             if (!stack.isEmpty()) continue;
             return false;
         }
         return true;
     }
 
-    protected void openChest(BlockPos blockPos, Consumer<AbstractContainerMenu> consumer) {
+    protected void openChest(BlockPos blockPos, Consumer<ScreenHandler> consumer) {
         this.openKit(blockPos, null, consumer);
     }
 
-    protected void openKit(BlockPos blockPos, Direction direction, Consumer<AbstractContainerMenu> consumer) {
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
-        if (screenHandler instanceof InventoryMenu || !blockPos.equals(this.lastBlockPos)) {
+    protected void openKit(BlockPos blockPos, Direction direction, Consumer<ScreenHandler> consumer) {
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
+        if (screenHandler instanceof PlayerScreenHandler || !blockPos.equals(this.lastBlockPos)) {
             this.tryRotateAndOpen(blockPos, direction);
-        } else if (screenHandler instanceof ChestMenu || screenHandler instanceof ShulkerBoxMenu) {
+        } else if (screenHandler instanceof GenericContainerScreenHandler || screenHandler instanceof ShulkerBoxScreenHandler) {
             this.openStatus = Steps.IDLE;
             consumer.accept(screenHandler);
         } else {
@@ -217,9 +217,9 @@ extends Module {
 
     protected void rotateAndOpen(BlockPos blockPos, Direction direction) {
         Direction finalDirection = direction == null ? BlockUtils.getDirection((BlockPos)blockPos) : direction;
-        Vec3i vector = finalDirection.getUnitVec3i();
+        Vec3i vector = finalDirection.getVector();
         double offset = 0.45;
-        Vec3 lookPos = new Vec3((double)blockPos.getX() + 0.5 + (double)vector.getX() * offset, (double)blockPos.getY() + 0.5 + (double)vector.getY() * offset, (double)blockPos.getZ() + 0.5 + (double)vector.getZ() * offset);
+        Vec3d lookPos = new Vec3d((double)blockPos.getX() + 0.5 + (double)vector.getX() * offset, (double)blockPos.getY() + 0.5 + (double)vector.getY() * offset, (double)blockPos.getZ() + 0.5 + (double)vector.getZ() * offset);
         HeRotationUtils.rotate(lookPos, () -> HeBlockUtils.open(blockPos, finalDirection, lookPos));
     }
 
@@ -241,7 +241,7 @@ extends Module {
     }
 
     protected void rotateAndOpenWithOffset(BlockPos blockPos, Direction direction) {
-        Vec3 lookPos;
+        Vec3d lookPos;
         if (direction == Direction.UP) {
             double playerX = this.mc.player.getX();
             double playerZ = this.mc.player.getZ();
@@ -258,29 +258,29 @@ extends Module {
                 zOffset = playerZ > blockZ ? 0.5 + offset : 0.5 - offset;
             }
             double yPos = (double)blockPos.getY() + 0.95;
-            lookPos = new Vec3((double)blockPos.getX() + xOffset, yPos, (double)blockPos.getZ() + zOffset);
+            lookPos = new Vec3d((double)blockPos.getX() + xOffset, yPos, (double)blockPos.getZ() + zOffset);
         } else {
-            Vec3i vector = direction.getUnitVec3i();
+            Vec3i vector = direction.getVector();
             double offset = 0.5;
-            lookPos = new Vec3((double)blockPos.getX() + 0.5 + (double)vector.getX() * offset, (double)blockPos.getY() + 0.5 + (double)vector.getY() * offset, (double)blockPos.getZ() + 0.5 + (double)vector.getZ() * offset);
+            lookPos = new Vec3d((double)blockPos.getX() + 0.5 + (double)vector.getX() * offset, (double)blockPos.getY() + 0.5 + (double)vector.getY() * offset, (double)blockPos.getZ() + 0.5 + (double)vector.getZ() * offset);
         }
         HeRotationUtils.rotate(lookPos, () -> HeBlockUtils.open(blockPos, direction, lookPos));
     }
 
     protected void interactEntity(Entity entity) {
-        Vec3 lookPos;
-        Vec3 playerPos = this.mc.player.position();
-        EntityHitResult entityHitResult = ProjectileUtil.getEntityHitResult((Entity)this.mc.player, (Vec3)playerPos, (Vec3)(lookPos = entity.position()), (AABB)entity.getBoundingBox(), Entity::isPickable, (double)playerPos.distanceToSqr(lookPos));
+        Vec3d lookPos;
+        Vec3d playerPos = this.mc.player.getEntityPos();
+        EntityHitResult entityHitResult = ProjectileUtil.raycast((Entity)this.mc.player, (Vec3d)playerPos, (Vec3d)(lookPos = entity.getEntityPos()), (Box)entity.getBoundingBox(), Entity::canHit, (double)playerPos.squaredDistanceTo(lookPos));
         if (entityHitResult == null) {
-            HeRotationUtils.keepRotation(entity.getEyePosition());
+            HeRotationUtils.keepRotation(entity.getEyePos());
             EntityHitResult location = new EntityHitResult(entity, entity.getBoundingBox().getCenter());
-            this.mc.gameMode.interact(this.mc.player, entity, location, InteractionHand.MAIN_HAND);
+            this.mc.interactionManager.interactEntityAtLocation(this.mc.player, entity, location, Hand.MAIN_HAND);
         } else {
-            HeRotationUtils.keepRotation(entity.getEyePosition());
-            InteractionResult actionResult = this.mc.gameMode.interact((Player)this.mc.player, entity, entityHitResult, InteractionHand.MAIN_HAND);
-            if (!actionResult.consumesAction()) {
+            HeRotationUtils.keepRotation(entity.getEyePos());
+            ActionResult actionResult = this.mc.interactionManager.interactEntityAtLocation((PlayerEntity)this.mc.player, entity, entityHitResult, Hand.MAIN_HAND);
+            if (!actionResult.isAccepted()) {
                 EntityHitResult location2 = new EntityHitResult(entity, entity.getBoundingBox().getCenter());
-                this.mc.gameMode.interact((Player)this.mc.player, entity, location2, InteractionHand.MAIN_HAND);
+                this.mc.interactionManager.interactEntityAtLocation((PlayerEntity)this.mc.player, entity, location2, Hand.MAIN_HAND);
             }
         }
     }
@@ -325,19 +325,19 @@ extends Module {
     }
 
     protected boolean isReady() {
-        return this.mc.player != null && this.mc.level != null;
+        return this.mc.player != null && this.mc.world != null;
     }
 
     protected long mcTime() {
-        return this.mc.level.getOverworldClockTime();
+        return this.mc.world.getTimeOfDay();
     }
 
     protected long mcDay() {
-        return this.mc.level.getOverworldClockTime() / 24000L;
+        return this.mc.world.getTimeOfDay() / 24000L;
     }
 
     protected long mcTimeOfDay() {
-        return this.mc.level.getOverworldClockTime() % 24000L;
+        return this.mc.world.getTimeOfDay() % 24000L;
     }
 
     protected void setDelay() {
@@ -365,9 +365,9 @@ extends Module {
     }
 
     public int getFirstEmptySlot() {
-        Inventory playerInventory = this.getPlayerInventory();
+        PlayerInventory playerInventory = this.getPlayerInventory();
         for (int i = 0; i < 36; ++i) {
-            ItemStack itemStack = playerInventory.getItem(i);
+            ItemStack itemStack = playerInventory.getStack(i);
             if (!itemStack.isEmpty()) continue;
             return i;
         }
@@ -376,9 +376,9 @@ extends Module {
 
     public boolean isContainerFull() {
         int size = this.getScreenMainSize();
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
         for (int i = 0; i < size; ++i) {
-            ItemStack itemStack = screenHandler.getSlot(i).getItem();
+            ItemStack itemStack = screenHandler.getSlot(i).getStack();
             if (!itemStack.isEmpty()) continue;
             return false;
         }
@@ -387,9 +387,9 @@ extends Module {
 
     public boolean isInvFull() {
         int size = this.getPlayerMainSize();
-        Inventory playerInventory = this.getPlayerInventory();
+        PlayerInventory playerInventory = this.getPlayerInventory();
         for (int i = 0; i < size; ++i) {
-            ItemStack itemStack = playerInventory.getItem(i);
+            ItemStack itemStack = playerInventory.getStack(i);
             if (!itemStack.isEmpty()) continue;
             return false;
         }

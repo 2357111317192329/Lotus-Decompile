@@ -25,19 +25,18 @@ import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-
+import net.minecraft.block.BlockState;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -127,7 +126,7 @@ public class AutoStockUp extends WalkModule {
     private void doInit(Boolean enabled) {
         if (Boolean.TRUE.equals(enabled)) {
             this.initSetting.set(false);
-            if (this.mc.player != null && this.mc.level != null) {
+            if (this.mc.player != null && this.mc.world != null) {
                 this.clear();
                 this.checkCounter = 0;
                 Map<ItemBo, StoragePos> scanResult = HePosUtils.scanFramesPiston(this.scanRange.get(), 4);
@@ -198,7 +197,7 @@ public class AutoStockUp extends WalkModule {
             return null;
         }
         Object2IntOpenHashMap<BlockState> blockCounts = new Object2IntOpenHashMap<>();
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
         for (Box box : placement.getSubRegionBoxes(SubRegionPlacement.RequiredEnabled.PLACEMENT_ENABLED).values()) {
             BlockPos pos1 = box.getPos1();
             BlockPos pos2 = box.getPos2();
@@ -234,7 +233,7 @@ public class AutoStockUp extends WalkModule {
                 pos = this.stockPos.getTakePos();
             } else {
                 pos = this.stockPos.getKitPos();
-                BlockState state = this.mc.level.getBlockState(pos);
+                BlockState state = this.mc.world.getBlockState(pos);
                 if (!HeItemUtils.isShulkerBox(state.getBlock().asItem())) {
                     this.closeNext(Steps.NEXT);
                     return;
@@ -243,7 +242,7 @@ public class AutoStockUp extends WalkModule {
             this.openChest(pos, container -> {
                 HashMap<ItemBo, Integer> found = new HashMap<>();
                 for (int i = 0; i < this.getScreenMainSize(); ++i) {
-                    ItemStack stack = container.getSlot(i).getItem();
+                    ItemStack stack = container.getSlot(i).getStack();
                     if (!stack.isEmpty()) {
                         if (HeItemUtils.isShulkerBox(stack.getItem())) {
                             ShulkerBoxReader reader = new ShulkerBoxReader(stack);
@@ -278,9 +277,9 @@ public class AutoStockUp extends WalkModule {
     }
 
     private void dispatch() {
-        List<ItemEntity> itemEntities = this.mc.level.getEntitiesOfClass(ItemEntity.class, this.mc.player.getBoundingBox().inflate(5.0F), entity -> HeItemUtils.isShulkerBox(entity.getItem().getItem()));
+        List<ItemEntity> itemEntities = this.mc.world.getEntitiesByClass(ItemEntity.class, this.mc.player.getBoundingBox().expand(5.0F), entity -> HeItemUtils.isShulkerBox(entity.getStack().getItem()));
         if (!itemEntities.isEmpty()) {
-            BlockPos targetPos = itemEntities.getFirst().blockPosition();
+            BlockPos targetPos = itemEntities.getFirst().getBlockPos();
             if (targetPos.getY() != this.mc.player.getBlockY()) {
                 BlockPos atPlayerY = new BlockPos(targetPos.getX(), this.mc.player.getBlockY(), targetPos.getZ());
                 BlockPos standable = HeBlockUtils.getCanStandPos(atPlayerY, 1);
@@ -350,7 +349,7 @@ public class AutoStockUp extends WalkModule {
     }
 
     private void putItem() {
-        BlockState state = this.mc.level.getBlockState(this.stockPos.getKitPos());
+        BlockState state = this.mc.world.getBlockState(this.stockPos.getKitPos());
         if (state.isAir()) {
             this.closeNext(Steps.PLACE_EMPTY_KIT);
         } else if (!(state.getBlock() instanceof ShulkerBoxBlock)) {
@@ -414,7 +413,7 @@ public class AutoStockUp extends WalkModule {
             this.closeNext(Steps.PUT_ITEM);
         } else {
             if (groups < this.wholeBoxThreshold.get()) {
-                BlockState state = this.mc.level.getBlockState(this.currentPos.getKitPos());
+                BlockState state = this.mc.world.getBlockState(this.currentPos.getKitPos());
                 if (!state.isAir()) {
                     this.closeNext(Steps.TAKE_ITEM);
                     return;
@@ -453,7 +452,7 @@ public class AutoStockUp extends WalkModule {
     }
 
     private void placeKit() {
-        BlockState state = this.mc.level.getBlockState(this.currentPos.getKitPos());
+        BlockState state = this.mc.world.getBlockState(this.currentPos.getKitPos());
         if (!state.isAir()) {
             if (state.getBlock() instanceof ShulkerBoxBlock) {
                 this.step = Steps.TAKE_ITEM;
@@ -514,7 +513,7 @@ public class AutoStockUp extends WalkModule {
     }
 
     private void takeFromKit() {
-        BlockState state = this.mc.level.getBlockState(this.currentPos.getKitPos());
+        BlockState state = this.mc.world.getBlockState(this.currentPos.getKitPos());
         if (!(state.getBlock() instanceof ShulkerBoxBlock)) {
             this.closeNext(Steps.PLACE_KIT);
         } else if (this.notInOperationRange(this.currentPos)) {
@@ -553,7 +552,7 @@ public class AutoStockUp extends WalkModule {
     }
 
     private void placeEmptyKit() {
-        BlockState state = this.mc.level.getBlockState(this.stockPos.getKitPos());
+        BlockState state = this.mc.world.getBlockState(this.stockPos.getKitPos());
         if (state.getBlock() instanceof ShulkerBoxBlock) {
             this.step = Steps.PUT_ITEM;
         } else if (!state.isAir()) {
@@ -576,10 +575,10 @@ public class AutoStockUp extends WalkModule {
         if (this.notInOperationRange(this.breakPos)) {
             this.gotoBtnPos(this.breakPos, "<挖盒子>距离不够, 尝试移动", Steps.BREAK_KIT);
         } else {
-            Vec3 center = Vec3.atCenterOf(this.breakPos.getBtnPos()).add(0.0, -0.5, 0.0);
+            Vec3d center = Vec3d.ofCenter(this.breakPos.getBtnPos()).add(0.0, -0.5, 0.0);
             BlockHitResult hitResult = new BlockHitResult(center, Direction.UP, this.breakPos.getBtnPos(), false);
-            ServerboundUseItemOnPacket packet = new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, hitResult, 0);
-            this.mc.getConnection().send(packet);
+            PlayerInteractBlockC2SPacket packet = new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, hitResult, 0);
+            this.mc.getNetworkHandler().sendPacket(packet);
             this.step = Steps.NEXT;
             this.setDelay(40);
         }
@@ -591,7 +590,7 @@ public class AutoStockUp extends WalkModule {
 
     private int remainingGroups() {
         int remaining = this.remainingCount();
-        return remaining <= 0 ? 0 : (remaining - 1) / this.currentItem.getItem().getDefaultMaxStackSize() + 1;
+        return remaining <= 0 ? 0 : (remaining - 1) / this.currentItem.getItem().getMaxCount() + 1;
     }
 
     private int remainingCount() {

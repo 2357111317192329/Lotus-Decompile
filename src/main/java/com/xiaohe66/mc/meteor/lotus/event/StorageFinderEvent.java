@@ -7,7 +7,7 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
 import com.xiaohe66.mc.meteor.lotus.event.Event;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntity;
 
 public class StorageFinderEvent extends Event {
     private static final StorageFinderEvent INSTANCE = new StorageFinderEvent();

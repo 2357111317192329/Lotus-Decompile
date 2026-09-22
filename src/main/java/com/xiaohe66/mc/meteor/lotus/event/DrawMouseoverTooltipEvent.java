@@ -1,15 +1,15 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
 import meteordevelopment.meteorclient.events.Cancellable;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.DrawContext;
 
 public class DrawMouseoverTooltipEvent extends Cancellable {
     private static final DrawMouseoverTooltipEvent INSTANCE = new DrawMouseoverTooltipEvent();
-    private GuiGraphicsExtractor drawContext;
+    private DrawContext drawContext;
     private int mouseX;
     private int mouseY;
 
-    public static DrawMouseoverTooltipEvent get(GuiGraphicsExtractor drawContext, int mouseX, int mouseY) {
+    public static DrawMouseoverTooltipEvent get(DrawContext drawContext, int mouseX, int mouseY) {
         INSTANCE.setCancelled(false);
         INSTANCE.drawContext = drawContext;
         INSTANCE.mouseX = mouseX;
@@ -17,7 +17,7 @@ public class DrawMouseoverTooltipEvent extends Cancellable {
         return INSTANCE;
     }
 
-    public GuiGraphicsExtractor getDrawContext() {
+    public DrawContext getDrawContext() {
         return this.drawContext;
     }
 

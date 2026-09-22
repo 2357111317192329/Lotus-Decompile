@@ -8,37 +8,37 @@
  */
 package com.xiaohe66.mc.meteor.lotus.event;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.xiaohe66.mc.meteor.lotus.event.Event;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Vec3d;
 
 public class WorldEntityRenderEvent extends Event {
     private static final WorldEntityRenderEvent INSTANCE = new WorldEntityRenderEvent();
-    private PoseStack matrixStack;
-    private SubmitNodeCollector commandQueue;
-    private Vec3 pos;
+    private MatrixStack matrixStack;
+    private OrderedRenderCommandQueue commandQueue;
+    private Vec3d pos;
 
     public WorldEntityRenderEvent() {
         super(Stage.Post);
     }
 
-    public static WorldEntityRenderEvent get(PoseStack matrixStack, SubmitNodeCollector commandQueue, Vec3 pos) {
+    public static WorldEntityRenderEvent get(MatrixStack matrixStack, OrderedRenderCommandQueue commandQueue, Vec3d pos) {
         INSTANCE.matrixStack = matrixStack;
         INSTANCE.commandQueue = commandQueue;
         INSTANCE.pos = pos;
         return INSTANCE;
     }
 
-    public PoseStack getMatrixStack() {
+    public MatrixStack getMatrixStack() {
         return this.matrixStack;
     }
 
-    public SubmitNodeCollector getCommandQueue() {
+    public OrderedRenderCommandQueue getCommandQueue() {
         return this.commandQueue;
     }
 
-    public Vec3 getPos() {
+    public Vec3d getPos() {
         return this.pos;
     }
 }

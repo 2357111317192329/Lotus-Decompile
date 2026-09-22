@@ -76,23 +76,23 @@ import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
-import net.minecraft.util.Tuple;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.SlabBlock;
-import net.minecraft.world.level.block.StairBlock;
-import net.minecraft.world.level.block.VegetationBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.level.block.state.properties.SlabType;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.PlantBlock;
+import net.minecraft.block.SlabBlock;
+import net.minecraft.block.StairsBlock;
+import net.minecraft.block.enums.SlabType;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.Item;
+import net.minecraft.state.property.EnumProperty;
+import net.minecraft.state.property.Properties;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.Pair;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -180,7 +180,7 @@ public class Printer extends BaseModule {
         .description("渲染颜色")
         .defaultValue(new SettingColor(95, 190, 255))
         .build());
-    private final List<Tuple<Integer, BlockPos>> renderPosList;
+    private final List<Pair<Integer, BlockPos>> renderPosList;
     private final Map<BlockPos, Integer> placeCooldownMap;
     private final List<PlaceBlockHelper> needPlaceBlockList;
     private int nextBlockIndex;
@@ -189,7 +189,7 @@ public class Printer extends BaseModule {
 
     public Printer() {
         super("A打印机", "3c专用。投影打印、平台打印、防刷怪。使用前请使用Via跨版本到1.20.6以下", 0);
-        this.renderPosList = new ArrayList<Tuple<Integer, BlockPos>>();
+        this.renderPosList = new ArrayList<Pair<Integer, BlockPos>>();
         this.placeCooldownMap = new HashMap<BlockPos, Integer>();
         this.needPlaceBlockList = new ArrayList<PlaceBlockHelper>();
         this.nextBlockIndex = 0;
@@ -211,8 +211,8 @@ public class Printer extends BaseModule {
             this.toggle();
             return;
         }
-        this.renderPosList.forEach(s -> s.setA(s.getA() - 1));
-        this.renderPosList.removeIf(s -> s.getA() <= 0);
+        this.renderPosList.forEach(s -> s.setLeft(s.getLeft() - 1));
+        this.renderPosList.removeIf(s -> s.getLeft() <= 0);
         this.placeCooldownMap.replaceAll((pos, cooldown) -> cooldown - 1);
         this.placeCooldownMap.entrySet().removeIf(entry -> entry.getValue() <= 0);
         if (!this.checkAndDecrement()) {
@@ -272,22 +272,22 @@ public class Printer extends BaseModule {
                 Collection properties = targetState.getProperties();
                 if (block instanceof SlabBlock) {
                     HeBlockUtils.placeSlab(blockPos, targetState);
-                } else if (block instanceof StairBlock) {
+                } else if (block instanceof StairsBlock) {
                     HeBlockUtils.placeStairs(blockPos, targetState);
                 } else if (helper.requiresSneaking()) {
                     Printer.clickPlace(helper, blockPos);
                 } else if (HeBlockUtils.isTorch(block)) {
                     HeBlockUtils.placeTorch(blockPos, targetState);
-                } else if (properties.contains(BlockStateProperties.FACING)) {
-                    Printer.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)BlockStateProperties.FACING, helper.getClickDirection());
-                } else if (properties.contains(BlockStateProperties.FACING_HOPPER)) {
+                } else if (properties.contains(Properties.FACING)) {
+                    Printer.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)Properties.FACING, helper.getClickDirection());
+                } else if (properties.contains(Properties.HOPPER_FACING)) {
                     HeBlockUtils.placeHopper(blockPos, targetState);
-                } else if (properties.contains(BlockStateProperties.HORIZONTAL_FACING)) {
-                    Printer.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)BlockStateProperties.HORIZONTAL_FACING, helper.getClickDirection());
+                } else if (properties.contains(Properties.HORIZONTAL_FACING)) {
+                    Printer.placeDirectional(targetState, block, blockPos, (EnumProperty<Direction>)Properties.HORIZONTAL_FACING, helper.getClickDirection());
                 } else {
                     Printer.clickPlace(helper, blockPos);
                 }
-                this.renderPosList.add(new Tuple(this.fadeTime.get(), blockPos));
+                this.renderPosList.add(new Pair(this.fadeTime.get(), blockPos));
                 this.placeCooldownMap.put(blockPos, this.placeCooldown.get());
                 HeInvUtils.swapToSelectedSlot(slot);
                 HeInvUtils.sendCloseScreenPacket();
@@ -308,7 +308,7 @@ public class Printer extends BaseModule {
     }
 
     private static void placeDirectional(BlockState blockState, Block block, BlockPos blockPos, EnumProperty<Direction> property, Direction clickDirection) {
-        Direction facing = (Direction)blockState.getValue(property);
+        Direction facing = (Direction)blockState.get(property);
         Direction placeDirection = HeBlockUtils.isObserverOrHopper(block) ? facing : facing.getOpposite();
         if (clickDirection != null) {
             HeBlockUtils.placeBlock(blockPos, placeDirection, clickDirection);
@@ -331,12 +331,12 @@ public class Printer extends BaseModule {
             if (blockPos.getY() > DataManager.getRenderLayerRange().getLayerMax()) continue;
             BlockState currentState = helper.getTargetState();
             if (this.printerMode.get() == PrinterMode.防刷怪) {
-                boolean isPlant = currentState.getBlock() instanceof VegetationBlock;
+                boolean isPlant = currentState.getBlock() instanceof PlantBlock;
                 if (!currentState.isAir() && !isPlant || this.antiMobBlocks.get().contains(currentState.getBlock())) {
                     continue;
                 }
             } else if (HeBlockUtils.isSolid(currentState)) continue;
-            if (this.placeCooldown.get() != 0 && this.placeCooldownMap.containsKey(blockPos) || !currentState.canBeReplaced()) continue;
+            if (this.placeCooldown.get() != 0 && this.placeCooldownMap.containsKey(blockPos) || !currentState.isReplaceable()) continue;
             for (BlockState candidateState : helper.getCandidateStates()) {
                 Item item;
                 if (candidateState == null || candidateState.isAir()) continue;
@@ -358,29 +358,29 @@ public class Printer extends BaseModule {
 
     private List<PlaceBlockHelper> getAntiMobPlaceBlocks() {
         List<Block> blocks = this.antiMobBlocks.get();
-        List slabAdjustedStates = blocks.stream().map(Block::defaultBlockState).map(state -> state.getBlock() instanceof SlabBlock ? state.setValue((Property)SlabBlock.TYPE, (Comparable)SlabType.BOTTOM) : state).toList();
+        List slabAdjustedStates = blocks.stream().map(Block::getDefaultState).map(state -> state.getBlock() instanceof SlabBlock ? state.with((Property)SlabBlock.TYPE, (Comparable)SlabType.BOTTOM) : state).toList();
         int rangeBlocks = (int)Math.ceil(this.printingRange.get());
         double maxDistanceSq = this.printingRange.get() * this.printingRange.get();
         ArrayList<PlaceBlockHelper> placeBlocks = new ArrayList<PlaceBlockHelper>();
-        BlockPos playerPos = this.mc.player.blockPosition();
+        BlockPos playerPos = this.mc.player.getBlockPos();
         for (int x = -rangeBlocks; x <= rangeBlocks; ++x) {
             for (int z = -rangeBlocks; z <= rangeBlocks; ++z) {
                 BlockState downState;
                 int foundY = Integer.MAX_VALUE;
                 for (int y = 1; y >= -rangeBlocks; --y) {
-                    BlockPos checkPos = playerPos.offset(x, y, z);
-                    BlockState blockState = this.mc.level.getBlockState(checkPos);
-                    if (!HeBlockUtils.isReplaceable(blockState, checkPos) || !HeBlockUtils.isSolid(downState = this.mc.level.getBlockState(checkPos.below())) || !BlockUtils.isValidSpawnBlock(downState) || !HeBlockUtils.isAboveClear(checkPos) && !this.antiSmallMobs.get()) continue;
+                    BlockPos checkPos = playerPos.add(x, y, z);
+                    BlockState blockState = this.mc.world.getBlockState(checkPos);
+                    if (!HeBlockUtils.isReplaceable(blockState, checkPos) || !HeBlockUtils.isSolid(downState = this.mc.world.getBlockState(checkPos.down())) || !BlockUtils.isValidSpawnBlock(downState) || !HeBlockUtils.isAboveClear(checkPos) && !this.antiSmallMobs.get()) continue;
                     foundY = y;
                     break;
                 }
                 if (foundY == Integer.MAX_VALUE) continue;
-                BlockPos placePos = playerPos.offset(x, foundY, z);
-                double distanceSq = this.mc.player.getEyePosition().distanceToSqr(Vec3.atCenterOf((Vec3i)placePos));
+                BlockPos placePos = playerPos.add(x, foundY, z);
+                double distanceSq = this.mc.player.getEyePos().squaredDistanceTo(Vec3d.ofCenter((Vec3i)placePos));
                 if (distanceSq > maxDistanceSq) continue;
                 PlaceBlockHelper helper = new PlaceBlockHelper(placePos, distanceSq);
                 helper.setCandidateStates(slabAdjustedStates);
-                helper.setTargetState(this.mc.level.getBlockState(placePos));
+                helper.setTargetState(this.mc.world.getBlockState(placePos));
                 helper.setRequiresSneaking(true);
                 placeBlocks.add(helper);
             }
@@ -392,21 +392,21 @@ public class Printer extends BaseModule {
     private List<PlaceBlockHelper> getPlatformPlaceBlocks() {
         ArrayList<PlaceBlockHelper> placeBlocks = new ArrayList<PlaceBlockHelper>();
         BlockPos centerPos = this.getPlatformCenterPos();
-        Vec3 eyePos = this.mc.player.getEyePosition();
+        Vec3d eyePos = this.mc.player.getEyePos();
         double maxDistanceSq = this.printingRange.get() * this.printingRange.get();
         List<Block> blocks = this.platformBlocks.get();
         SlabType slabType = this.topSlab.get() != false ? SlabType.TOP : SlabType.BOTTOM;
-        List slabAdjustedStates = blocks.stream().map(Block::defaultBlockState).map(state -> state.getBlock() instanceof SlabBlock ? state.setValue((Property)SlabBlock.TYPE, (Comparable)slabType) : state).toList();
+        List slabAdjustedStates = blocks.stream().map(Block::getDefaultState).map(state -> state.getBlock() instanceof SlabBlock ? state.with((Property)SlabBlock.TYPE, (Comparable)slabType) : state).toList();
         int rangeBlocks = this.printingRange.get().intValue();
         int maxX = centerPos.getX() + rangeBlocks;
         for (int x = centerPos.getX() - rangeBlocks; x <= maxX; ++x) {
             int maxZ = centerPos.getZ() + rangeBlocks;
             for (int z = centerPos.getZ() - rangeBlocks; z <= maxZ; ++z) {
                 BlockPos targetPos = new BlockPos(x, centerPos.getY(), z);
-                double distanceSq = eyePos.distanceToSqr(targetPos.getCenter());
+                double distanceSq = eyePos.squaredDistanceTo(targetPos.toCenterPos());
                 if (distanceSq > maxDistanceSq) continue;
                 PlaceBlockHelper helper = new PlaceBlockHelper(targetPos, distanceSq);
-                BlockState currentState = this.mc.level.getBlockState(targetPos);
+                BlockState currentState = this.mc.world.getBlockState(targetPos);
                 helper.setCandidateStates(slabAdjustedStates);
                 helper.setTargetState(currentState);
                 helper.setRequiresSneaking(true);
@@ -418,16 +418,16 @@ public class Printer extends BaseModule {
     }
 
     private BlockPos getPlatformCenterPos() {
-        Vec3 eyePos = this.mc.player.position();
-        BlockPos basePos = this.mc.player.blockPosition();
-        if (eyePos.y() - (double)basePos.getY() >= 0.5) {
-            basePos = basePos.above();
+        Vec3d eyePos = this.mc.player.getEntityPos();
+        BlockPos basePos = this.mc.player.getBlockPos();
+        if (eyePos.getY() - (double)basePos.getY() >= 0.5) {
+            basePos = basePos.up();
         }
         for (int i = 0; i < 3; ++i) {
-            basePos = basePos.below();
-            Vec3 checkCenter = basePos.getCenter();
-            boolean west = eyePos.x() < checkCenter.x();
-            boolean north = eyePos.z() < checkCenter.z();
+            basePos = basePos.down();
+            Vec3d checkCenter = basePos.toCenterPos();
+            boolean west = eyePos.getX() < checkCenter.getX();
+            boolean north = eyePos.getZ() < checkCenter.getZ();
             ArrayList<BlockPos> checkPositions = new ArrayList<BlockPos>(4);
             checkPositions.add(basePos);
             if (west && north) {
@@ -448,12 +448,12 @@ public class Printer extends BaseModule {
                 checkPositions.add(basePos.south());
             }
             for (BlockPos checkPos : checkPositions) {
-                BlockState blockState = this.mc.level.getBlockState(checkPos);
+                BlockState blockState = this.mc.world.getBlockState(checkPos);
                 if (!HeBlockUtils.isSolid(blockState)) continue;
                 return basePos;
             }
         }
-        return this.mc.player.blockPosition().below();
+        return this.mc.player.getBlockPos().down();
     }
 
     private List<PlaceBlockHelper> getSchematicPlaceBlocks() {
@@ -465,22 +465,22 @@ public class Printer extends BaseModule {
             blockPosList = this.blockPosSupplier.get();
         } else {
             int size = rangeBlocks * 2 + 1;
-            BlockPos playerPos = this.mc.player.blockPosition();
+            BlockPos playerPos = this.mc.player.getBlockPos();
             blockPosList = new ArrayList<BlockPos>(size * size * size);
             for (int y = -rangeBlocks; y < rangeBlocks; ++y) {
                 for (int x = -rangeBlocks; x <= rangeBlocks; ++x) {
                     for (int z = -rangeBlocks; z <= rangeBlocks; ++z) {
-                        blockPosList.add(playerPos.offset(x, y, z));
+                        blockPosList.add(playerPos.add(x, y, z));
                     }
                 }
             }
         }
         for (BlockPos schematicBlockPos : blockPosList) {
             double distanceSq;
-            if (!DataManager.getRenderLayerRange().isPositionWithinRange(schematicBlockPos) || (distanceSq = this.mc.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(schematicBlockPos))) > maxDistanceSq) continue;
+            if (!DataManager.getRenderLayerRange().isPositionWithinRange(schematicBlockPos) || (distanceSq = this.mc.player.getEyePos().squaredDistanceTo(Vec3d.ofCenter(schematicBlockPos))) > maxDistanceSq) continue;
             PlaceBlockHelper helper = new PlaceBlockHelper(schematicBlockPos, distanceSq);
             BlockState schematicBlockState = this.schematicWorld.getBlockState(schematicBlockPos);
-            BlockState targetBlockState = this.mc.level.getBlockState(schematicBlockPos);
+            BlockState targetBlockState = this.mc.world.getBlockState(schematicBlockPos);
             helper.setCandidateStates(Collections.singletonList(schematicBlockState));
             helper.setTargetState(targetBlockState);
             placeBlocks.add(helper);
@@ -494,8 +494,8 @@ public class Printer extends BaseModule {
     @EventHandler
     private void onRender(Render3DEvent event) {
         this.renderPosList.forEach(pair -> {
-            Color color = new Color(this.colour.get().r, this.colour.get().g, this.colour.get().b, (int)((float)pair.getA() / (float)this.fadeTime.get() * (float)this.colour.get().a));
-            event.renderer.box((BlockPos)pair.getB(), color, null, ShapeMode.Sides, 0);
+            Color color = new Color(this.colour.get().r, this.colour.get().g, this.colour.get().b, (int)((float)pair.getLeft() / (float)this.fadeTime.get() * (float)this.colour.get().a));
+            event.renderer.box((BlockPos)pair.getRight(), color, null, ShapeMode.Sides, 0);
         });
     }
 

@@ -26,11 +26,11 @@ import meteordevelopment.meteorclient.settings.IntSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.Holder;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.registry.entry.RegistryEntry;
 
 public class RaidHelper extends BaseModule {
     private final Setting<Integer> before = sgGeneral.add(new IntSetting.Builder()
@@ -137,7 +137,7 @@ public class RaidHelper extends BaseModule {
     }
 
     private void setPressed(boolean pressed) {
-        this.mc.options.keyUse.setDown(pressed);
+        this.mc.options.useKey.setPressed(pressed);
     }
 
     private boolean needDrink() {
@@ -145,20 +145,20 @@ public class RaidHelper extends BaseModule {
     }
 
     private boolean hasBadOmen() {
-        Collection<MobEffectInstance> effects = this.mc.player.getActiveEffects();
-        for (MobEffectInstance effect : effects) {
-            Holder effectType = effect.getEffect();
-            if (effectType != MobEffects.BAD_OMEN) continue;
+        Collection<StatusEffectInstance> effects = this.mc.player.getStatusEffects();
+        for (StatusEffectInstance effect : effects) {
+            RegistryEntry effectType = effect.getEffectType();
+            if (effectType != StatusEffects.BAD_OMEN) continue;
             return true;
         }
         return false;
     }
 
     private boolean hasRaidOmen() {
-        Collection<MobEffectInstance> effects = this.mc.player.getActiveEffects();
-        for (MobEffectInstance effect : effects) {
-            Holder effectType = effect.getEffect();
-            if (effectType != MobEffects.RAID_OMEN) continue;
+        Collection<StatusEffectInstance> effects = this.mc.player.getStatusEffects();
+        for (StatusEffectInstance effect : effects) {
+            RegistryEntry effectType = effect.getEffectType();
+            if (effectType != StatusEffects.RAID_OMEN) continue;
             return effect.getDuration() >= this.before.get();
         }
         return false;

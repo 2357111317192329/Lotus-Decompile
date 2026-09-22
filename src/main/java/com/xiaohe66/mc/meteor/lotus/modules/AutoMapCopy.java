@@ -5,18 +5,17 @@ import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.SlotUtils;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ContainerInput;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.BundleItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.BundleContents;
-
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.BundleContentsComponent;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.BundleItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.text.Text;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
@@ -50,11 +49,11 @@ public class AutoMapCopy extends StepModule {
             this.toggle();
             return;
         }
-        Inventory inventory = this.getPlayerInventory();
+        PlayerInventory inventory = this.getPlayerInventory();
         int singleMaps = 0;
         int emptyMaps = 0;
         for (int i = 0; i < 36; ++i) {
-            ItemStack stack = inventory.getItem(i);
+            ItemStack stack = inventory.getStack(i);
             if (stack.getItem() == Items.MAP) {
                 emptyMaps += stack.getCount();
             } else if (stack.getItem() == Items.FILLED_MAP) {
@@ -79,7 +78,7 @@ public class AutoMapCopy extends StepModule {
             this.toggle();
         } else {
             this.warning("检查完成, 待复制[%s]张地图画", new Object[]{needed});
-            if (this.mc.player.containerMenu instanceof InventoryMenu) {
+            if (this.mc.player.currentScreenHandler instanceof PlayerScreenHandler) {
                 this.step = Steps.NEXT;
             } else {
                 HeInvUtils.closeCurScreen();
@@ -116,18 +115,18 @@ public class AutoMapCopy extends StepModule {
 
     private void craftCopy() {
         if (this.ensureInventoryScreen()) {
-            InventoryMenu menu = this.mc.player.inventoryMenu;
-            ItemStack result = menu.getSlot(0).getItem();
+            PlayerScreenHandler menu = this.mc.player.playerScreenHandler;
+            ItemStack result = menu.getSlot(0).getStack();
             if (!result.isEmpty()) {
                 InvUtils.shiftClick().slotId(0);
-            } else if (menu.getSlot(1).getItem().isEmpty()) {
+            } else if (menu.getSlot(1).getStack().isEmpty()) {
                 ItemStack singleStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.FILLED_MAP && itemStack.getCount() == 1);
                 if (singleStack.isEmpty()) {
                     this.step = Steps.NEXT;
                     return;
                 }
                 this.moveToContainerSlot(this.getCurPlayerSlot(), 1);
-            } else if (menu.getSlot(2).getItem().isEmpty()) {
+            } else if (menu.getSlot(2).getStack().isEmpty()) {
                 ItemStack emptyMap = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.MAP);
                 if (emptyMap.isEmpty()) {
                     this.warning("空地图不足, 复制中断", new Object[0]);
@@ -141,20 +140,20 @@ public class AutoMapCopy extends StepModule {
     }
 
     private void moveToContainerSlot(int slot, int containerSlotId) {
-        int syncId = this.mc.player.containerMenu.containerId;
-        this.mc.gameMode.handleContainerInput(syncId, SlotUtils.indexToId(slot), 0, ContainerInput.PICKUP, this.mc.player);
-        this.mc.gameMode.handleContainerInput(syncId, containerSlotId, 0, ContainerInput.PICKUP, this.mc.player);
+        int syncId = this.mc.player.currentScreenHandler.syncId;
+        this.mc.interactionManager.clickSlot(syncId, SlotUtils.indexToId(slot), 0, SlotActionType.PICKUP, this.mc.player);
+        this.mc.interactionManager.clickSlot(syncId, containerSlotId, 0, SlotActionType.PICKUP, this.mc.player);
     }
 
     private void distributeMaps(int slot) {
         if (this.ensureInventoryScreen()) {
             if (this.bundleSize(this.copiedBundle1) < 64 && this.bundleSize(this.copiedBundle2) < 64) {
-                int syncId = this.mc.player.containerMenu.containerId;
+                int syncId = this.mc.player.currentScreenHandler.syncId;
                 int slotId = SlotUtils.indexToId(slot);
-                this.mc.gameMode.handleContainerInput(syncId, slotId, 1, ContainerInput.PICKUP, this.mc.player);
-                this.mc.gameMode.handleContainerInput(syncId, SlotUtils.indexToId(this.copiedBundle1), 0, ContainerInput.PICKUP, this.mc.player);
-                this.mc.gameMode.handleContainerInput(syncId, slotId, 0, ContainerInput.PICKUP, this.mc.player);
-                this.mc.gameMode.handleContainerInput(syncId, SlotUtils.indexToId(this.copiedBundle2), 0, ContainerInput.PICKUP, this.mc.player);
+                this.mc.interactionManager.clickSlot(syncId, slotId, 1, SlotActionType.PICKUP, this.mc.player);
+                this.mc.interactionManager.clickSlot(syncId, SlotUtils.indexToId(this.copiedBundle1), 0, SlotActionType.PICKUP, this.mc.player);
+                this.mc.interactionManager.clickSlot(syncId, slotId, 0, SlotActionType.PICKUP, this.mc.player);
+                this.mc.interactionManager.clickSlot(syncId, SlotUtils.indexToId(this.copiedBundle2), 0, SlotActionType.PICKUP, this.mc.player);
                 this.setDelay();
             } else {
                 this.warning("已复制袋已满, 复制中断", new Object[0]);
@@ -171,8 +170,8 @@ public class AutoMapCopy extends StepModule {
     }
 
     private boolean ensureInventoryScreen() {
-        if (this.mc.player.containerMenu instanceof InventoryMenu) {
-            if (!(this.mc.screen instanceof InventoryScreen)) {
+        if (this.mc.player.currentScreenHandler instanceof PlayerScreenHandler) {
+            if (!(this.mc.currentScreen instanceof InventoryScreen)) {
                 this.mc.setScreen(new InventoryScreen(this.mc.player));
             }
             return true;
@@ -183,15 +182,15 @@ public class AutoMapCopy extends StepModule {
     }
 
     private boolean identifyBundles() {
-        Inventory inventory = this.getPlayerInventory();
+        PlayerInventory inventory = this.getPlayerInventory();
         ArrayList<Integer> bundleSlots = new ArrayList<>();
         for (int i = 0; i < 36; ++i) {
-            if (inventory.getItem(i).getItem() instanceof BundleItem) {
+            if (inventory.getStack(i).getItem() instanceof BundleItem) {
                 bundleSlots.add(i);
             }
         }
         // 排除非空且存在不是地图的物品的收纳袋
-        bundleSlots.removeIf(slot -> this.isExcludedBundle(inventory.getItem(slot)));
+        bundleSlots.removeIf(slot -> this.isExcludedBundle(inventory.getStack(slot)));
         if (bundleSlots.size() < 3) {
             this.warning("需要3个收纳袋(1个待复制袋+2个已复制袋), 当前有[%s]个", new Object[]{bundleSlots.size()});
             return false;
@@ -207,11 +206,11 @@ public class AutoMapCopy extends StepModule {
     }
 
     private boolean isExcludedBundle(ItemStack stack) {
-        BundleContents contents = stack.get(DataComponents.BUNDLE_CONTENTS);
+        BundleContentsComponent contents = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
         if (contents == null) {
             return false;
         }
-        for (ItemStack itemStack : contents.itemCopyStream().toList()) {
+        for (ItemStack itemStack : contents.stream().toList()) {
             Item item = itemStack.getItem();
             if (item != Items.FILLED_MAP && item != Items.MAP) {
                 return true;
@@ -220,10 +219,10 @@ public class AutoMapCopy extends StepModule {
         return false;
     }
 
-    private boolean matchBundles(Inventory inventory, int slot1, int slot2, int slot3) {
-        Set<Object> set1 = this.bundleSet(inventory.getItem(slot1));
-        Set<Object> set2 = this.bundleSet(inventory.getItem(slot2));
-        Set<Object> set3 = this.bundleSet(inventory.getItem(slot3));
+    private boolean matchBundles(PlayerInventory inventory, int slot1, int slot2, int slot3) {
+        Set<Object> set1 = this.bundleSet(inventory.getStack(slot1));
+        Set<Object> set2 = this.bundleSet(inventory.getStack(slot2));
+        Set<Object> set3 = this.bundleSet(inventory.getStack(slot3));
         int overlap12 = this.intersectionCount(set1, set2);
         int overlap13 = this.intersectionCount(set1, set3);
         int overlap23 = this.intersectionCount(set2, set3);
@@ -267,7 +266,7 @@ public class AutoMapCopy extends StepModule {
             pair2 = slot3;
             third = slot1;
         }
-        if (this.bundleSet(inventory.getItem(third)).isEmpty()) {
+        if (this.bundleSet(inventory.getStack(third)).isEmpty()) {
             // 2个包含相同地图的收纳袋 + 1个空收纳袋: 从其中一个相同地图袋取出地图复制, 空袋变成第3个已复制袋
             this.bundleToCopy = pair1;
             this.copiedBundle1 = pair2;
@@ -280,17 +279,17 @@ public class AutoMapCopy extends StepModule {
         return true;
     }
 
-    private boolean autoMatchBundles(Inventory inventory, ArrayList<Integer> bundleSlots) {
+    private boolean autoMatchBundles(PlayerInventory inventory, ArrayList<Integer> bundleSlots) {
         int bestPair1 = -1;
         int bestPair2 = -1;
         int bestEmpty = -1;
         int bestOverlap = 0;
         for (int i = 0; i < bundleSlots.size(); ++i) {
             int a = bundleSlots.get(i);
-            Set<Object> setA = this.bundleSet(inventory.getItem(a));
+            Set<Object> setA = this.bundleSet(inventory.getStack(a));
             for (int j = i + 1; j < bundleSlots.size(); ++j) {
                 int b = bundleSlots.get(j);
-                int overlap = this.intersectionCount(setA, this.bundleSet(inventory.getItem(b)));
+                int overlap = this.intersectionCount(setA, this.bundleSet(inventory.getStack(b)));
                 if (overlap <= bestOverlap) {
                     continue;
                 }
@@ -299,7 +298,7 @@ public class AutoMapCopy extends StepModule {
                     if (c == a || c == b) {
                         continue;
                     }
-                    if (this.bundleSet(inventory.getItem(c)).isEmpty()) {
+                    if (this.bundleSet(inventory.getStack(c)).isEmpty()) {
                         bestOverlap = overlap;
                         bestPair1 = a;
                         bestPair2 = b;
@@ -320,10 +319,10 @@ public class AutoMapCopy extends StepModule {
 
     private Set<Object> bundleSet(ItemStack stack) {
         HashSet<Object> set = new HashSet<>();
-        BundleContents contents = stack.get(DataComponents.BUNDLE_CONTENTS);
+        BundleContentsComponent contents = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
         if (contents != null) {
-            for (ItemStack itemStack : contents.itemCopyStream().toList()) {
-                set.add(itemStack.getItem() == Items.FILLED_MAP ? itemStack.get(DataComponents.MAP_ID) : itemStack.getItem());
+            for (ItemStack itemStack : contents.stream().toList()) {
+                set.add(itemStack.getItem() == Items.FILLED_MAP ? itemStack.get(DataComponentTypes.MAP_ID) : itemStack.getItem());
             }
         }
         return set;
@@ -340,12 +339,12 @@ public class AutoMapCopy extends StepModule {
     }
 
     private int filledMapCountInBundle(int slot) {
-        BundleContents contents = this.getItemStack(slot).get(DataComponents.BUNDLE_CONTENTS);
+        BundleContentsComponent contents = this.getItemStack(slot).get(DataComponentTypes.BUNDLE_CONTENTS);
         if (contents == null) {
             return 0;
         }
         int count = 0;
-        for (ItemStack itemStack : contents.itemCopyStream().toList()) {
+        for (ItemStack itemStack : contents.stream().toList()) {
             if (itemStack.getItem() == Items.FILLED_MAP) {
                 count += itemStack.getCount();
             }
@@ -354,12 +353,12 @@ public class AutoMapCopy extends StepModule {
     }
 
     private int bundleSize(int slot) {
-        BundleContents contents = this.getItemStack(slot).get(DataComponents.BUNDLE_CONTENTS);
+        BundleContentsComponent contents = this.getItemStack(slot).get(DataComponentTypes.BUNDLE_CONTENTS);
         if (contents == null) {
             return 0;
         }
         int count = 0;
-        for (ItemStack itemStack : contents.itemCopyStream().toList()) {
+        for (ItemStack itemStack : contents.stream().toList()) {
             count += itemStack.getCount();
         }
         return count;
@@ -367,15 +366,15 @@ public class AutoMapCopy extends StepModule {
 
     private void finish() {
         HeInvUtils.closeCurScreen();
-        if (this.mc.screen != null) {
-            this.mc.screen.onClose();
+        if (this.mc.currentScreen != null) {
+            this.mc.currentScreen.close();
             this.mc.setScreen(null);
         }
         this.toggle();
     }
 
     private static String getName(ItemStack stack) {
-        Component customName = stack.get(DataComponents.CUSTOM_NAME);
+        Text customName = stack.get(DataComponentTypes.CUSTOM_NAME);
         return customName == null ? Names.get(stack) : customName.getString();
     }
 }

@@ -19,20 +19,20 @@ import com.xiaohe66.mc.meteor.lotus.util.HeRotation;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.meteorclient.utils.player.Rotations;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import org.joml.Vector3fc;
 
 public class HeRotationUtils {
     private static final HeRotation rotationBuffer = new HeRotation(0.0f, 0.0f);
     private static HeRotation keptRotation;
 
-    public static void rotate(Vec3 vec3d) {
-        double yaw = Rotations.getYaw((Vec3)vec3d);
-        double pitch = Rotations.getPitch((Vec3)vec3d);
+    public static void rotate(Vec3d vec3d) {
+        double yaw = Rotations.getYaw((Vec3d)vec3d);
+        double pitch = Rotations.getPitch((Vec3d)vec3d);
         Rotations.rotate((double)yaw, (double)pitch);
     }
 
@@ -42,9 +42,9 @@ public class HeRotationUtils {
         Rotations.rotate((double)yaw, (double)pitch);
     }
 
-    public static void rotate(Vec3 vec3d, Runnable runnable) {
-        double yaw = Rotations.getYaw((Vec3)vec3d);
-        double pitch = Rotations.getPitch((Vec3)vec3d);
+    public static void rotate(Vec3d vec3d, Runnable runnable) {
+        double yaw = Rotations.getYaw((Vec3d)vec3d);
+        double pitch = Rotations.getPitch((Vec3d)vec3d);
         Rotations.rotate((double)yaw, (double)pitch, (int)6666, (Runnable)runnable);
     }
 
@@ -54,7 +54,7 @@ public class HeRotationUtils {
         Rotations.rotate((double)yaw, (double)pitch, (int)6666, (Runnable)runnable);
     }
 
-    public static void keepRotation(Vec3 pos) {
+    public static void keepRotation(Vec3d pos) {
         HeRotation rotation = HeRotationUtils.getRotation(pos);
         HeRotationUtils.keepRotation(rotation);
     }
@@ -69,7 +69,7 @@ public class HeRotationUtils {
     }
 
     public static void rotateSilent(float yaw, float pitch) {
-        MeteorClient.mc.getConnection().send((Packet)new ServerboundMovePlayerPacket.PosRot(MeteorClient.mc.player.getX(), MeteorClient.mc.player.getY(), MeteorClient.mc.player.getZ(), yaw, pitch, MeteorClient.mc.player.onGround(), MeteorClient.mc.player.horizontalCollision));
+        MeteorClient.mc.getNetworkHandler().sendPacket((Packet)new PlayerMoveC2SPacket.Full(MeteorClient.mc.player.getX(), MeteorClient.mc.player.getY(), MeteorClient.mc.player.getZ(), yaw, pitch, MeteorClient.mc.player.isOnGround(), MeteorClient.mc.player.horizontalCollision));
         Rotations.setCamRotation((double)yaw, (double)pitch);
     }
 
@@ -83,8 +83,8 @@ public class HeRotationUtils {
         }
     }
 
-    public static HeRotation getRotation(Vec3 pos) {
-        Vec3 eyePos = MeteorClient.mc.player.getEyePosition();
+    public static HeRotation getRotation(Vec3d pos) {
+        Vec3d eyePos = MeteorClient.mc.player.getEyePos();
         double dx = pos.x - eyePos.x;
         double dy = pos.y - eyePos.y;
         double dz = pos.z - eyePos.z;
@@ -95,9 +95,9 @@ public class HeRotationUtils {
     }
 
     public static HeRotation getRotation(BlockPos pos, Direction side) {
-        Vec3 center = new Vec3((double)pos.getX() + 0.5, (double)pos.getY() + 0.5, (double)pos.getZ() + 0.5);
-        Vec3 sideOffset = new Vec3((Vector3fc)side.step()).scale(0.5);
-        Vec3 target = center.add(sideOffset);
+        Vec3d center = new Vec3d((double)pos.getX() + 0.5, (double)pos.getY() + 0.5, (double)pos.getZ() + 0.5);
+        Vec3d sideOffset = new Vec3d((Vector3fc)side.getUnitVector()).multiply(0.5);
+        Vec3d target = center.add(sideOffset);
         return HeRotationUtils.getRotation(target);
     }
 

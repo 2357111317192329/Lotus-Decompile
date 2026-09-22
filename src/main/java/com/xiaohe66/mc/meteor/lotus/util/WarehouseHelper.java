@@ -5,8 +5,7 @@ import com.xiaohe66.mc.meteor.lotus.bo.StoragePos;
 import com.xiaohe66.mc.meteor.lotus.modules.clearup.ClearUpMapping;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.world.item.Item;
-
+import net.minecraft.item.Item;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -61,13 +60,13 @@ public class WarehouseHelper {
 
     /** Find the nearest unmapped position whose item is in the given set. */
     public ItemBo findNearestUnmapped(Set<ItemBo> itemBos) {
-        var playerPos = MeteorClient.mc.player.position();
+        var playerPos = MeteorClient.mc.player.getEntityPos();
         double minDistance = Double.MAX_VALUE;
         ItemBo nearest = null;
         for (ItemBo itemBo : itemBos) {
             StoragePos pos = this.unmappedPositions.get(itemBo);
             if (pos != null) {
-                double distance = playerPos.distanceTo(pos.getBtnPos().getCenter());
+                double distance = playerPos.distanceTo(pos.getBtnPos().toCenterPos());
                 if (distance < minDistance) {
                     minDistance = distance;
                     nearest = itemBo;
@@ -79,13 +78,13 @@ public class WarehouseHelper {
 
     /** Find the nearest mapped position whose related item is in the given set. */
     public ItemBo findNearestMapped(Set<ItemBo> itemBos) {
-        var playerPos = MeteorClient.mc.player.position();
+        var playerPos = MeteorClient.mc.player.getEntityPos();
         double minDistance = Double.MAX_VALUE;
         ItemBo nearest = null;
         for (ItemBo itemBo : itemBos) {
             StoragePos pos = this.mappedItemPositions.get(itemBo.getItem());
             if (pos != null) {
-                double distance = playerPos.distanceTo(pos.getBtnPos().getCenter());
+                double distance = playerPos.distanceTo(pos.getBtnPos().toCenterPos());
                 if (distance < minDistance) {
                     minDistance = distance;
                     nearest = itemBo;

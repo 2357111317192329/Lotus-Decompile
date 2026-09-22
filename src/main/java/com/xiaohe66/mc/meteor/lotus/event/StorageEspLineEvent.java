@@ -7,7 +7,7 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
 import com.xiaohe66.mc.meteor.lotus.event.Event;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntity;
 
 public class StorageEspLineEvent extends Event {
     private BlockEntity blockEntity;

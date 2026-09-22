@@ -10,13 +10,13 @@ package com.xiaohe66.mc.meteor.lotus.event;
 
 import com.xiaohe66.mc.meteor.lotus.event.Event;
 import java.util.Objects;
-import net.minecraft.core.Vec3i;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.World;
 
 public class LogEvent extends Event {
     private String moduleName;
-    private ResourceKey<Level> worldType;
+    private RegistryKey<World> worldType;
     private Vec3i pos;
     private String key;
     private String msg;
@@ -28,7 +28,7 @@ public class LogEvent extends Event {
 
     public String formatKey() {
         if (this.formatKey == null) {
-            this.formatKey = this.moduleName + "_" + this.worldType.identifier().getPath() + "_" + this.key + "_";
+            this.formatKey = this.moduleName + "_" + this.worldType.getValue().getPath() + "_" + this.key + "_";
         }
         return this.formatKey;
     }
@@ -41,11 +41,11 @@ public class LogEvent extends Event {
         this.moduleName = moduleName;
     }
 
-    public ResourceKey<Level> getWorldType() {
+    public RegistryKey<World> getWorldType() {
         return this.worldType;
     }
 
-    public void setWorldType(ResourceKey<Level> worldType) {
+    public void setWorldType(RegistryKey<World> worldType) {
         this.worldType = worldType;
     }
 

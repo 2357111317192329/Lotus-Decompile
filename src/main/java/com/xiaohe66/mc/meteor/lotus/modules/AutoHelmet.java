@@ -41,17 +41,17 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.monster.piglin.Piglin;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.mob.PiglinEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.entry.RegistryEntry;
 
 public class AutoHelmet
 extends BaseModule {
@@ -74,12 +74,12 @@ extends BaseModule {
         .description("没有穿戴头盔时, 不做切换")
         .defaultValue(true)
         .build());
-    private final Setting<Set<ResourceKey<Enchantment>>> avoidedEnchantments = sgGeneral.add(new EnchantmentListSetting.Builder()
+    private final Setting<Set<RegistryKey<Enchantment>>> avoidedEnchantments = sgGeneral.add(new EnchantmentListSetting.Builder()
         .name("避免的附魔")
         .description("应该避免的附魔.")
-        .defaultValue(new ResourceKey[]{Enchantments.BINDING_CURSE, Enchantments.FROST_WALKER})
+        .defaultValue(new RegistryKey[]{Enchantments.BINDING_CURSE, Enchantments.FROST_WALKER})
         .build());
-    private final Object2IntMap<Holder<Enchantment>> enchantments;
+    private final Object2IntMap<RegistryEntry<Enchantment>> enchantments;
     private long lastPiglinTime;
     private boolean timing;
 
@@ -100,7 +100,7 @@ extends BaseModule {
         if (!this.checkAndDecrement()) {
             return;
         }
-        ItemStack currentItemStack = this.mc.player.getItemBySlot(EquipmentSlot.HEAD);
+        ItemStack currentItemStack = this.mc.player.getEquippedStack(EquipmentSlot.HEAD);
         Utils.getEnchantments(currentItemStack, this.enchantments);
         if (this.enchantments.containsKey((Object)Enchantments.BINDING_CURSE)) {
             return;
@@ -145,25 +145,25 @@ extends BaseModule {
 
     private boolean needGold() {
         boolean hasPiglin = false;
-        for (Entity entity : this.mc.level.entitiesForRendering()) {
+        for (Entity entity : this.mc.world.getEntities()) {
             if (entity == this.mc.player) continue;
-            if (entity instanceof Player) {
+            if (entity instanceof PlayerEntity) {
                 if (!AutoHelmet.isWithinDistance(entity, (Entity)this.mc.player, this.distance.get())) continue;
                 return false;
             }
-            if (!(entity instanceof Piglin) || !AutoHelmet.isWithinDistance(entity, (Entity)this.mc.player, this.distance.get())) continue;
+            if (!(entity instanceof PiglinEntity) || !AutoHelmet.isWithinDistance(entity, (Entity)this.mc.player, this.distance.get())) continue;
             hasPiglin = true;
         }
         return hasPiglin;
     }
 
     public static boolean isWithinDistance(Entity a, Entity b, double distance) {
-        return a.distanceToSqr(b) <= distance * distance;
+        return a.squaredDistanceTo(b) <= distance * distance;
     }
 
     private boolean hasAvoidedEnchantment() {
-        for (Holder enchantment : this.enchantments.keySet()) {
-            if (!enchantment.is(this.avoidedEnchantments.get()::contains)) continue;
+        for (RegistryEntry enchantment : this.enchantments.keySet()) {
+            if (!enchantment.matches(this.avoidedEnchantments.get()::contains)) continue;
             return true;
         }
         return false;

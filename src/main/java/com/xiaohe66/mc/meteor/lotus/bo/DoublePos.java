@@ -8,8 +8,8 @@
 package com.xiaohe66.mc.meteor.lotus.bo;
 
 import java.util.Objects;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
 
 public class DoublePos {
     private final BlockPos pos1;

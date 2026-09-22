@@ -8,8 +8,8 @@
 package com.xiaohe66.mc.meteor.lotus.modules.spiral;
 
 import com.xiaohe66.mc.meteor.lotus.modules.MosquitoCoilScan;
-import net.minecraft.client.Minecraft;
-import net.minecraft.util.Mth;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.math.MathHelper;
 
 public class SpiralNavigator {
     private static final double STEP_LENGTH = 1.5;
@@ -21,7 +21,7 @@ public class SpiralNavigator {
     private static final int REFINE_ROUNDS = 3;
     private static final double MIN_TURN = 1.0E-4;
     private static final double MAX_TURN = 0.25;
-    private final Minecraft mc = Minecraft.getInstance();
+    private final MinecraftClient mc = MinecraftClient.getInstance();
     private final MosquitoCoilScan scan;
     private double centerX;
     private double centerZ;
@@ -90,14 +90,14 @@ public class SpiralNavigator {
     }
 
     private void rotateYaw(float targetYaw, float maxTurn) {
-        float currentYaw = this.mc.player.getYRot();
+        float currentYaw = this.mc.player.getYaw();
         float deltaYaw = SpiralNavigator.wrapDegrees(targetYaw - currentYaw);
         if (maxTurn <= 0.0f) {
-            this.mc.player.setYRot(currentYaw + deltaYaw);
+            this.mc.player.setYaw(currentYaw + deltaYaw);
             return;
         }
-        float clampedDelta = Mth.clamp((float)deltaYaw, (float)(-maxTurn), (float)maxTurn);
-        this.mc.player.setYRot(currentYaw + clampedDelta);
+        float clampedDelta = MathHelper.clamp((float)deltaYaw, (float)(-maxTurn), (float)maxTurn);
+        this.mc.player.setYaw(currentYaw + clampedDelta);
     }
 
     private static float wrapDegrees(double degrees) {

@@ -16,14 +16,13 @@ import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
-
+import net.minecraft.block.BlockState;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.math.BlockPos;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -107,7 +106,7 @@ public class AutoKit extends WarehouseModule {
     private void doInit(Boolean enabled) {
         if (Boolean.TRUE.equals(enabled)) {
             this.initSetting.set(false);
-            if (this.mc.player != null && this.mc.level != null) {
+            if (this.mc.player != null && this.mc.world != null) {
                 try {
                     boolean success = this.initWarehouse();
                     if (!success) {
@@ -140,7 +139,7 @@ public class AutoKit extends WarehouseModule {
             this.warning("未检测到<杂盒>位置，请在对应展示框放置" + Names.get(this.miscBoxMarker.get()));
             return false;
         } else {
-            ItemStack mainHand = this.mc.player.getMainHandItem();
+            ItemStack mainHand = this.mc.player.getMainHandStack();
             if (!HeItemUtils.isShulkerBox(mainHand.getItem())) {
                 this.warning("主手未持有潜影盒，请手持模板盒子后重新初始化");
                 return false;
@@ -157,8 +156,8 @@ public class AutoKit extends WarehouseModule {
                 } else {
                     ItemBo itemBo = new ItemBo(stack);
                     int count = stack.getCount();
-                    if (count < stack.getMaxStackSize()) {
-                        int half = stack.getMaxStackSize() / 2;
+                    if (count < stack.getMaxCount()) {
+                        int half = stack.getMaxCount() / 2;
                         count = count >= half ? half : 1;
                     }
                     this.template.add(new ItemQty(itemBo, count));
@@ -175,15 +174,15 @@ public class AutoKit extends WarehouseModule {
     }
 
     private void dispatch() {
-        List<ItemEntity> itemEntities = this.mc.level.getEntitiesOfClass(ItemEntity.class, this.mc.player.getBoundingBox().inflate(5.0F), entity -> HeItemUtils.isShulkerBox(entity.getItem().getItem()));
+        List<ItemEntity> itemEntities = this.mc.world.getEntitiesByClass(ItemEntity.class, this.mc.player.getBoundingBox().expand(5.0F), entity -> HeItemUtils.isShulkerBox(entity.getStack().getItem()));
         if (!itemEntities.isEmpty()) {
             ItemEntity itemEntity = itemEntities.getFirst();
             BlockPos targetPos = null;
             if (itemEntity.getY() != (double) this.mc.player.getBlockY()) {
-                targetPos = HePosUtils.getBlockPos(itemEntity.position());
+                targetPos = HePosUtils.getBlockPos(itemEntity.getEntityPos());
             }
             if (targetPos == null) {
-                targetPos = itemEntity.blockPosition();
+                targetPos = itemEntity.getBlockPos();
             }
             this.gotoTargetIfNeed(targetPos, 0, Steps.NEXT, "捡kit");
         } else {
@@ -271,7 +270,7 @@ public class AutoKit extends WarehouseModule {
             } else {
                 this.currentPos = this.warehouseHelper.getUnmappedPosition(itemBo);
                 this.currentItem = itemBo;
-                BlockState state = this.mc.level.getBlockState(this.currentPos.getKitPos());
+                BlockState state = this.mc.world.getBlockState(this.currentPos.getKitPos());
                 if (state.isAir()) {
                     this.info("需要放kit");
                     this.closeNext(Steps.PLACE_KIT);
@@ -284,7 +283,7 @@ public class AutoKit extends WarehouseModule {
                 } else {
                     this.openChest(this.currentPos.getKitPos(), container -> {
                         Integer need = this.needed.get(itemBo);
-                        int takeCount = Math.min(need, itemBo.getItem().getDefaultMaxStackSize());
+                        int takeCount = Math.min(need, itemBo.getItem().getMaxCount());
                         ItemStack stack = this.findScreenStack(s -> itemBo.isSameItem(s) && s.getCount() >= takeCount);
                         if (stack.isEmpty()) {
                             this.breakPos = this.currentPos;
@@ -316,7 +315,7 @@ public class AutoKit extends WarehouseModule {
                 this.info("放物品但身上没有, next");
                 this.closeNext(Steps.NEXT);
             } else {
-                BlockState state = this.mc.level.getBlockState(this.finishPos.getKitPos());
+                BlockState state = this.mc.world.getBlockState(this.finishPos.getKitPos());
                 if (state.isAir()) {
                     this.info("需要补空盒");
                     this.closeNext(Steps.PLACE_EMPTY_KIT);
@@ -331,7 +330,7 @@ public class AutoKit extends WarehouseModule {
                         if (this.isContainerFull()) {
                             this.kitFull();
                         } else {
-                            ItemStack slotStack = container.getSlot(this.templateIndex).getItem();
+                            ItemStack slotStack = container.getSlot(this.templateIndex).getStack();
                             if (slotStack.isEmpty()) {
                                 int slot = this.getCurPlayerSlot();
                                 if (qty.getCount() == stack.getCount()) {

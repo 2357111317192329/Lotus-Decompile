@@ -87,34 +87,32 @@ import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.meteorclient.utils.player.SlotUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AnvilScreen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ServerboundRenameItemPacket;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.AnvilMenu;
-import net.minecraft.world.inventory.CartographyTableMenu;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.MapItem;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.AnvilBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.block.AnvilBlock;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.FilledMapItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.map.MapState;
+import net.minecraft.network.packet.c2s.play.RenameItemC2SPacket;
+import net.minecraft.screen.AnvilScreenHandler;
+import net.minecraft.screen.CartographyTableScreenHandler;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.text.Text;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -253,7 +251,7 @@ public class AutoPrinterMap extends WalkModule {
             for (BlockPos pos : scanPosList) {
                 BlockState schematicState = this.schematicWorld.getBlockState(pos);
                 if (schematicState.isAir()) continue;
-                BlockState worldState = this.mc.level.getBlockState(pos);
+                BlockState worldState = this.mc.world.getBlockState(pos);
                 Item item = schematicState.getBlock().asItem();
                 if (item == worldState.getBlock().asItem()) continue;
                 if (!worldState.isAir() && worldState.getBlock() != Blocks.WATER) {
@@ -273,8 +271,8 @@ public class AutoPrinterMap extends WalkModule {
                 return;
             }
         }
-        AABB playerBox = this.mc.player.getBoundingBox();
-        if (!playerBox.intersects(new AABB(this.currentPrintPos))) {
+        Box playerBox = this.mc.player.getBoundingBox();
+        if (!playerBox.intersects(new Box(this.currentPrintPos))) {
             this.gotoTarget(this.currentPrintPos, 0, Steps.MOVEMENT);
             return;
         }
@@ -291,7 +289,7 @@ public class AutoPrinterMap extends WalkModule {
                 this.countRowNeeds();
                 return;
             }
-            if (playerBox.intersects(new AABB(pos))) continue;
+            if (playerBox.intersects(new Box(pos))) continue;
             blocked = false;
             if (this.currentRow % 2 == 0) {
                 if (pos.getX() >= this.currentPrintPos.getX() - this.printRange.get()) continue;
@@ -319,9 +317,9 @@ public class AutoPrinterMap extends WalkModule {
                 offsets3[2] = -2;
             }
             for (int offset : offsets) {
-                BlockPos checkPos = this.currentPrintPos.offset(offset, 0, 0);
+                BlockPos checkPos = this.currentPrintPos.add(offset, 0, 0);
                 BlockState schematicState = this.schematicWorld.getBlockState(checkPos);
-                if (!schematicState.isAir() && !HeItemUtils.isCarpet(this.mc.level.getBlockState(checkPos).getBlock().asItem())) continue;
+                if (!schematicState.isAir() && !HeItemUtils.isCarpet(this.mc.world.getBlockState(checkPos).getBlock().asItem())) continue;
                 this.gotoTarget(checkPos, 0, Steps.MOVEMENT);
                 return;
             }
@@ -342,13 +340,13 @@ public class AutoPrinterMap extends WalkModule {
             this.setDelay(this.pauseTicks.get());
             return;
         }
-        MapItemSavedData mapState = MapItem.getSavedData(filledMapStack, (Level)this.mc.level);
+        MapState mapState = FilledMapItem.getMapState(filledMapStack, (World)this.mc.world);
         if (!mapState.locked) {
             this.step = Steps.LOCK;
             return;
         }
         if (this.autoNaming.get()) {
-            Component customName = filledMapStack.getHoverName();
+            Text customName = filledMapStack.getName();
             if (customName == null || !this.mapName.equals(customName.getString())) {
                 this.step = Steps.USE;
                 return;
@@ -368,7 +366,7 @@ public class AutoPrinterMap extends WalkModule {
     }
 
     private void lockMap() {
-        if (this.mc.level.getBlockState(this.cartographyTablePos).getBlock() != Blocks.CARTOGRAPHY_TABLE) {
+        if (this.mc.world.getBlockState(this.cartographyTablePos).getBlock() != Blocks.CARTOGRAPHY_TABLE) {
             this.warning("制图台位置错误, 稍后重启", new Object[0]);
             this.restartFrom(Steps.LOCK);
             return;
@@ -379,7 +377,7 @@ public class AutoPrinterMap extends WalkModule {
             this.gotoTarget(targetPos, 0, Steps.LOCK);
             return;
         }
-        if (this.mc.player.containerMenu instanceof InventoryMenu) {
+        if (this.mc.player.currentScreenHandler instanceof PlayerScreenHandler) {
             if (targetPos != this.cartographyTablePos) {
                 HeBlockUtils.open(this.cartographyTablePos, Direction.UP);
             } else {
@@ -387,24 +385,24 @@ public class AutoPrinterMap extends WalkModule {
             }
             this.setDelay();
         } else {
-            AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
-            if (screenHandler instanceof CartographyTableMenu) {
-                CartographyTableMenu cartographyHandler = (CartographyTableMenu)screenHandler;
-                if (cartographyHandler.getSlot(0).getItem().isEmpty()) {
+            ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
+            if (screenHandler instanceof CartographyTableScreenHandler) {
+                CartographyTableScreenHandler cartographyHandler = (CartographyTableScreenHandler)screenHandler;
+                if (cartographyHandler.getSlot(0).getStack().isEmpty()) {
                     ItemStack filledMapStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.FILLED_MAP);
                     if (filledMapStack.isEmpty()) {
                         this.warning("身上没有已绘制的地图, 重新绘制", new Object[0]);
                         this.closeNext(Steps.SUPPLY);
                         return;
                     }
-                    MapItemSavedData mapState = MapItem.getSavedData(filledMapStack, (Level)this.mc.level);
+                    MapState mapState = FilledMapItem.getMapState(filledMapStack, (World)this.mc.world);
                     if (mapState.locked) {
                         this.info("已锁定, 不需要锁定", new Object[0]);
                         this.closeNext(Steps.USE);
                         return;
                     }
                     InvUtils.shiftClick().slot(this.getCurPlayerSlot());
-                } else if (cartographyHandler.getSlot(1).getItem().isEmpty()) {
+                } else if (cartographyHandler.getSlot(1).getStack().isEmpty()) {
                     ItemStack glassPaneStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.GLASS_PANE);
                     if (glassPaneStack.isEmpty()) {
                         this.warning("身上没有玻璃板, 去补给", new Object[0]);
@@ -412,7 +410,7 @@ public class AutoPrinterMap extends WalkModule {
                         return;
                     }
                     InvUtils.shiftClick().slot(this.getCurPlayerSlot());
-                } else if (!cartographyHandler.getSlot(2).getItem().isEmpty()) {
+                } else if (!cartographyHandler.getSlot(2).getStack().isEmpty()) {
                     this.info("锁定地图", new Object[0]);
                     InvUtils.shiftClick().slotId(2);
                     this.closeNext(this.autoNaming.get() ? Steps.USE : Steps.PUT);
@@ -427,10 +425,10 @@ public class AutoPrinterMap extends WalkModule {
             this.putMap();
             return;
         }
-        AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
-        if (screenHandler instanceof AnvilMenu) {
-            AnvilMenu anvilHandler = (AnvilMenu)screenHandler;
-            if (anvilHandler.getSlot(0).getItem().isEmpty()) {
+        ScreenHandler screenHandler = this.mc.player.currentScreenHandler;
+        if (screenHandler instanceof AnvilScreenHandler) {
+            AnvilScreenHandler anvilHandler = (AnvilScreenHandler)screenHandler;
+            if (anvilHandler.getSlot(0).getStack().isEmpty()) {
                 ItemStack mapStack = this.nextPlayerStack(this::needsNaming);
                 if (mapStack.isEmpty()) {
                     this.closeNext(Steps.PUT);
@@ -438,8 +436,8 @@ public class AutoPrinterMap extends WalkModule {
                 }
                 InvUtils.shiftClick().slot(this.getCurPlayerSlot());
             } else {
-                ItemStack resultStack = anvilHandler.getSlot(2).getItem();
-                Component resultName = resultStack.getHoverName();
+                ItemStack resultStack = anvilHandler.getSlot(2).getStack();
+                Text resultName = resultStack.getName();
                 if (resultName != null && this.mapName.equals(resultName.getString())) {
                     this.info("命名完成: %s", new Object[]{this.mapName});
                     InvUtils.shiftClick().slotId(2);
@@ -447,8 +445,8 @@ public class AutoPrinterMap extends WalkModule {
                     return;
                 }
                 this.info("命名地图: %s", new Object[]{this.mapName});
-                anvilHandler.setItemName(this.mapName);
-                this.mc.getConnection().send(new ServerboundRenameItemPacket(this.mapName));
+                anvilHandler.setNewItemName(this.mapName);
+                this.mc.getNetworkHandler().sendPacket(new RenameItemC2SPacket(this.mapName));
             }
             this.setDelay();
         } else if (this.mc.player.experienceLevel < 1) {
@@ -458,7 +456,7 @@ public class AutoPrinterMap extends WalkModule {
                 this.step = Steps.SUPPLY;
             } else {
                 HeInvUtils.swapTo(this.getCurPlayerSlot());
-                Rotations.rotate(this.mc.player.getYRot(), 90.0, () -> this.mc.gameMode.useItem(this.mc.player, InteractionHand.MAIN_HAND));
+                Rotations.rotate(this.mc.player.getYaw(), 90.0, () -> this.mc.interactionManager.interactItem(this.mc.player, Hand.MAIN_HAND));
                 this.setDelay(20);
             }
         } else {
@@ -466,7 +464,7 @@ public class AutoPrinterMap extends WalkModule {
             if (this.isTooFar(targetPos, 1.0)) {
                 this.info("前往铁砧", new Object[0]);
                 this.gotoTarget(targetPos, 0, Steps.USE);
-            } else if (!(this.mc.level.getBlockState(this.anvilPos).getBlock() instanceof AnvilBlock)) {
+            } else if (!(this.mc.world.getBlockState(this.anvilPos).getBlock() instanceof AnvilBlock)) {
                 ItemStack anvilStack = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.ANVIL);
                 if (anvilStack.isEmpty()) {
                     this.info("铁砧损坏且背包没有铁砧, 前往补给", new Object[0]);
@@ -477,7 +475,7 @@ public class AutoPrinterMap extends WalkModule {
                     HeBlockUtils.clickAdjacentBlock(this.anvilPos);
                     this.setDelay();
                 }
-            } else if (this.mc.player.containerMenu instanceof InventoryMenu) {
+            } else if (this.mc.player.currentScreenHandler instanceof PlayerScreenHandler) {
                 if (targetPos != this.anvilPos) {
                     HeBlockUtils.open(this.anvilPos, Direction.UP);
                 } else {
@@ -492,7 +490,7 @@ public class AutoPrinterMap extends WalkModule {
         if (stack.getItem() != Items.FILLED_MAP) {
             return false;
         }
-        Component customName = stack.getHoverName();
+        Text customName = stack.getName();
         return customName == null || !this.mapName.equals(customName.getString());
     }
 
@@ -503,7 +501,7 @@ public class AutoPrinterMap extends WalkModule {
             this.step = Steps.LOCK;
             return;
         }
-        if (!(this.mc.player.containerMenu instanceof InventoryMenu)) {
+        if (!(this.mc.player.currentScreenHandler instanceof PlayerScreenHandler)) {
             this.closeNext(Steps.DRAW);
             return;
         }
@@ -524,18 +522,18 @@ public class AutoPrinterMap extends WalkModule {
             return;
         }
         this.warning("绘制地图, 并等待加载...", new Object[0]);
-        this.mc.gameMode.useItem((Player)this.mc.player, InteractionHand.MAIN_HAND);
+        this.mc.interactionManager.interactItem((PlayerEntity)this.mc.player, Hand.MAIN_HAND);
         this.setDelay(this.pauseTicks.get());
     }
 
     private void supply() {
-        Inventory playerInventory = this.mc.player.getInventory();
+        PlayerInventory playerInventory = this.mc.player.getInventory();
         boolean hasEmptyMaps = false;
         boolean hasGlassPanes = false;
         boolean hasAnvils = false;
         boolean hasXpBottles = false;
         for (int i = 0; i < 36; ++i) {
-            Item item = playerInventory.getItem(i).getItem();
+            Item item = playerInventory.getStack(i).getItem();
             if (item == Items.GLASS_PANE) {
                 hasGlassPanes = true;
                 continue;
@@ -552,7 +550,7 @@ public class AutoPrinterMap extends WalkModule {
                 hasXpBottles = true;
             }
         }
-        boolean needAnvil = !hasAnvils && !(this.mc.level.getBlockState(this.anvilPos).getBlock() instanceof AnvilBlock);
+        boolean needAnvil = !hasAnvils && !(this.mc.world.getBlockState(this.anvilPos).getBlock() instanceof AnvilBlock);
         boolean needXp = !hasXpBottles && this.mc.player.experienceLevel < 1;
         if (hasEmptyMaps && hasGlassPanes && !needAnvil && !needXp) {
             this.closeNext(Steps.DRAW);
@@ -611,7 +609,7 @@ public class AutoPrinterMap extends WalkModule {
                 this.currentBreakPos = (BlockPos)this.breakQueue.removeFirst();
             }
             BlockState schematicState = this.schematicWorld.getBlockState(this.currentBreakPos);
-            BlockState worldState = this.mc.level.getBlockState(this.currentBreakPos);
+            BlockState worldState = this.mc.world.getBlockState(this.currentBreakPos);
             Item item = schematicState.getBlock().asItem();
             if (item != worldState.getBlock().asItem() && !worldState.isAir()) break;
             this.currentBreakPos = null;
@@ -634,8 +632,8 @@ public class AutoPrinterMap extends WalkModule {
             }
             List<BlockPos> rowPosList = this.printRows.get(this.currentRow);
             int index = Math.clamp((long)this.rowIndex, (int)0, (int)(rowPosList.size() - 1));
-            Vec3 targetCenter = rowPosList.get(index).getCenter();
-            Vec3 playerPos = this.mc.player.position();
+            Vec3d targetCenter = rowPosList.get(index).toCenterPos();
+            Vec3d playerPos = this.mc.player.getEntityPos();
             double nearestDistance = Double.MAX_VALUE;
             BlockPos nearestPos = null;
             Item nearestItem = null;
@@ -643,7 +641,7 @@ public class AutoPrinterMap extends WalkModule {
                 List<BlockPos> chestPosList = this.itemChestPosMap.get(item);
                 for (BlockPos chestPos : chestPosList) {
                     double playerDistance;
-                    Vec3 chestCenter = chestPos.getCenter();
+                    Vec3d chestCenter = chestPos.toCenterPos();
                     double distance = targetCenter.distanceTo(chestCenter);
                     double minDistance = Math.min(distance, playerDistance = playerPos.distanceTo(chestCenter));
                     if (!(minDistance < nearestDistance)) continue;
@@ -670,7 +668,7 @@ public class AutoPrinterMap extends WalkModule {
         if (itemClearUp.isSortingInProgress() || ((BaseModule)itemClearUp).getDelayTimer() > 0) {
             return;
         }
-        this.openChest(this.restockPos, (AbstractContainerMenu screenHandler) -> {
+        this.openChest(this.restockPos, (ScreenHandler screenHandler) -> {
             if (this.isInvFull()) {
                 ItemStack foundStack;
                 this.info("背包满了, 尝试清理", new Object[0]);
@@ -753,10 +751,10 @@ public class AutoPrinterMap extends WalkModule {
             endIndex = Math.min(endIndex, 127);
             for (int x = startIndex = Math.clamp((long)startIndex, (int)0, (int)(endIndex - range)); x <= endIndex; ++x) {
                 for (int z = 0; z < 128; ++z) {
-                    BlockPos pos = this.mapOrigin.offset(z, 0, x);
+                    BlockPos pos = this.mapOrigin.add(z, 0, x);
                     BlockState schematicState = this.schematicWorld.getBlockState(pos);
                     if (schematicState.isAir()) continue;
-                    BlockState worldState = this.mc.level.getBlockState(pos);
+                    BlockState worldState = this.mc.world.getBlockState(pos);
                     Item item = schematicState.getBlock().asItem();
                     if (item == worldState.getBlock().asItem()) continue;
                     if (worldState.getBlock() == Blocks.VOID_AIR) {
@@ -784,10 +782,10 @@ public class AutoPrinterMap extends WalkModule {
     }
 
     private Map<Item, Integer> countInventoryCarpets() {
-        Inventory playerInventory = this.mc.player.getInventory();
+        PlayerInventory playerInventory = this.mc.player.getInventory();
         HashMap<Item, Integer> carpetCountMap = new HashMap<Item, Integer>();
         for (int i = 0; i < 36; ++i) {
-            ItemStack stack = playerInventory.getItem(i);
+            ItemStack stack = playerInventory.getStack(i);
             Item item = stack.getItem();
             if (!HeItemUtils.isCarpet(item)) continue;
             carpetCountMap.merge(item, stack.getCount(), Integer::sum);
@@ -849,26 +847,26 @@ public class AutoPrinterMap extends WalkModule {
             return;
         }
         this.initSetting.set(false);
-        if (this.mc.player == null || this.mc.level == null) {
+        if (this.mc.player == null || this.mc.world == null) {
             this.warning("玩家或世界未加载", new Object[0]);
             return;
         }
         this.resetState();
-        BlockPos playerPos = this.mc.player.blockPosition();
+        BlockPos playerPos = this.mc.player.getBlockPos();
         int originX = Math.floorDiv(playerPos.getX() + 64, 128) * 128 - 64;
         int originZ = Math.floorDiv(playerPos.getZ() + 64, 128) * 128 - 64;
         this.mapOrigin = new BlockPos(originX, playerPos.getY(), originZ);
         int searchRange = 128;
-        AABB searchBox = new AABB((double)(playerPos.getX() - searchRange), (double)(playerPos.getY() - 2), (double)(playerPos.getZ() - searchRange), (double)(playerPos.getX() + searchRange), (double)(playerPos.getY() + 4), (double)(playerPos.getZ() + searchRange));
-        List<ItemFrame> itemFrames = this.mc.level.getEntitiesOfClass(ItemFrame.class, searchBox, itemFrame -> !itemFrame.getItem().isEmpty());
+        Box searchBox = new Box((double)(playerPos.getX() - searchRange), (double)(playerPos.getY() - 2), (double)(playerPos.getZ() - searchRange), (double)(playerPos.getX() + searchRange), (double)(playerPos.getY() + 4), (double)(playerPos.getZ() + searchRange));
+        List<ItemFrameEntity> itemFrames = this.mc.world.getEntitiesByClass(ItemFrameEntity.class, searchBox, itemFrame -> !itemFrame.getHeldItemStack().isEmpty());
         this.itemChestPosMap.clear();
-        for (ItemFrame itemFrame : itemFrames) {
-            BlockPos attachedPos = itemFrame.getPos();
+        for (ItemFrameEntity itemFrame : itemFrames) {
+            BlockPos attachedPos = itemFrame.getAttachedBlockPos();
             if (attachedPos == null) continue;
-            BlockPos chestPos = attachedPos.relative(itemFrame.getNearestViewDirection().getOpposite());
-            Block chestBlock = this.mc.level.getBlockState(chestPos).getBlock();
+            BlockPos chestPos = attachedPos.offset(itemFrame.getFacing().getOpposite());
+            Block chestBlock = this.mc.world.getBlockState(chestPos).getBlock();
             if (chestBlock != Blocks.CHEST && chestBlock != Blocks.TRAPPED_CHEST) continue;
-            ItemStack heldStack = itemFrame.getItem();
+            ItemStack heldStack = itemFrame.getHeldItemStack();
             Item item = heldStack.getItem();
             if (item == Items.REDSTONE) {
                 this.supplyChestPos = chestPos;
@@ -890,7 +888,7 @@ public class AutoPrinterMap extends WalkModule {
             this.warning("未识别到<输出>容器", new Object[0]);
             return;
         }
-        this.mapCenter = this.mapOrigin.offset(64, 0, 64);
+        this.mapCenter = this.mapOrigin.add(64, 0, 64);
         this.cartographyTablePos = this.findCartographyTable();
         if (this.cartographyTablePos == null) {
             this.warning("未识别到<制图台>", new Object[0]);
@@ -920,34 +918,34 @@ public class AutoPrinterMap extends WalkModule {
         do {
             List<BlockPos> row = new ArrayList<BlockPos>();
             for (int x = startX; x <= endX; x += step) {
-                row.add(this.mapOrigin.offset(x, 0, z));
+                row.add(this.mapOrigin.add(x, 0, z));
             }
-            row.add(this.mapOrigin.offset(127, 0, z));
+            row.add(this.mapOrigin.add(127, 0, z));
             this.printRows.add(row);
             if ((z += rowStride) >= 128) {
                 if (z < 128 + range) {
                     ArrayList<BlockPos> edgeRow = new ArrayList<BlockPos>();
                     for (int x = endX; x >= 0; x -= step) {
-                        edgeRow.add(this.mapOrigin.offset(x, 0, endX));
+                        edgeRow.add(this.mapOrigin.add(x, 0, endX));
                     }
-                    edgeRow.add(this.mapOrigin.offset(0, 0, z));
+                    edgeRow.add(this.mapOrigin.add(0, 0, z));
                     this.printRows.add(edgeRow);
                 }
                 break;
             }
             List<BlockPos> returnRow = new ArrayList<BlockPos>();
             for (int x = endX; x >= 0; x -= step) {
-                returnRow.add(this.mapOrigin.offset(x, 0, z));
+                returnRow.add(this.mapOrigin.add(x, 0, z));
             }
-            returnRow.add(this.mapOrigin.offset(0, 0, z));
+            returnRow.add(this.mapOrigin.add(0, 0, z));
             this.printRows.add(returnRow);
         } while ((z += rowStride) < 128);
         if (z < 128 + range) {
             ArrayList<BlockPos> edgeRow = new ArrayList<BlockPos>();
             for (int x = startX; x < 128; x += step) {
-                edgeRow.add(this.mapOrigin.offset(x, 0, endX));
+                edgeRow.add(this.mapOrigin.add(x, 0, endX));
             }
-            edgeRow.add(this.mapOrigin.offset(127, 0, z));
+            edgeRow.add(this.mapOrigin.add(127, 0, z));
             this.printRows.add(edgeRow);
         }
         int supplyPointCount = this.itemChestPosMap.values().stream().mapToInt(List::size).sum();
@@ -959,8 +957,8 @@ public class AutoPrinterMap extends WalkModule {
         for (int y = -2; y <= 1; ++y) {
             for (int x = -searchRange; x < searchRange; ++x) {
                 for (int z = -searchRange; z < searchRange; ++z) {
-                    BlockPos pos = this.mapCenter.offset(x, y, z);
-                    Block block = this.mc.level.getBlockState(pos).getBlock();
+                    BlockPos pos = this.mapCenter.add(x, y, z);
+                    Block block = this.mc.world.getBlockState(pos).getBlock();
                     if (block != Blocks.CARTOGRAPHY_TABLE) continue;
                     return pos;
                 }
@@ -974,8 +972,8 @@ public class AutoPrinterMap extends WalkModule {
         for (int y = -2; y <= 1; ++y) {
             for (int x = -searchRange; x < searchRange; ++x) {
                 for (int z = -searchRange; z < searchRange; ++z) {
-                    BlockPos pos = this.mapCenter.offset(x, y, z);
-                    Block block = this.mc.level.getBlockState(pos).getBlock();
+                    BlockPos pos = this.mapCenter.add(x, y, z);
+                    Block block = this.mc.world.getBlockState(pos).getBlock();
                     if (!(block instanceof AnvilBlock)) continue;
                     return pos;
                 }
@@ -997,14 +995,14 @@ public class AutoPrinterMap extends WalkModule {
             int startX;
             for (int x = startX = Math.max(-range - rowWidth, this.mapOrigin.getX() - pos.getX()); x <= 1; ++x) {
                 for (int z = -range; z <= range; ++z) {
-                    scanPositions.add(pos.offset(x, 0, z));
+                    scanPositions.add(pos.add(x, 0, z));
                 }
             }
         } else {
             int startX;
             for (int x = startX = Math.min(range + rowWidth, this.mapOrigin.getX() + 127 - pos.getX()); x >= -1; --x) {
                 for (int z = -range; z <= range; ++z) {
-                    scanPositions.add(pos.offset(x, 0, z));
+                    scanPositions.add(pos.add(x, 0, z));
                 }
             }
         }
@@ -1036,10 +1034,10 @@ public class AutoPrinterMap extends WalkModule {
             ++value;
         }
         for (int offset : offsets) {
-            BlockPos checkPos = pos.offset(z, 0, offset);
+            BlockPos checkPos = pos.add(z, 0, offset);
             BlockState schematicState = this.schematicWorld.getBlockState(checkPos);
             if (schematicState.isAir()) continue;
-            BlockState worldState = this.mc.level.getBlockState(checkPos);
+            BlockState worldState = this.mc.world.getBlockState(checkPos);
             Item item = schematicState.getBlock().asItem();
             Block worldBlock = worldState.getBlock();
             if (item == worldBlock.asItem() || !worldState.isAir() && worldBlock != Blocks.WATER) continue;
@@ -1054,8 +1052,8 @@ public class AutoPrinterMap extends WalkModule {
             itemClearUp.toggle();
             return;
         }
-        if (!(this.mc.screen instanceof InventoryScreen)) {
-            this.mc.setScreen((Screen)new InventoryScreen((Player)this.mc.player));
+        if (!(this.mc.currentScreen instanceof InventoryScreen)) {
+            this.mc.setScreen((Screen)new InventoryScreen((PlayerEntity)this.mc.player));
             this.setDelay();
             return;
         }
@@ -1090,7 +1088,7 @@ public class AutoPrinterMap extends WalkModule {
             if (this.currentPrintPos == null) {
                 return Collections.emptyList();
             }
-            if (this.mc.player.position().distanceTo(this.currentPrintPos.getCenter()) > 10.0) {
+            if (this.mc.player.getEntityPos().distanceTo(this.currentPrintPos.toCenterPos()) > 10.0) {
                 return Collections.emptyList();
             }
             return this.getNeededPositions(this.currentPrintPos);

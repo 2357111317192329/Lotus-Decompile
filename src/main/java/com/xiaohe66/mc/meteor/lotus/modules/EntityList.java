@@ -74,20 +74,20 @@ import meteordevelopment.meteorclient.utils.render.RenderUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.components.toasts.Toast;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.toast.Toast;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
 public class EntityList
 extends Module {
@@ -276,17 +276,17 @@ extends Module {
         }
         this.renderFlag = false;
         this.clearLists();
-        ResourceKey worldKey = this.mc.player.level().dimension();
+        RegistryKey worldKey = this.mc.player.getEntityWorld().getRegistryKey();
         Set displayEntities;
-        if (worldKey == ServerLevel.NETHER) {
+        if (worldKey == ServerWorld.NETHER) {
             displayEntities = this.netherEntitys.get();
-        } else if (worldKey == ServerLevel.OVERWORLD) {
+        } else if (worldKey == ServerWorld.OVERWORLD) {
             displayEntities = this.entitys.get();
         } else {
             displayEntities = this.endEntitys.get();
         }
-        Vec3 cameraPos = HePosUtils.getCameraPos();
-        for (Entity entity : this.mc.level.entitiesForRendering()) {
+        Vec3d cameraPos = HePosUtils.getCameraPos();
+        for (Entity entity : this.mc.world.getEntities()) {
             if (entity instanceof ItemEntity) {
                 ItemEntity itemEntity = (ItemEntity)entity;
                 this.handleItemEntity(entity, cameraPos, itemEntity);
@@ -316,34 +316,34 @@ extends Module {
         SettingColor color = this.items1Color.get();
         this.lineRenderColor.set(color);
         this.fillRenderColor.set(color).a((int)((double)color.a * this.fillOpacity.get()));
-        for (Entity entity : this.mc.level.entitiesForRendering()) {
+        for (Entity entity : this.mc.world.getEntities()) {
             if (!(entity instanceof ItemEntity)) continue;
             ItemEntity itemEntity = (ItemEntity)entity;
-            Item item = itemEntity.getItem().getItem();
+            Item item = itemEntity.getStack().getItem();
             if (!this.items1Set.contains(item) || this.blackListSet.contains(item)) continue;
-            double dx = Mth.lerp((double)event.tickDelta, entity.xOld, entity.getX()) - entity.getX();
-            double dy = Mth.lerp((double)event.tickDelta, entity.yOld, entity.getY()) - entity.getY();
-            double dz = Mth.lerp((double)event.tickDelta, entity.zOld, entity.getZ()) - entity.getZ();
-            AABB box = entity.getBoundingBox();
+            double dx = MathHelper.lerp((double)event.tickDelta, entity.lastRenderX, entity.getX()) - entity.getX();
+            double dy = MathHelper.lerp((double)event.tickDelta, entity.lastRenderY, entity.getY()) - entity.getY();
+            double dz = MathHelper.lerp((double)event.tickDelta, entity.lastRenderZ, entity.getZ()) - entity.getZ();
+            Box box = entity.getBoundingBox();
             event.renderer.box(dx + box.minX, dy + box.minY, dz + box.minZ, dx + box.maxX, dy + box.maxY, dz + box.maxZ, this.fillRenderColor, this.lineRenderColor, this.renderMode.get(), 0);
-            if (this.connectionLine.get() && !this.mc.options.hideGui) {
+            if (this.connectionLine.get() && !this.mc.options.hudHidden) {
                 double height = box.maxY - box.minY;
                 event.renderer.line(RenderUtils.center.x, RenderUtils.center.y, RenderUtils.center.z, entity.getX() + dx, entity.getY() + dy + height / 2.0, entity.getZ() + dz, this.lineRenderColor);
             }
         }
     }
 
-    private void handleEntity(Entity entity, Vec3 cameraPos, Set<EntityType<?>> displayEntities) {
+    private void handleEntity(Entity entity, Vec3d cameraPos, Set<EntityType<?>> displayEntities) {
         EntityType entityType = entity.getType();
         if (!displayEntities.contains(entityType)) {
             return;
         }
         if (entityType == EntityType.PLAYER) {
             if (entity != this.mc.player && this.nonFriendPlayers.size() + this.friendPlayers.size() < this.playerLimit.get()) {
-                Player playerEntity = (Player)entity;
+                PlayerEntity playerEntity = (PlayerEntity)entity;
                 String playerName = playerEntity.getName().getString();
                 Item armorItem = this.getArmorType(playerEntity);
-                float distance = (float)cameraPos.distanceTo(entity.position());
+                float distance = (float)cameraPos.distanceTo(entity.getEntityPos());
                 PlayerWarp playerWarp = new PlayerWarp(playerName, armorItem, distance);
                 boolean isFriend = Friends.get().get(playerName) != null;
                 if (isFriend) {
@@ -358,11 +358,11 @@ extends Module {
         }
     }
 
-    private Item getArmorType(Player playerEntity) {
-        Item head = playerEntity.getItemBySlot(EquipmentSlot.HEAD).getItem();
-        Item chest = playerEntity.getItemBySlot(EquipmentSlot.CHEST).getItem();
-        Item legs = playerEntity.getItemBySlot(EquipmentSlot.LEGS).getItem();
-        Item feet = playerEntity.getItemBySlot(EquipmentSlot.FEET).getItem();
+    private Item getArmorType(PlayerEntity playerEntity) {
+        Item head = playerEntity.getEquippedStack(EquipmentSlot.HEAD).getItem();
+        Item chest = playerEntity.getEquippedStack(EquipmentSlot.CHEST).getItem();
+        Item legs = playerEntity.getEquippedStack(EquipmentSlot.LEGS).getItem();
+        Item feet = playerEntity.getEquippedStack(EquipmentSlot.FEET).getItem();
         if (HeItemUtils.allAir(head, chest, legs, feet)) {
             return Items.AIR;
         }
@@ -372,8 +372,8 @@ extends Module {
         return Items.NETHERITE_BLOCK;
     }
 
-    private void handleItemEntity(Entity entity, Vec3 cameraPos, ItemEntity itemEntity) {
-        ItemStack stack = itemEntity.getItem();
+    private void handleItemEntity(Entity entity, Vec3d cameraPos, ItemEntity itemEntity) {
+        ItemStack stack = itemEntity.getStack();
         Item item = stack.getItem();
         if (this.blackListSet.contains(item)) {
             return;
@@ -382,7 +382,7 @@ extends Module {
         ItemWarp itemWarp = targetMap.computeIfAbsent(item, k -> new ItemWarp());
         itemWarp.setItem(item);
         itemWarp.setCount(itemWarp.getCount() + stack.getCount());
-        float distance = (float)cameraPos.distanceTo(entity.position());
+        float distance = (float)cameraPos.distanceTo(entity.getEntityPos());
         if (distance < itemWarp.getMinDistance()) {
             itemWarp.setMinDistance(distance);
         }
@@ -400,7 +400,7 @@ extends Module {
         } else if (now - this.startTime > (long)this.sendNotificationsCheckSeconds.get() * 1000L && now - this.prevTime > (long)this.sendNotificationsIntervalSeconds.get() * 1000L) {
             this.info("捡东西啦", new Object[0]);
             MeteorToast meteorToast = new MeteorToast.Builder(this.title).icon(Items.CHEST).text("捡东西啦~").build();
-            this.mc.getToastManager().addToast((Toast)meteorToast);
+            this.mc.getToastManager().add((Toast)meteorToast);
             this.prevTime = now;
         }
     }
@@ -468,7 +468,7 @@ extends Module {
         textRenderer.begin(this.scale.get());
         if (this.displaySide.get() == DisplaySide.Right) {
             int textWidth = (int)textRenderer.getWidth(text);
-            xPos = this.mc.getWindow().getScreenWidth() - textWidth - this.xOffset.get();
+            xPos = this.mc.getWindow().getWidth() - textWidth - this.xOffset.get();
         } else {
             xPos = this.xOffset.get();
         }

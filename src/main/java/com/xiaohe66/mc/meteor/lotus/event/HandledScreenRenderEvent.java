@@ -8,14 +8,14 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
 import com.xiaohe66.mc.meteor.lotus.event.Event;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.world.inventory.Slot;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.screen.slot.Slot;
 
 public class HandledScreenRenderEvent extends Event {
     private static final HandledScreenRenderEvent INSTANCE = new HandledScreenRenderEvent();
-    private GuiGraphicsExtractor drawContext;
-    private Font textRenderer;
+    private DrawContext drawContext;
+    private TextRenderer textRenderer;
     private int mouseX;
     private int mouseY;
     private Slot hoveredSlot;
@@ -24,7 +24,7 @@ public class HandledScreenRenderEvent extends Event {
         super(Stage.Post);
     }
 
-    public static HandledScreenRenderEvent get(GuiGraphicsExtractor drawContext, Font textRenderer, int mouseX, int mouseY, Slot hoveredSlot) {
+    public static HandledScreenRenderEvent get(DrawContext drawContext, TextRenderer textRenderer, int mouseX, int mouseY, Slot hoveredSlot) {
         INSTANCE.drawContext = drawContext;
         INSTANCE.textRenderer = textRenderer;
         INSTANCE.mouseX = mouseX;
@@ -33,11 +33,11 @@ public class HandledScreenRenderEvent extends Event {
         return INSTANCE;
     }
 
-    public GuiGraphicsExtractor getDrawContext() {
+    public DrawContext getDrawContext() {
         return this.drawContext;
     }
 
-    public Font getTextRenderer() {
+    public TextRenderer getTextRenderer() {
         return this.textRenderer;
     }
 

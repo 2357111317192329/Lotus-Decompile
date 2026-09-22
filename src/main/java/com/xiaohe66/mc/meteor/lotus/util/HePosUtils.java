@@ -45,59 +45,59 @@ import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.systems.modules.render.Freecam;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.ExperienceOrb;
-import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.projectile.arrow.Arrow;
-import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownExperienceBottle;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ButtonBlock;
-import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.ChestType;
-import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.BooleanOp;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.ButtonBlock;
+import net.minecraft.block.ChestBlock;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.ChestBlockEntity;
+import net.minecraft.block.enums.ChestType;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.ExperienceOrbEntity;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.decoration.EndCrystalEntity;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.projectile.ArrowEntity;
+import net.minecraft.entity.projectile.thrown.ExperienceBottleEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.function.BooleanBiFunction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.util.shape.VoxelShapes;
+import net.minecraft.world.BlockView;
+import net.minecraft.world.World;
 
 public class HePosUtils {
     public static boolean isEntityInside(BlockPos pos, BlockState state) {
-        VoxelShape shape = state.getCollisionShape((BlockGetter)MeteorClient.mc.level, pos);
+        VoxelShape shape = state.getCollisionShape((BlockView)MeteorClient.mc.world, pos);
         if (shape.isEmpty()) {
             return false;
         }
-        shape = shape.move((double)pos.getX(), (double)pos.getY(), (double)pos.getZ());
-        AABB box = new AABB(pos);
-        Level level0 = MeteorClient.mc.level;
-        List<Entity> list = level0.getEntities((Entity) null, box, entity -> entity.isAlive() && !(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrb) && !(entity instanceof ThrownExperienceBottle) && !(entity instanceof Arrow) && !(entity instanceof EndCrystal));
+        shape = shape.offset((double)pos.getX(), (double)pos.getY(), (double)pos.getZ());
+        Box box = new Box(pos);
+        World level0 = MeteorClient.mc.world;
+        List<Entity> list = level0.getOtherEntities((Entity) null, box, entity -> entity.isAlive() && !(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrbEntity) && !(entity instanceof ExperienceBottleEntity) && !(entity instanceof ArrowEntity) && !(entity instanceof EndCrystalEntity));
         for (Entity entity : list) {
-            if (!Shapes.joinIsNotEmpty((VoxelShape)shape, (VoxelShape)Shapes.create((AABB)entity.getBoundingBox()), (BooleanOp)BooleanOp.AND)) continue;
+            if (!VoxelShapes.matchesAnywhere((VoxelShape)shape, (VoxelShape)VoxelShapes.cuboid((Box)entity.getBoundingBox()), (BooleanBiFunction)BooleanBiFunction.AND)) continue;
             return true;
         }
         return false;
     }
 
     public static Map<ItemBo, BlockPos> getItemFrameKitPosMap(int range) {
-        List<ItemFrame> itemFrames = MeteorClient.mc.level.getEntitiesOfClass(ItemFrame.class, MeteorClient.mc.player.getBoundingBox().inflate((double)range), frame -> true);
+        List<ItemFrameEntity> itemFrames = MeteorClient.mc.world.getEntitiesByClass(ItemFrameEntity.class, MeteorClient.mc.player.getBoundingBox().expand((double)range), frame -> true);
         HashMap<ItemBo, BlockPos> kitPosMap = new HashMap<ItemBo, BlockPos>();
-        for (ItemFrame frame : itemFrames) {
+        for (ItemFrameEntity frame : itemFrames) {
             BlockPos frameBlockPos;
             BlockPos putPos;
             BlockState putPosState;
-            ItemStack frameHeldItemStack = frame.getItem();
-            if (frameHeldItemStack.isEmpty() || !HeItemUtils.isShulkerBox((putPosState = MeteorClient.mc.level.getBlockState(putPos = (frameBlockPos = frame.blockPosition()).relative(Direction.Axis.Y, -2))).getBlock().asItem())) continue;
+            ItemStack frameHeldItemStack = frame.getHeldItemStack();
+            if (frameHeldItemStack.isEmpty() || !HeItemUtils.isShulkerBox((putPosState = MeteorClient.mc.world.getBlockState(putPos = (frameBlockPos = frame.getBlockPos()).offset(Direction.Axis.Y, -2))).getBlock().asItem())) continue;
             ItemBo key = new ItemBo((ItemStack)frameHeldItemStack);
             kitPosMap.put(key, putPos);
         }
@@ -113,26 +113,26 @@ public class HePosUtils {
         return kitPosMap;
     }
 
-    public static Optional<BlockPos> getOtherChestPos(ItemFrame itemFrame) {
-        BlockPos attachedPos = itemFrame.getPos();
+    public static Optional<BlockPos> getOtherChestPos(ItemFrameEntity itemFrame) {
+        BlockPos attachedPos = itemFrame.getAttachedBlockPos();
         if (attachedPos == null) {
             return Optional.empty();
         }
-        BlockPos chestPos = attachedPos.relative(itemFrame.getNearestViewDirection().getOpposite());
-        BlockState chestState = MeteorClient.mc.level.getBlockState(chestPos);
+        BlockPos chestPos = attachedPos.offset(itemFrame.getFacing().getOpposite());
+        BlockState chestState = MeteorClient.mc.world.getBlockState(chestPos);
         if (chestState.getBlock() != Blocks.CHEST) {
             return Optional.empty();
         }
-        ChestType chestType = (ChestType)chestState.getValue((Property)ChestBlock.TYPE);
+        ChestType chestType = (ChestType)chestState.get((Property)ChestBlock.CHEST_TYPE);
         if (chestType == ChestType.SINGLE) {
             return Optional.empty();
         }
-        BlockEntity blockEntity = MeteorClient.mc.level.getBlockEntity(chestPos);
+        BlockEntity blockEntity = MeteorClient.mc.world.getBlockEntity(chestPos);
         if (!(blockEntity instanceof ChestBlockEntity)) {
             return Optional.empty();
         }
         ChestBlockEntity chestEntity = (ChestBlockEntity)blockEntity;
-        Direction facing = (Direction)chestState.getValue((Property)ChestBlock.FACING);
+        Direction facing = (Direction)chestState.get((Property)ChestBlock.FACING);
         BlockPos otherPos = null;
         if (chestType == ChestType.LEFT) {
             otherPos = HePosUtils.getRightChestPos(chestPos, facing);
@@ -142,15 +142,15 @@ public class HePosUtils {
         if (otherPos == null) {
             return Optional.empty();
         }
-        BlockState otherState = MeteorClient.mc.level.getBlockState(otherPos);
+        BlockState otherState = MeteorClient.mc.world.getBlockState(otherPos);
         if (otherState.getBlock() != Blocks.CHEST) {
             return Optional.empty();
         }
-        ChestType otherChestType = (ChestType)otherState.getValue((Property)ChestBlock.TYPE);
+        ChestType otherChestType = (ChestType)otherState.get((Property)ChestBlock.CHEST_TYPE);
         if (otherChestType == ChestType.SINGLE) {
             return Optional.empty();
         }
-        Direction otherFacing = (Direction)otherState.getValue((Property)ChestBlock.FACING);
+        Direction otherFacing = (Direction)otherState.get((Property)ChestBlock.FACING);
         if (facing != otherFacing) {
             return Optional.empty();
         }
@@ -181,49 +181,49 @@ public class HePosUtils {
         };
     }
 
-    public static Vec3 getCameraPos() {
+    public static Vec3d getCameraPos() {
         Freecam freecam = (Freecam)Modules.get().get(Freecam.class);
         if (freecam != null && freecam.isActive()) {
-            return new Vec3(freecam.pos.x, freecam.pos.y, freecam.pos.z);
+            return new Vec3d(freecam.pos.x, freecam.pos.y, freecam.pos.z);
         }
-        return MeteorClient.mc.player.position();
+        return MeteorClient.mc.player.getEntityPos();
     }
 
     public static Map<ItemBo, StoragePos> scanFrames(int range, int verticalRange) {
-        BlockPos playerPos = MeteorClient.mc.player.blockPosition();
+        BlockPos playerPos = MeteorClient.mc.player.getBlockPos();
         int x = playerPos.getX();
         int y = playerPos.getY();
         int z = playerPos.getZ();
-        List<ItemFrame> frames = MeteorClient.mc.level.getEntitiesOfClass(ItemFrame.class,
-            new AABB(x - range, y, z - range, x + range, y + verticalRange, z + range),
-            frame -> !frame.getItem().isEmpty());
-        Vec3 playerEyePos = MeteorClient.mc.player.position();
+        List<ItemFrameEntity> frames = MeteorClient.mc.world.getEntitiesByClass(ItemFrameEntity.class,
+            new Box(x - range, y, z - range, x + range, y + verticalRange, z + range),
+            frame -> !frame.getHeldItemStack().isEmpty());
+        Vec3d playerEyePos = MeteorClient.mc.player.getEntityPos();
         HashMap<ItemBo, StoragePos> result = new HashMap<>();
-        for (ItemFrame frame : frames) {
-            ItemStack stack = frame.getItem();
+        for (ItemFrameEntity frame : frames) {
+            ItemStack stack = frame.getHeldItemStack();
             ItemBo itemBo = new ItemBo(stack);
-            BlockPos framePos = frame.blockPosition();
-            BlockPos attachedPos = frame.getPos();
-            Direction facing = frame.getNearestViewDirection();
-            BlockPos putPos = attachedPos.above().relative(facing.getOpposite());
-            if (MeteorClient.mc.level.getBlockState(putPos).getBlock() != Blocks.CHEST) {
+            BlockPos framePos = frame.getBlockPos();
+            BlockPos attachedPos = frame.getAttachedBlockPos();
+            Direction facing = frame.getFacing();
+            BlockPos putPos = attachedPos.up().offset(facing.getOpposite());
+            if (MeteorClient.mc.world.getBlockState(putPos).getBlock() != Blocks.CHEST) {
                 continue;
             }
-            BlockPos kitPos = framePos.below(2);
-            BlockState kitState = MeteorClient.mc.level.getBlockState(kitPos);
-            if ((!kitState.isAir() && !(kitState.getBlock() instanceof ShulkerBoxBlock)) || kitPos.getY() != MeteorClient.mc.player.blockPosition().getY()) {
+            BlockPos kitPos = framePos.down(2);
+            BlockState kitState = MeteorClient.mc.world.getBlockState(kitPos);
+            if ((!kitState.isAir() && !(kitState.getBlock() instanceof ShulkerBoxBlock)) || kitPos.getY() != MeteorClient.mc.player.getBlockPos().getY()) {
                 continue;
             }
-            BlockPos btnPos = kitPos.relative(facing, 2);
-            BlockPos takePos = putPos.below(2);
+            BlockPos btnPos = kitPos.offset(facing, 2);
+            BlockPos takePos = putPos.down(2);
             StoragePos storagePos = new StoragePos(StorageItem.valueOf(itemBo), framePos, putPos, takePos, kitPos, btnPos);
             StoragePos existing = result.get(itemBo);
             if (existing == null) {
                 result.put(itemBo, storagePos);
             } else {
                 ChatUtils.warning("存在多个位置: %s", itemBo.getName());
-                double newDistance = storagePos.getBtnPos().getCenter().distanceTo(playerEyePos);
-                double oldDistance = existing.getBtnPos().getCenter().distanceTo(playerEyePos);
+                double newDistance = storagePos.getBtnPos().toCenterPos().distanceTo(playerEyePos);
+                double oldDistance = existing.getBtnPos().toCenterPos().distanceTo(playerEyePos);
                 if (newDistance < oldDistance) {
                     result.put(itemBo, storagePos);
                 }
@@ -233,36 +233,36 @@ public class HePosUtils {
     }
 
     public static Map<ItemBo, StoragePos> scanFramesPiston(int range, int verticalRange) {
-        BlockPos playerPos = MeteorClient.mc.player.blockPosition();
+        BlockPos playerPos = MeteorClient.mc.player.getBlockPos();
         int x = playerPos.getX();
         int y = playerPos.getY();
         int z = playerPos.getZ();
-        List<ItemFrame> frames = MeteorClient.mc.level.getEntitiesOfClass(ItemFrame.class,
-            new AABB(x - range, y, z - range, x + range, y + verticalRange, z + range),
-            frame -> !frame.getItem().isEmpty());
-        Vec3 playerPosVec = MeteorClient.mc.player.position();
+        List<ItemFrameEntity> frames = MeteorClient.mc.world.getEntitiesByClass(ItemFrameEntity.class,
+            new Box(x - range, y, z - range, x + range, y + verticalRange, z + range),
+            frame -> !frame.getHeldItemStack().isEmpty());
+        Vec3d playerPosVec = MeteorClient.mc.player.getEntityPos();
         HashMap<ItemBo, StoragePos> result = new HashMap<>();
-        for (ItemFrame frame : frames) {
-            ItemStack stack = frame.getItem();
+        for (ItemFrameEntity frame : frames) {
+            ItemStack stack = frame.getHeldItemStack();
             ItemBo itemBo = new ItemBo(stack);
-            BlockPos framePos = frame.blockPosition();
-            BlockPos attachedPos = frame.getPos();
-            Direction facing = frame.getNearestViewDirection();
-            BlockPos putPos = attachedPos.above().relative(facing.getOpposite());
-            if (MeteorClient.mc.level.getBlockState(putPos).getBlock() != Blocks.CHEST) {
+            BlockPos framePos = frame.getBlockPos();
+            BlockPos attachedPos = frame.getAttachedBlockPos();
+            Direction facing = frame.getFacing();
+            BlockPos putPos = attachedPos.up().offset(facing.getOpposite());
+            if (MeteorClient.mc.world.getBlockState(putPos).getBlock() != Blocks.CHEST) {
                 continue;
             }
-            BlockPos kitPos = framePos.below(2);
-            BlockState kitState = MeteorClient.mc.level.getBlockState(kitPos);
+            BlockPos kitPos = framePos.down(2);
+            BlockState kitState = MeteorClient.mc.world.getBlockState(kitPos);
             if (!kitState.isAir() && !(kitState.getBlock() instanceof ShulkerBoxBlock)) {
                 continue;
             }
-            if (MeteorClient.mc.level.getBlockState(kitPos.below()).getBlock() != Blocks.PISTON || kitPos.getY() != MeteorClient.mc.player.blockPosition().getY()) {
+            if (MeteorClient.mc.world.getBlockState(kitPos.down()).getBlock() != Blocks.PISTON || kitPos.getY() != MeteorClient.mc.player.getBlockPos().getY()) {
                 continue;
             }
-            BlockPos btnPos = kitPos.relative(facing);
-            BlockPos takePos = putPos.below(2);
-            if (!(MeteorClient.mc.level.getBlockState(btnPos).getBlock() instanceof ButtonBlock)) {
+            BlockPos btnPos = kitPos.offset(facing);
+            BlockPos takePos = putPos.down(2);
+            if (!(MeteorClient.mc.world.getBlockState(btnPos).getBlock() instanceof ButtonBlock)) {
                 continue;
             }
             StoragePos storagePos = new StoragePos(StorageItem.valueOf(itemBo), framePos, putPos, takePos, kitPos, btnPos);
@@ -271,8 +271,8 @@ public class HePosUtils {
                 result.put(itemBo, storagePos);
             } else {
                 ChatUtils.warning("存在多个位置: %s", itemBo.getName());
-                double newDistance = storagePos.getBtnPos().getCenter().distanceTo(playerPosVec);
-                double oldDistance = existing.getBtnPos().getCenter().distanceTo(playerPosVec);
+                double newDistance = storagePos.getBtnPos().toCenterPos().distanceTo(playerPosVec);
+                double oldDistance = existing.getBtnPos().toCenterPos().distanceTo(playerPosVec);
                 if (newDistance < oldDistance) {
                     result.put(itemBo, storagePos);
                 }
@@ -281,23 +281,23 @@ public class HePosUtils {
         return result;
     }
 
-    public static BlockPos getBlockPos(Vec3 pos) {
+    public static BlockPos getBlockPos(Vec3d pos) {
         int playerY = MeteorClient.mc.player.getBlockY();
         if (pos.y < (double) playerY - 0.75 || pos.y > (double) playerY + 2.3) {
             return null;
         }
         double range = 2.030625;
-        Vec3 playerPos = MeteorClient.mc.player.position();
-        BlockPos floored = BlockPos.containing(pos);
+        Vec3d playerPos = MeteorClient.mc.player.getEntityPos();
+        BlockPos floored = BlockPos.ofFloored(pos);
         BlockPos nearest = null;
         double minDistance = Double.MAX_VALUE;
         for (int dx = -1; dx <= 1; ++dx) {
             for (int dz = -1; dz <= 1; ++dz) {
-                BlockPos candidate = floored.offset(dx, 0, dz).atY(playerY);
+                BlockPos candidate = floored.add(dx, 0, dz).withY(playerY);
                 double dX = candidate.getX() + 0.5 - pos.x;
                 double dZ = candidate.getZ() + 0.5 - pos.z;
                 if (dX * dX + dZ * dZ <= range && isStandableSpot(candidate)) {
-                    double distance = candidate.getCenter().distanceToSqr(playerPos);
+                    double distance = candidate.toCenterPos().squaredDistanceTo(playerPos);
                     if (distance < minDistance) {
                         minDistance = distance;
                         nearest = candidate;
@@ -309,13 +309,13 @@ public class HePosUtils {
     }
 
     private static boolean isStandableSpot(BlockPos pos) {
-        if (!MeteorClient.mc.level.getBlockState(pos).getCollisionShape(MeteorClient.mc.level, pos).isEmpty()) {
+        if (!MeteorClient.mc.world.getBlockState(pos).getCollisionShape(MeteorClient.mc.world, pos).isEmpty()) {
             return false;
         }
-        if (!MeteorClient.mc.level.getBlockState(pos.above()).getCollisionShape(MeteorClient.mc.level, pos.above()).isEmpty()) {
+        if (!MeteorClient.mc.world.getBlockState(pos.up()).getCollisionShape(MeteorClient.mc.world, pos.up()).isEmpty()) {
             return false;
         }
-        return !MeteorClient.mc.level.getBlockState(pos.below()).getCollisionShape(MeteorClient.mc.level, pos.below()).isEmpty();
+        return !MeteorClient.mc.world.getBlockState(pos.down()).getCollisionShape(MeteorClient.mc.world, pos.down()).isEmpty();
     }
 
     static class HePosUtilsDirectionSwitchMap {

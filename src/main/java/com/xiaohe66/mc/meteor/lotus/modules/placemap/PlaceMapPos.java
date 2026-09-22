@@ -6,7 +6,7 @@
  */
 package com.xiaohe66.mc.meteor.lotus.modules.placemap;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 public class PlaceMapPos {
     private final BlockPos blockPos;

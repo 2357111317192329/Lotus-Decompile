@@ -69,49 +69,49 @@ import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.util.Mth;
-import net.minecraft.world.Container;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.block.AnvilBlock;
-import net.minecraft.world.level.block.BarrelBlock;
-import net.minecraft.world.level.block.BedBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.BrewingStandBlock;
-import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.CraftingTableBlock;
-import net.minecraft.world.level.block.DispenserBlock;
-import net.minecraft.world.level.block.EnchantingTableBlock;
-import net.minecraft.world.level.block.EnderChestBlock;
-import net.minecraft.world.level.block.FurnaceBlock;
-import net.minecraft.world.level.block.HopperBlock;
-import net.minecraft.world.level.block.LiquidBlock;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.SlabBlock;
-import net.minecraft.world.level.block.TrapDoorBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.level.block.state.properties.SlabType;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.block.AnvilBlock;
+import net.minecraft.block.BarrelBlock;
+import net.minecraft.block.BedBlock;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.BrewingStandBlock;
+import net.minecraft.block.ChestBlock;
+import net.minecraft.block.CraftingTableBlock;
+import net.minecraft.block.DispenserBlock;
+import net.minecraft.block.EnchantingTableBlock;
+import net.minecraft.block.EnderChestBlock;
+import net.minecraft.block.FluidBlock;
+import net.minecraft.block.FurnaceBlock;
+import net.minecraft.block.HopperBlock;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.block.SlabBlock;
+import net.minecraft.block.TrapdoorBlock;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.enums.BlockHalf;
+import net.minecraft.block.enums.SlabType;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.state.property.Properties;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.world.BlockView;
+import net.minecraft.world.RaycastContext;
 import org.joml.Vector3fc;
 
 public class HeBlockUtils {
@@ -120,8 +120,8 @@ public class HeBlockUtils {
     }
 
     public static boolean isClickable(BlockPos pos, boolean allowClick) {
-        BlockState state = MeteorClient.mc.level.getBlockState(pos);
-        if (state.getShape((BlockGetter)MeteorClient.mc.level, pos).isEmpty()) {
+        BlockState state = MeteorClient.mc.world.getBlockState(pos);
+        if (state.getOutlineShape((BlockView)MeteorClient.mc.world, pos).isEmpty()) {
             return false;
         }
         if (allowClick) {
@@ -129,20 +129,20 @@ public class HeBlockUtils {
         }
         Block block = state.getBlock();
         if (HeBlockUtils.isInteractableBlock(block)) {
-            return MeteorClient.mc.player.isShiftKeyDown();
+            return MeteorClient.mc.player.isSneaking();
         }
         return true;
     }
 
     public static boolean isReplaceable(BlockPos pos) {
-        return MeteorClient.mc.level.getBlockState(pos).canBeReplaced();
+        return MeteorClient.mc.world.getBlockState(pos).isReplaceable();
     }
 
-    public static boolean hasLineOfSight(Vec3 target, Direction side) {
+    public static boolean hasLineOfSight(Vec3d target, Direction side) {
         if (side == null) {
             return false;
         }
-        BlockHitResult result = MeteorClient.mc.level.clip(new ClipContext(MeteorClient.mc.player.getEyePosition(), target, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, (Entity)MeteorClient.mc.player));
+        BlockHitResult result = MeteorClient.mc.world.raycast(new RaycastContext(MeteorClient.mc.player.getEyePos(), target, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, (Entity)MeteorClient.mc.player));
         return result == null || result.getType() == HitResult.Type.MISS;
     }
 
@@ -156,17 +156,17 @@ public class HeBlockUtils {
     }
 
     private static Direction findClickSide(BlockPos pos) {
-        Vec3 eyePos = MeteorClient.mc.player.getEyePosition();
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, pos.getCenter());
+        Vec3d eyePos = MeteorClient.mc.player.getEyePos();
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, pos.toCenterPos());
         Direction airSide = null;
         double airDistance = Double.MAX_VALUE;
         Direction blockSide = null;
         double blockDistance = Double.MAX_VALUE;
         for (Direction direction : visibleSides) {
-            BlockPos neighborPos = pos.relative(direction);
-            BlockState neighborState = MeteorClient.mc.level.getBlockState(neighborPos);
-            Vec3 faceCenter = pos.getCenter().add((double)direction.getStepX() * 0.5, (double)direction.getStepY() * 0.5, (double)direction.getStepZ() * 0.5);
-            double distance = eyePos.distanceToSqr(faceCenter);
+            BlockPos neighborPos = pos.offset(direction);
+            BlockState neighborState = MeteorClient.mc.world.getBlockState(neighborPos);
+            Vec3d faceCenter = pos.toCenterPos().add((double)direction.getOffsetX() * 0.5, (double)direction.getOffsetY() * 0.5, (double)direction.getOffsetZ() * 0.5);
+            double distance = eyePos.squaredDistanceTo(faceCenter);
             if (neighborState.isAir()) {
                 if (!(distance < airDistance)) continue;
                 airDistance = distance;
@@ -185,15 +185,15 @@ public class HeBlockUtils {
 
     public static void open(BlockPos pos, Direction side) {
         HeRotationUtils.keepRotation(pos, side);
-        Vec3i vector = side.getUnitVec3i();
+        Vec3i vector = side.getVector();
         double offset = 0.45;
-        Vec3 hitPos = new Vec3((double)pos.getX() + 0.5 + (double)vector.getX() * offset, (double)pos.getY() + 0.5 + (double)vector.getY() * offset, (double)pos.getZ() + 0.5 + (double)vector.getZ() * offset);
+        Vec3d hitPos = new Vec3d((double)pos.getX() + 0.5 + (double)vector.getX() * offset, (double)pos.getY() + 0.5 + (double)vector.getY() * offset, (double)pos.getZ() + 0.5 + (double)vector.getZ() * offset);
         HeBlockUtils.open(pos, side, hitPos);
     }
 
-    public static void open(BlockPos pos, Direction side, Vec3 hitPos) {
+    public static void open(BlockPos pos, Direction side, Vec3d hitPos) {
         BlockHitResult result = new BlockHitResult(hitPos, side, pos, false);
-        MeteorClient.mc.gameMode.useItemOn(MeteorClient.mc.player, InteractionHand.MAIN_HAND, result);
+        MeteorClient.mc.interactionManager.interactBlock(MeteorClient.mc.player, Hand.MAIN_HAND, result);
     }
 
     public static boolean clickAdjacentBlock(BlockPos pos) {
@@ -201,27 +201,27 @@ public class HeBlockUtils {
         if (clickSide == null) {
             return false;
         }
-        BlockPos neighborPos = pos.relative(clickSide.getOpposite());
+        BlockPos neighborPos = pos.offset(clickSide.getOpposite());
         return HeBlockUtils.clickBlock(neighborPos, clickSide);
     }
 
     public static boolean clickAdjacentBlock(BlockPos pos, Direction side) {
-        BlockPos neighborPos = pos.relative(side);
+        BlockPos neighborPos = pos.offset(side);
         return HeBlockUtils.clickBlock(neighborPos, side.getOpposite());
     }
 
     public static boolean clickBlock(BlockPos pos, Direction side) {
-        Vec3 hitPos = HeBlockUtils.getClickPoint(pos, side);
+        Vec3d hitPos = HeBlockUtils.getClickPoint(pos, side);
         return HeBlockUtils.clickBlock(pos, side, hitPos);
     }
 
-    private static boolean clickBlockWithOffset(BlockPos pos, Direction side, Vec3 offset) {
-        return HeBlockUtils.clickBlock(pos, side, pos.getCenter().add(offset));
+    private static boolean clickBlockWithOffset(BlockPos pos, Direction side, Vec3d offset) {
+        return HeBlockUtils.clickBlock(pos, side, pos.toCenterPos().add(offset));
     }
 
-    private static boolean clickBlock(BlockPos pos, Direction side, Vec3 hitPos) {
-        float yaw = MeteorClient.mc.player.getYRot();
-        float pitch = MeteorClient.mc.player.getXRot();
+    private static boolean clickBlock(BlockPos pos, Direction side, Vec3d hitPos) {
+        float yaw = MeteorClient.mc.player.getYaw();
+        float pitch = MeteorClient.mc.player.getPitch();
         HeRotation rotation = HeRotationUtils.getRotation(hitPos);
         HeRotationUtils.keepRotation(rotation);
         BlockHitResult result = new BlockHitResult(hitPos, side, pos, false);
@@ -231,19 +231,19 @@ public class HeBlockUtils {
     }
 
     private static boolean interact(BlockHitResult result) {
-        InteractionResult actionResult;
-        BlockState state = MeteorClient.mc.level.getBlockState(result.getBlockPos());
-        boolean shouldSneak = HeBlockUtils.isInteractableBlock(state.getBlock()) && !MeteorClient.mc.player.isShiftKeyDown();
+        ActionResult actionResult;
+        BlockState state = MeteorClient.mc.world.getBlockState(result.getBlockPos());
+        boolean shouldSneak = HeBlockUtils.isInteractableBlock(state.getBlock()) && !MeteorClient.mc.player.isSneaking();
         if (shouldSneak) {
             HePlayerUtils.startSneaking();
         }
-        if ((actionResult = MeteorClient.mc.gameMode.useItemOn(MeteorClient.mc.player, InteractionHand.MAIN_HAND, result)).consumesAction()) {
-            MeteorClient.mc.player.swing(InteractionHand.MAIN_HAND);
+        if ((actionResult = MeteorClient.mc.interactionManager.interactBlock(MeteorClient.mc.player, Hand.MAIN_HAND, result)).isAccepted()) {
+            MeteorClient.mc.player.swingHand(Hand.MAIN_HAND);
         }
         if (shouldSneak) {
             HePlayerUtils.stopSneaking();
         }
-        return actionResult.consumesAction();
+        return actionResult.isAccepted();
     }
 
     @Deprecated
@@ -253,8 +253,8 @@ public class HeBlockUtils {
             return false;
         }
         Block toPlace = Blocks.OBSIDIAN;
-        Inventory inventory = MeteorClient.mc.player.getInventory();
-        ItemStack itemStack = inventory.getItem(slot);
+        PlayerInventory inventory = MeteorClient.mc.player.getInventory();
+        ItemStack itemStack = inventory.getStack(slot);
         Item item = itemStack.getItem();
         if (item instanceof BlockItem) {
             blockItem = (BlockItem)item;
@@ -263,15 +263,15 @@ public class HeBlockUtils {
         if (!BlockUtils.canPlaceBlock((BlockPos)blockPos, (boolean)checkEntities, (Block)toPlace)) {
             return false;
         }
-        BlockPos neighbour = blockPos.relative(side);
-        Vec3i vector = side.getOpposite().getUnitVec3i();
+        BlockPos neighbour = blockPos.offset(side);
+        Vec3i vector = side.getOpposite().getVector();
         double offset = 0.45;
-        Vec3 hitPos = new Vec3((double)neighbour.getX() + 0.5 + (double)vector.getX() * offset, (double)neighbour.getY() + 0.5 + (double)vector.getY() * offset, (double)neighbour.getZ() + 0.5 + (double)vector.getZ() * offset);
+        Vec3d hitPos = new Vec3d((double)neighbour.getX() + 0.5 + (double)vector.getX() * offset, (double)neighbour.getY() + 0.5 + (double)vector.getY() * offset, (double)neighbour.getZ() + 0.5 + (double)vector.getZ() * offset);
         BlockHitResult bhr = new BlockHitResult(hitPos, side.getOpposite(), (BlockPos)neighbour, false);
         if (inventory.getSelectedSlot() != slot) {
             InvUtils.swap((int)slot, (boolean)false);
         }
-        HeRotationUtils.rotate(hitPos, () -> BlockUtils.interact((BlockHitResult)bhr, (InteractionHand)InteractionHand.MAIN_HAND, (boolean)true));
+        HeRotationUtils.rotate(hitPos, () -> BlockUtils.interact((BlockHitResult)bhr, (Hand)Hand.MAIN_HAND, (boolean)true));
         return true;
     }
 
@@ -280,23 +280,23 @@ public class HeBlockUtils {
         if (clickSide == null) {
             return false;
         }
-        BlockPos neighborPos = pos.relative(clickSide.getOpposite());
+        BlockPos neighborPos = pos.offset(clickSide.getOpposite());
         return HeBlockUtils.placeBlock(neighborPos, neighborPos, clickSide, faceDirection);
     }
 
     public static boolean placeBlock(BlockPos pos, Direction faceDirection, Direction blockFacing) {
-        BlockPos neighborPos = pos.relative(blockFacing);
+        BlockPos neighborPos = pos.offset(blockFacing);
         Direction clickSide = blockFacing.getOpposite();
         return HeBlockUtils.placeBlock(neighborPos, neighborPos, clickSide, faceDirection);
     }
 
     private static boolean placeBlock(BlockPos targetPos, BlockPos clickPos, Direction clickSide, Direction faceDirection) {
-        return HeBlockUtils.placeBlock(targetPos, clickPos, clickSide, faceDirection, new Vec3((Vector3fc)clickSide.step()).scale(0.5));
+        return HeBlockUtils.placeBlock(targetPos, clickPos, clickSide, faceDirection, new Vec3d((Vector3fc)clickSide.getUnitVector()).multiply(0.5));
     }
 
-    private static boolean placeBlock(BlockPos targetPos, BlockPos clickPos, Direction clickSide, Direction faceDirection, Vec3 offset) {
-        Vec3 clickPoint = clickPos.getCenter().add(offset);
-        Vec3 visiblePoint = HeBlockUtils.findVisiblePoint(clickPoint, clickSide, true);
+    private static boolean placeBlock(BlockPos targetPos, BlockPos clickPos, Direction clickSide, Direction faceDirection, Vec3d offset) {
+        Vec3d clickPoint = clickPos.toCenterPos().add(offset);
+        Vec3d visiblePoint = HeBlockUtils.findVisiblePoint(clickPoint, clickSide, true);
         if (visiblePoint == null) {
             visiblePoint = clickPoint;
         }
@@ -311,42 +311,42 @@ public class HeBlockUtils {
     }
 
     public static void placeSlab(BlockPos pos, BlockState state) {
-        if (!state.getProperties().contains(BlockStateProperties.SLAB_TYPE)) {
+        if (!state.getProperties().contains(Properties.SLAB_TYPE)) {
             HeBlockUtils.clickAdjacentBlock(pos);
             return;
         }
-        SlabType slabType = (SlabType)state.getValue((Property)BlockStateProperties.SLAB_TYPE);
+        SlabType slabType = (SlabType)state.get((Property)Properties.SLAB_TYPE);
         Direction clickSide = HeBlockUtils.getSlabPlaceDirection(pos, slabType == SlabType.TOP);
         if (clickSide == null) {
             return;
         }
-        BlockPos neighborPos = pos.relative(clickSide.getOpposite());
+        BlockPos neighborPos = pos.offset(clickSide.getOpposite());
         if (slabType == SlabType.TOP || slabType == SlabType.BOTTOM) {
             HeBlockUtils.clickBlock(neighborPos, clickSide);
         } else if (slabType == SlabType.DOUBLE) {
-            HeBlockUtils.clickBlockWithOffset(neighborPos, clickSide, new Vec3(0.0, 0.25, 0.0));
+            HeBlockUtils.clickBlockWithOffset(neighborPos, clickSide, new Vec3d(0.0, 0.25, 0.0));
         } else {
             HeBlockUtils.clickAdjacentBlock(pos);
         }
     }
 
     public static void placeStairs(BlockPos pos, BlockState state) {
-        Direction facing = (Direction)state.getValue((Property)BlockStateProperties.HORIZONTAL_FACING);
-        Half blockHalf = (Half)state.getValue((Property)BlockStateProperties.HALF);
-        if (blockHalf == Half.TOP) {
+        Direction facing = (Direction)state.get((Property)Properties.HORIZONTAL_FACING);
+        BlockHalf blockHalf = (BlockHalf)state.get((Property)Properties.BLOCK_HALF);
+        if (blockHalf == BlockHalf.TOP) {
             Direction clickSide = HeBlockUtils.getSlabPlaceDirection(pos, true);
             if (clickSide == null) {
                 return;
             }
-            BlockPos neighborPos = pos.relative(clickSide.getOpposite());
-            HeBlockUtils.placeBlock(neighborPos, pos, clickSide, facing, new Vec3(0.0, 0.25, 0.0));
+            BlockPos neighborPos = pos.offset(clickSide.getOpposite());
+            HeBlockUtils.placeBlock(neighborPos, pos, clickSide, facing, new Vec3d(0.0, 0.25, 0.0));
         } else {
             Direction clickSide = HeBlockUtils.getSlabPlaceDirection(pos, false);
             if (clickSide == null) {
                 return;
             }
-            BlockPos neighborPos = pos.relative(clickSide.getOpposite());
-            HeBlockUtils.placeBlock(neighborPos, pos, clickSide, facing, new Vec3(0.0, -0.25, 0.0));
+            BlockPos neighborPos = pos.offset(clickSide.getOpposite());
+            HeBlockUtils.placeBlock(neighborPos, pos, clickSide, facing, new Vec3d(0.0, -0.25, 0.0));
         }
     }
 
@@ -360,9 +360,9 @@ public class HeBlockUtils {
 
     public static void placeTorch(BlockPos pos, BlockState state) {
         if (HeBlockUtils.isWallTorch(state.getBlock())) {
-            Direction facing = (Direction)state.getValue((Property)BlockStateProperties.HORIZONTAL_FACING);
-            BlockPos wallPos = pos.relative(facing.getOpposite());
-            BlockState wallState = MeteorClient.mc.level.getBlockState(wallPos);
+            Direction facing = (Direction)state.get((Property)Properties.HORIZONTAL_FACING);
+            BlockPos wallPos = pos.offset(facing.getOpposite());
+            BlockState wallState = MeteorClient.mc.world.getBlockState(wallPos);
             if (wallState.isAir() || !wallState.getFluidState().isEmpty()) {
                 return;
             }
@@ -370,9 +370,9 @@ public class HeBlockUtils {
                 HeBlockUtils.clickBlock(wallPos, facing);
             }
         } else {
-            BlockPos downPos = pos.below();
-            BlockState downState = MeteorClient.mc.level.getBlockState(downPos);
-            boolean supported = !downState.isAir() && Block.isFaceFull(downState.getCollisionShape(MeteorClient.mc.level, downPos), Direction.UP);
+            BlockPos downPos = pos.down();
+            BlockState downState = MeteorClient.mc.world.getBlockState(downPos);
+            boolean supported = !downState.isAir() && Block.isFaceFullSquare(downState.getCollisionShape(MeteorClient.mc.world, downPos), Direction.UP);
             if (supported && HeBlockUtils.hasLineOfSight(HeBlockUtils.getClickPoint(downPos, Direction.UP), Direction.UP)) {
                 HeBlockUtils.clickBlock(downPos, Direction.UP);
             }
@@ -380,9 +380,9 @@ public class HeBlockUtils {
     }
 
     public static void placeHopper(BlockPos pos, BlockState state) {
-        Direction facing = (Direction)state.getValue((Property)BlockStateProperties.FACING_HOPPER);
-        BlockPos targetPos = pos.relative(facing);
-        BlockState targetState = MeteorClient.mc.level.getBlockState(targetPos);
+        Direction facing = (Direction)state.get((Property)Properties.HOPPER_FACING);
+        BlockPos targetPos = pos.offset(facing);
+        BlockState targetState = MeteorClient.mc.world.getBlockState(targetPos);
         if (!targetState.isAir() && targetState.getFluidState().isEmpty()) {
             if (HeBlockUtils.hasLineOfSight(HeBlockUtils.getClickPoint(targetPos, facing.getOpposite()), facing.getOpposite())) {
                 HeBlockUtils.clickBlock(targetPos, facing.getOpposite());
@@ -392,18 +392,18 @@ public class HeBlockUtils {
 
     public static Direction getSlabPlaceDirection(BlockPos pos, boolean isTopHalf) {
         BlockState state;
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), pos.getCenter());
-        if (visibleSides.remove(Direction.DOWN) && isTopHalf && HeBlockUtils.isSolid(state = MeteorClient.mc.level.getBlockState(pos.above()))) {
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePos(), pos.toCenterPos());
+        if (visibleSides.remove(Direction.DOWN) && isTopHalf && HeBlockUtils.isSolid(state = MeteorClient.mc.world.getBlockState(pos.up()))) {
             return Direction.DOWN;
         }
-        if (visibleSides.remove(Direction.UP) && !isTopHalf && HeBlockUtils.isSolid(state = MeteorClient.mc.level.getBlockState(pos.below()))) {
+        if (visibleSides.remove(Direction.UP) && !isTopHalf && HeBlockUtils.isSolid(state = MeteorClient.mc.world.getBlockState(pos.down()))) {
             return Direction.UP;
         }
         for (Direction direction : visibleSides) {
-            BlockState neighborState = MeteorClient.mc.level.getBlockState(pos.relative(direction.getOpposite()));
+            BlockState neighborState = MeteorClient.mc.world.getBlockState(pos.offset(direction.getOpposite()));
             if (!HeBlockUtils.isSolid(neighborState)) continue;
             if (neighborState.getBlock() instanceof SlabBlock) {
-                SlabType slabType = (SlabType)neighborState.getValue((Property)BlockStateProperties.SLAB_TYPE);
+                SlabType slabType = (SlabType)neighborState.get((Property)Properties.SLAB_TYPE);
                 if (slabType != SlabType.DOUBLE && (slabType != SlabType.BOTTOM || isTopHalf) && (slabType != SlabType.TOP || !isTopHalf)) continue;
                 return direction;
             }
@@ -421,37 +421,37 @@ public class HeBlockUtils {
     }
 
     public static boolean isAboveClear(BlockPos pos) {
-        BlockPos upPos = pos.above();
-        return MeteorClient.mc.level.getBlockState(upPos).getCollisionShape((BlockGetter)MeteorClient.mc.level, upPos).isEmpty();
+        BlockPos upPos = pos.up();
+        return MeteorClient.mc.world.getBlockState(upPos).getCollisionShape((BlockView)MeteorClient.mc.world, upPos).isEmpty();
     }
 
     public static boolean isReplaceable(BlockState state, BlockPos pos) {
-        return state.getCollisionShape((BlockGetter)MeteorClient.mc.level, pos).isEmpty() && state.getFluidState().isEmpty();
+        return state.getCollisionShape((BlockView)MeteorClient.mc.world, pos).isEmpty() && state.getFluidState().isEmpty();
     }
 
     public static boolean isRail(BlockState state) {
-        return state.is(BlockTags.RAILS);
+        return state.isIn(BlockTags.RAILS);
     }
 
     private static boolean isNonFullCube(BlockState state, BlockPos pos) {
         if (state.isAir() || !state.getFluidState().isEmpty()) {
             return false;
         }
-        VoxelShape shape = state.getShape((BlockGetter)MeteorClient.mc.level, pos);
+        VoxelShape shape = state.getOutlineShape((BlockView)MeteorClient.mc.world, pos);
         if (shape.isEmpty()) {
             return false;
         }
-        return !Block.isShapeFullBlock((VoxelShape)shape);
+        return !Block.isShapeFullCube((VoxelShape)shape);
     }
 
     public static List<BlockPos> listPosInSphere(int range, BlockPos pos) {
-        Vec3 center = pos.getCenter();
+        Vec3d center = pos.toCenterPos();
         ArrayList<BlockPos> posList = new ArrayList<BlockPos>();
         for (int x = pos.getX() - range; x < pos.getX() + range; ++x) {
             for (int z = pos.getZ() - range; z < pos.getZ() + range; ++z) {
                 for (int y = pos.getY() - range; y < pos.getY() + range; ++y) {
                     BlockPos curPos = new BlockPos(x, y, z);
-                    if (curPos.getCenter().distanceTo(center) > (double)range || posList.contains(curPos)) continue;
+                    if (curPos.toCenterPos().distanceTo(center) > (double)range || posList.contains(curPos)) continue;
                     posList.add(curPos);
                 }
             }
@@ -473,49 +473,49 @@ public class HeBlockUtils {
     }
 
     public static Direction getBlockFacingDirection(BlockState state) {
-        if (state.hasProperty((Property)BlockStateProperties.FACING)) {
-            return (Direction)state.getValue((Property)BlockStateProperties.FACING);
+        if (state.contains((Property)Properties.FACING)) {
+            return (Direction)state.get((Property)Properties.FACING);
         }
-        if (state.hasProperty((Property)BlockStateProperties.HORIZONTAL_FACING)) {
-            return (Direction)state.getValue((Property)BlockStateProperties.HORIZONTAL_FACING);
+        if (state.contains((Property)Properties.HORIZONTAL_FACING)) {
+            return (Direction)state.get((Property)Properties.HORIZONTAL_FACING);
         }
-        if (state.hasProperty((Property)BlockStateProperties.AXIS)) {
-            Direction.Axis axis = (Direction.Axis)state.getValue((Property)BlockStateProperties.AXIS);
-            return Direction.fromAxisAndDirection((Direction.Axis)axis, (Direction.AxisDirection)Direction.AxisDirection.POSITIVE);
+        if (state.contains((Property)Properties.AXIS)) {
+            Direction.Axis axis = (Direction.Axis)state.get((Property)Properties.AXIS);
+            return Direction.from((Direction.Axis)axis, (Direction.AxisDirection)Direction.AxisDirection.POSITIVE);
         }
         return null;
     }
 
-    public static Vec3 getFaceCenter(BlockPos pos, Direction direction) {
-        AABB box = MeteorClient.mc.level.getBlockState(pos).getShape((BlockGetter)MeteorClient.mc.level, pos).bounds();
+    public static Vec3d getFaceCenter(BlockPos pos, Direction direction) {
+        Box box = MeteorClient.mc.world.getBlockState(pos).getOutlineShape((BlockView)MeteorClient.mc.world, pos).getBoundingBox();
         double x = (double)pos.getX() + box.minX + (box.maxX - box.minX) * 0.5;
         double y = (double)pos.getY() + box.minY + (box.maxY - box.minY) * 0.5;
         double z = (double)pos.getZ() + box.minZ + (box.maxZ - box.minZ) * 0.5;
-        return new Vec3(x + (double)direction.getStepX() * (box.maxX - box.minX) * 0.5, y + (double)direction.getStepY() * (box.maxY - box.minY) * 0.5, z + (double)direction.getStepZ() * (box.maxZ - box.minZ) * 0.5);
+        return new Vec3d(x + (double)direction.getOffsetX() * (box.maxX - box.minX) * 0.5, y + (double)direction.getOffsetY() * (box.maxY - box.minY) * 0.5, z + (double)direction.getOffsetZ() * (box.maxZ - box.minZ) * 0.5);
     }
 
-    private static Vec3 getClickPoint(BlockPos pos, Direction side) {
-        VoxelShape shape = MeteorClient.mc.level.getBlockState(pos).getShape((BlockGetter)MeteorClient.mc.level, pos);
+    private static Vec3d getClickPoint(BlockPos pos, Direction side) {
+        VoxelShape shape = MeteorClient.mc.world.getBlockState(pos).getOutlineShape((BlockView)MeteorClient.mc.world, pos);
         if (shape.isEmpty()) {
-            return new Vec3((double)pos.getX() + 0.5, (double)pos.getY() + 0.5, (double)pos.getZ() + 0.5);
+            return new Vec3d((double)pos.getX() + 0.5, (double)pos.getY() + 0.5, (double)pos.getZ() + 0.5);
         }
-        AABB box = shape.bounds();
+        Box box = shape.getBoundingBox();
         double halfWidth = (box.maxX - box.minX) * 0.5;
         double halfHeight = (box.maxY - box.minY) * 0.5;
         double halfDepth = (box.maxZ - box.minZ) * 0.5;
         double x = (double)pos.getX() + box.minX + halfWidth;
         double y = (double)pos.getY() + box.minY + halfHeight;
         double z = (double)pos.getZ() + box.minZ + halfDepth;
-        return new Vec3(x + (double)side.getStepX() * halfWidth, y + (double)side.getStepY() * halfHeight, z + (double)side.getStepZ() * halfDepth);
+        return new Vec3d(x + (double)side.getOffsetX() * halfWidth, y + (double)side.getOffsetY() * halfHeight, z + (double)side.getOffsetZ() * halfDepth);
     }
 
-    private static boolean hasLineOfSight(Vec3 from, Vec3 to) {
-        BlockHitResult result = MeteorClient.mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, (Entity)MeteorClient.mc.player));
+    private static boolean hasLineOfSight(Vec3d from, Vec3d to) {
+        BlockHitResult result = MeteorClient.mc.world.raycast(new RaycastContext(from, to, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, (Entity)MeteorClient.mc.player));
         return result == null || result.getType() == HitResult.Type.MISS;
     }
 
-    private static Vec3 findVisiblePoint(Vec3 target, Direction side, boolean includeYOffset) {
-        Vec3 eyePos = MeteorClient.mc.player.getEyePosition();
+    private static Vec3d findVisiblePoint(Vec3d target, Direction side, boolean includeYOffset) {
+        Vec3d eyePos = MeteorClient.mc.player.getEyePos();
         if (HeBlockUtils.hasLineOfSight(eyePos, target)) {
             return target;
         }
@@ -525,14 +525,14 @@ public class HeBlockUtils {
         if (!includeYOffset) {
             yOffset = 0.0;
         }
-        Vec3 visiblePoint = null;
+        Vec3d visiblePoint = null;
         double nearestDistance = Double.MAX_VALUE;
         for (double offsetX : new double[]{-xOffset, 0.0, xOffset}) {
             for (double offsetY : new double[]{-yOffset, 0.0, yOffset}) {
                 for (double offsetZ : new double[]{-zOffset, 0.0, zOffset}) {
                     double distance;
-                    Vec3 candidate;
-                    if (offsetX == 0.0 && offsetY == 0.0 && offsetZ == 0.0 || !HeBlockUtils.hasLineOfSight(eyePos, candidate = target.add(offsetX, offsetY, offsetZ)) || !((distance = eyePos.distanceToSqr(candidate)) < nearestDistance)) continue;
+                    Vec3d candidate;
+                    if (offsetX == 0.0 && offsetY == 0.0 && offsetZ == 0.0 || !HeBlockUtils.hasLineOfSight(eyePos, candidate = target.add(offsetX, offsetY, offsetZ)) || !((distance = eyePos.squaredDistanceTo(candidate)) < nearestDistance)) continue;
                     nearestDistance = distance;
                     visiblePoint = candidate;
                 }
@@ -553,25 +553,25 @@ public class HeBlockUtils {
     }
 
     public static boolean canStand(BlockPos blockPos) {
-        return MeteorClient.mc.level.getBlockState(blockPos).isAir() && MeteorClient.mc.level.getBlockState(blockPos.above()).isAir();
+        return MeteorClient.mc.world.getBlockState(blockPos).isAir() && MeteorClient.mc.world.getBlockState(blockPos.up()).isAir();
     }
 
     public static Block getBlock(BlockPos pos) {
-        return MeteorClient.mc.level.getBlockState(pos).getBlock();
+        return MeteorClient.mc.world.getBlockState(pos).getBlock();
     }
 
     public static Direction getClickSide(BlockPos pos) {
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), pos.getCenter());
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePos(), pos.toCenterPos());
         for (Direction direction : Direction.values()) {
             Block block;
-            BlockState state = MeteorClient.mc.level.getBlockState(pos.relative(direction));
-            if (state.isAir() || (block = state.getBlock()) instanceof LiquidBlock || HeBlockUtils.isInteractableBlock(block) && !MeteorClient.mc.player.isShiftKeyDown() || !visibleSides.contains(direction.getOpposite())) continue;
+            BlockState state = MeteorClient.mc.world.getBlockState(pos.offset(direction));
+            if (state.isAir() || (block = state.getBlock()) instanceof FluidBlock || HeBlockUtils.isInteractableBlock(block) && !MeteorClient.mc.player.isSneaking() || !visibleSides.contains(direction.getOpposite())) continue;
             return direction.getOpposite();
         }
         return null;
     }
 
-    public static Set<Direction> getVisibleDirections(Vec3 from, Vec3 to) {
+    public static Set<Direction> getVisibleDirections(Vec3d from, Vec3d to) {
         return HeBlockUtils.getVisibleDirections(from.x, from.y, from.z, to.x, to.y, to.z);
     }
 
@@ -610,13 +610,13 @@ public class HeBlockUtils {
     public static Direction getPlaceSide(BlockPos pos, double maxDistance, double unused) {
         double nearestDistance = 2.147483647E9;
         Direction bestSide = null;
-        Vec3 eyePos = MeteorClient.mc.player.getEyePosition();
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, pos.getCenter());
+        Vec3d eyePos = MeteorClient.mc.player.getEyePos();
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, pos.toCenterPos());
         for (Direction direction : Direction.values()) {
             double distance;
-            Vec3 clickPoint;
+            Vec3d clickPoint;
             BlockPos neighborPos;
-            if (!visibleSides.contains(direction.getOpposite()) || !HeBlockUtils.isClickable(neighborPos = pos.relative(direction)) || HeBlockUtils.isReplaceable(neighborPos) || !HeBlockUtils.hasLineOfSight(clickPoint = HeBlockUtils.getClickPoint(neighborPos, direction.getOpposite()), direction.getOpposite()) || (double)Mth.sqrt((float)((float)(distance = eyePos.distanceToSqr(clickPoint)))) > maxDistance || !(distance < nearestDistance)) continue;
+            if (!visibleSides.contains(direction.getOpposite()) || !HeBlockUtils.isClickable(neighborPos = pos.offset(direction)) || HeBlockUtils.isReplaceable(neighborPos) || !HeBlockUtils.hasLineOfSight(clickPoint = HeBlockUtils.getClickPoint(neighborPos, direction.getOpposite()), direction.getOpposite()) || (double)MathHelper.sqrt((float)((float)(distance = eyePos.squaredDistanceTo(clickPoint)))) > maxDistance || !(distance < nearestDistance)) continue;
             bestSide = direction;
             nearestDistance = distance;
         }
@@ -636,12 +636,12 @@ public class HeBlockUtils {
     }
 
     public static boolean isContainer(BlockPos pos) {
-        BlockEntity blockEntity = MeteorClient.mc.level.getBlockEntity(pos);
-        return blockEntity instanceof Container;
+        BlockEntity blockEntity = MeteorClient.mc.world.getBlockEntity(pos);
+        return blockEntity instanceof Inventory;
     }
 
     public static boolean isInteractableBlock(Block block) {
-        return block instanceof ChestBlock || block instanceof EnderChestBlock || block instanceof CraftingTableBlock || block instanceof FurnaceBlock || block instanceof AnvilBlock || block instanceof BrewingStandBlock || block instanceof HopperBlock || block instanceof DispenserBlock || block instanceof EnchantingTableBlock || block instanceof ShulkerBoxBlock || block instanceof BarrelBlock || block instanceof BedBlock || block instanceof TrapDoorBlock;
+        return block instanceof ChestBlock || block instanceof EnderChestBlock || block instanceof CraftingTableBlock || block instanceof FurnaceBlock || block instanceof AnvilBlock || block instanceof BrewingStandBlock || block instanceof HopperBlock || block instanceof DispenserBlock || block instanceof EnchantingTableBlock || block instanceof ShulkerBoxBlock || block instanceof BarrelBlock || block instanceof BedBlock || block instanceof TrapdoorBlock;
     }
 
     public static boolean isObserverOrHopper(Block block) {

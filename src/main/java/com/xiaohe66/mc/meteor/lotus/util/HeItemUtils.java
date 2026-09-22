@@ -15,12 +15,12 @@ package com.xiaohe66.mc.meteor.lotus.util;
 import java.util.Arrays;
 import java.util.List;
 import meteordevelopment.meteorclient.MeteorClient;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.MapItem;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
+import net.minecraft.item.FilledMapItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.map.MapState;
+import net.minecraft.world.World;
 
 public class HeItemUtils {
     public static final List<Item> CARPETS = Arrays.asList(Items.WHITE_CARPET, Items.ORANGE_CARPET, Items.MAGENTA_CARPET, Items.LIGHT_BLUE_CARPET, Items.YELLOW_CARPET, Items.LIME_CARPET, Items.PINK_CARPET, Items.GRAY_CARPET, Items.LIGHT_GRAY_CARPET, Items.CYAN_CARPET, Items.PURPLE_CARPET, Items.BLUE_CARPET, Items.BROWN_CARPET, Items.GREEN_CARPET, Items.RED_CARPET, Items.BLACK_CARPET);
@@ -37,7 +37,7 @@ public class HeItemUtils {
         if (itemStack.getItem() != Items.FILLED_MAP) {
             return false;
         }
-        MapItemSavedData mapState = MapItem.getSavedData((ItemStack)itemStack, (Level)MeteorClient.mc.level);
+        MapState mapState = FilledMapItem.getMapState((ItemStack)itemStack, (World)MeteorClient.mc.world);
         return mapState.locked == locked;
     }
 

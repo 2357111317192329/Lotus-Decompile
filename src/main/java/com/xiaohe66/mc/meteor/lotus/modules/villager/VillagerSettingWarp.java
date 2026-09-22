@@ -29,9 +29,9 @@ import meteordevelopment.meteorclient.settings.ItemListSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.Settings;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.item.Item;
+import net.minecraft.registry.RegistryKey;
 
 public class VillagerSettingWarp {
     private final Setting<Boolean> openSetting;
@@ -40,7 +40,7 @@ public class VillagerSettingWarp {
     private final Setting<List<Item>> buyItemSetting;
     private final Setting<Integer> supplyQty;
     private final Setting<Integer> maxMoenySetting;
-    private final Setting<Set<ResourceKey<Enchantment>>> buyEnchantmentSetting;
+    private final Setting<Set<RegistryKey<Enchantment>>> buyEnchantmentSetting;
 
     public VillagerSettingWarp(Settings settings, SettingGroup settingGroup, String name, VillagerType defaultType, int defaultSupplyQty) {
         this.openSetting = settingGroup.add(new BoolSetting.Builder()
@@ -80,7 +80,7 @@ public class VillagerSettingWarp {
             .build());
     }
 
-    public VillagerSettingWarp(SettingGroup itemGroup, Setting<Boolean> openSetting, Setting<VillagerType> typeSetting, Setting<List<Item>> buyItemSetting, Setting<Integer> supplyQty, Setting<Integer> maxMoenySetting, Setting<Set<ResourceKey<Enchantment>>> buyEnchantmentSetting) {
+    public VillagerSettingWarp(SettingGroup itemGroup, Setting<Boolean> openSetting, Setting<VillagerType> typeSetting, Setting<List<Item>> buyItemSetting, Setting<Integer> supplyQty, Setting<Integer> maxMoenySetting, Setting<Set<RegistryKey<Enchantment>>> buyEnchantmentSetting) {
         this.itemGroup = itemGroup;
         this.openSetting = openSetting;
         this.typeSetting = typeSetting;
@@ -114,7 +114,7 @@ public class VillagerSettingWarp {
         return this.maxMoenySetting.get();
     }
 
-    public Set<ResourceKey<Enchantment>> getBuyEnchantment() {
+    public Set<RegistryKey<Enchantment>> getBuyEnchantment() {
         if (this.getType() == VillagerType.图书管理员) {
             return this.buyEnchantmentSetting.get();
         }

@@ -47,15 +47,15 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameType;
+import net.minecraft.client.network.ServerInfo;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 
 public class MosquitoCoilScan extends StepModule {
     public final Setting<BlockPos> center = sgGeneral.add(new BlockPosSetting.Builder()
@@ -154,8 +154,8 @@ public class MosquitoCoilScan extends StepModule {
 
     protected void delayedStart() {
         this.stopTask();
-        GameType gameMode = this.mc.gameMode.getPlayerMode();
-        if (gameMode == GameType.SPECTATOR || gameMode == GameType.ADVENTURE) {
+        GameMode gameMode = this.mc.interactionManager.getCurrentGameMode();
+        if (gameMode == GameMode.SPECTATOR || gameMode == GameMode.ADVENTURE) {
             return;
         }
         this.delayTask = TaskUtils.run(() -> {
@@ -177,34 +177,34 @@ public class MosquitoCoilScan extends StepModule {
             this.startFlying();
             return;
         }
-        ItemStack chestStack = this.mc.player.getItemBySlot(EquipmentSlot.CHEST);
+        ItemStack chestStack = this.mc.player.getEquippedStack(EquipmentSlot.CHEST);
         if (chestStack.getItem() != Items.ELYTRA) {
             return;
         }
-        if (this.mc.player.onGround()) {
-            this.mc.options.keyJump.setDown(true);
+        if (this.mc.player.isOnGround()) {
+            this.mc.options.jumpKey.setPressed(true);
             return;
         }
-        this.mc.options.keyJump.setDown(false);
-        if (!this.mc.player.isFallFlying()) {
+        this.mc.options.jumpKey.setPressed(false);
+        if (!this.mc.player.isGliding()) {
             if (this.mc.player.fallDistance <= 0.0) {
                 return;
             }
             long now = System.currentTimeMillis();
             if (now - this.lastGlidePacketTime > 500L) {
                 this.lastGlidePacketTime = now;
-                this.mc.getConnection().send((Packet)new ServerboundPlayerCommandPacket((Entity)this.mc.player, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+                this.mc.getNetworkHandler().sendPacket((Packet)new ClientCommandC2SPacket((Entity)this.mc.player, ClientCommandC2SPacket.Mode.START_FALL_FLYING));
             }
             return;
         }
-        this.mc.player.setXRot(-80.0f);
-        boolean falling2 = falling = this.mc.player.getDeltaMovement().y < 1.0;
+        this.mc.player.setPitch(-80.0f);
+        boolean falling2 = falling = this.mc.player.getVelocity().y < 1.0;
         if (falling) {
             if (this.mc.player.getY() < (double)(this.minHeight.get() + this.heightRange.get())) {
                 this.pitchController.launchFirework();
             } else {
                 this.lastSaveTime = System.currentTimeMillis();
-                if (this.mc.player.isFallFlying()) {
+                if (this.mc.player.isGliding()) {
                     this.startFlying();
                     this.warning("起飞完毕", new Object[0]);
                 }
@@ -226,7 +226,7 @@ public class MosquitoCoilScan extends StepModule {
 
     private void onFly() {
         if (this.autoFly.get()) {
-            if (!this.mc.player.isFallFlying()) {
+            if (!this.mc.player.isGliding()) {
                 this.step = Steps.MOVEMENT;
                 return;
             }
@@ -261,11 +261,11 @@ public class MosquitoCoilScan extends StepModule {
     }
 
     private boolean isElytraUsable() {
-        ItemStack chestStack = this.mc.player.getItemBySlot(EquipmentSlot.CHEST);
-        boolean needReplace = chestStack.getItem() != Items.ELYTRA || chestStack.getMaxDamage() - chestStack.getDamageValue() <= 2;
+        ItemStack chestStack = this.mc.player.getEquippedStack(EquipmentSlot.CHEST);
+        boolean needReplace = chestStack.getItem() != Items.ELYTRA || chestStack.getMaxDamage() - chestStack.getDamage() <= 2;
         long now = System.currentTimeMillis();
         if (needReplace && now - this.lastElytraReplaceTime > 1000L) {
-            ItemStack replacementElytra = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.ELYTRA && itemStack.getMaxDamage() - itemStack.getDamageValue() > 2);
+            ItemStack replacementElytra = this.nextPlayerStack(itemStack -> itemStack.getItem() == Items.ELYTRA && itemStack.getMaxDamage() - itemStack.getDamage() > 2);
             if (replacementElytra.isEmpty()) {
                 this.warning("背包中的鞘翅耐久用光了！", new Object[0]);
             } else if (this.autoReplaceElytra.get()) {
@@ -332,8 +332,8 @@ public class MosquitoCoilScan extends StepModule {
     }
 
     private void setForwardKey(boolean pressed) {
-        if (this.mc.options != null && this.mc.options.keyUp != null) {
-            this.mc.options.keyUp.setDown(pressed);
+        if (this.mc.options != null && this.mc.options.forwardKey != null) {
+            this.mc.options.forwardKey.setPressed(pressed);
         }
     }
 
@@ -388,23 +388,23 @@ public class MosquitoCoilScan extends StepModule {
     }
 
     private String getDimensionId() {
-        if (this.mc.level == null) {
+        if (this.mc.world == null) {
             return "";
         }
-        return this.mc.level.dimension().identifier().toString();
+        return this.mc.world.getRegistryKey().getValue().toString();
     }
 
     private String getServerIdentifier() {
-        ServerData serverInfo = this.mc.getCurrentServer();
+        ServerInfo serverInfo = this.mc.getCurrentServerEntry();
         if (serverInfo != null) {
             if (this.serverIdentifierMode.get() == MosquitoCoilScanMode.服务器地址) {
                 String regex = "[\\\\/:*?\"<>|]";
-                return serverInfo.ip.replaceAll(regex, "_");
+                return serverInfo.address.replaceAll(regex, "_");
             }
             return serverInfo.name;
         }
-        if (this.mc.getSingleplayerServer() != null) {
-            return this.mc.getSingleplayerServer().getWorldData().getLevelName();
+        if (this.mc.getServer() != null) {
+            return this.mc.getServer().getSaveProperties().getLevelName();
         }
         return "other";
     }

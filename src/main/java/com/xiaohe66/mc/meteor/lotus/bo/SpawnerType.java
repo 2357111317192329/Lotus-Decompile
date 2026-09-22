@@ -1,8 +1,7 @@
 package com.xiaohe66.mc.meteor.lotus.bo;
 
-import net.minecraft.world.entity.EntityType;
-
 import java.util.Set;
+import net.minecraft.entity.EntityType;
 
 public enum SpawnerType {
     DUNGEON("地牢", new OffsetRegion(-2, -1, -2, 1, 2, 1), EntityType.ZOMBIE, EntityType.ZOMBIE_VILLAGER, EntityType.ZOMBIFIED_PIGLIN, EntityType.ZOMBIE_HORSE, EntityType.ZOMBIE_NAUTILUS, EntityType.SKELETON, EntityType.WITHER_SKELETON, EntityType.SKELETON_HORSE, EntityType.SPIDER),

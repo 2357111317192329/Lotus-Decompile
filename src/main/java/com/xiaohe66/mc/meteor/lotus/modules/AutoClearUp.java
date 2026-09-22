@@ -29,17 +29,16 @@ import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.StringSetting;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
-
+import net.minecraft.block.BlockState;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.util.math.BlockPos;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -124,7 +123,7 @@ public class AutoClearUp extends WarehouseModule {
     private void doInit(Boolean enabled) {
         if (Boolean.TRUE.equals(enabled)) {
             this.initSetting.set(false);
-            if (this.mc.player != null && this.mc.level != null) {
+            if (this.mc.player != null && this.mc.world != null) {
                 boolean success = this.initWarehouse();
                 if (!success) {
                     this.clearWarehouse();
@@ -158,15 +157,15 @@ public class AutoClearUp extends WarehouseModule {
     }
 
     private void dispatch() {
-        List<ItemEntity> itemEntities = this.mc.level.getEntitiesOfClass(ItemEntity.class, this.mc.player.getBoundingBox().inflate(5.0F), entity -> HeItemUtils.isShulkerBox(entity.getItem().getItem()));
+        List<ItemEntity> itemEntities = this.mc.world.getEntitiesByClass(ItemEntity.class, this.mc.player.getBoundingBox().expand(5.0F), entity -> HeItemUtils.isShulkerBox(entity.getStack().getItem()));
         if (!itemEntities.isEmpty()) {
             ItemEntity itemEntity = itemEntities.getFirst();
             BlockPos targetPos = null;
             if (itemEntity.getY() != (double) this.mc.player.getBlockY()) {
-                targetPos = HePosUtils.getBlockPos(itemEntity.position());
+                targetPos = HePosUtils.getBlockPos(itemEntity.getEntityPos());
             }
             if (targetPos == null) {
-                targetPos = itemEntity.blockPosition();
+                targetPos = itemEntity.getBlockPos();
             }
             this.gotoTargetIfNeed(targetPos, 0, Steps.NEXT, "捡kit");
         } else {
@@ -316,7 +315,7 @@ public class AutoClearUp extends WarehouseModule {
         if (this.operationCounter >= this.operationCount.get()) {
             this.closeNext(Steps.NEXT);
         } else {
-            BlockState state = this.mc.level.getBlockState(this.sortPos.getKitPos());
+            BlockState state = this.mc.world.getBlockState(this.sortPos.getKitPos());
             if (state.isAir()) {
                 this.closeNext(Steps.PLACE_KIT);
             } else if (!(state.getBlock() instanceof ShulkerBoxBlock)) {
@@ -350,7 +349,7 @@ public class AutoClearUp extends WarehouseModule {
     }
 
     private void putSortItem() {
-        BlockState state = this.mc.level.getBlockState(this.currentKit.getKitPos());
+        BlockState state = this.mc.world.getBlockState(this.currentKit.getKitPos());
         if (state.isAir()) {
             this.closeNext(Steps.PLACE_EMPTY_KIT);
         } else if (!(state.getBlock() instanceof ShulkerBoxBlock)) {
@@ -430,9 +429,9 @@ public class AutoClearUp extends WarehouseModule {
     }
 
     @Override
-    public CompoundTag toTag() {
-        CompoundTag tag = super.toTag();
-        ListTag list = new ListTag();
+    public NbtCompound toTag() {
+        NbtCompound tag = super.toTag();
+        NbtList list = new NbtList();
         for (ClearUpMapping mapping : this.mappings.values()) {
             list.add(mapping.toTag());
         }
@@ -441,14 +440,14 @@ public class AutoClearUp extends WarehouseModule {
     }
 
     @Override
-    public AutoClearUp fromTag(CompoundTag tag) {
+    public AutoClearUp fromTag(NbtCompound tag) {
         super.fromTag(tag);
         if (tag.contains("clearUpMappings")) {
-            ListTag list = tag.getListOrEmpty("clearUpMappings");
+            NbtList list = tag.getListOrEmpty("clearUpMappings");
             this.mappings.clear();
-            for (Tag element : list) {
-                if (element.getId() == 10) {
-                    ClearUpMapping mapping = new ClearUpMapping().fromTag((CompoundTag) element);
+            for (NbtElement element : list) {
+                if (element.getType() == 10) {
+                    ClearUpMapping mapping = new ClearUpMapping().fromTag((NbtCompound) element);
                     this.mappings.put(mapping.getTargetItem(), mapping);
                 }
             }
@@ -468,7 +467,7 @@ public class AutoClearUp extends WarehouseModule {
         WTable table = (WTable) section.add(theme.table()).expandX().widget();
         for (ClearUpMapping mapping : new ArrayList<>(this.mappings.values())) {
             Item item = mapping.getTargetItem();
-            ItemStack stack = mapping.getTargetItem().getDefaultInstance();
+            ItemStack stack = mapping.getTargetItem().getDefaultStack();
             table.add(theme.item(stack));
             WButton itemButton = (WButton) table.add(theme.button(Names.get(mapping.getTargetItem()))).expandX().widget();
             itemButton.action = () -> {

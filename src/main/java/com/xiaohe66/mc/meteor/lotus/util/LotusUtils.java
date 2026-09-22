@@ -8,8 +8,7 @@ import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.systems.modules.combat.KillAura;
 import meteordevelopment.meteorclient.systems.modules.render.FreeLook;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.client.multiplayer.ServerData;
-
+import net.minecraft.client.network.ServerInfo;
 import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
@@ -24,8 +23,8 @@ public class LotusUtils {
     }
 
     public static String getWorldId() {
-        if (MeteorClient.mc.level != null) {
-            worldId = MeteorClient.mc.level.dimension().identifier().toString();
+        if (MeteorClient.mc.world != null) {
+            worldId = MeteorClient.mc.world.getRegistryKey().getValue().toString();
         }
         return worldId;
     }
@@ -35,16 +34,16 @@ public class LotusUtils {
     }
 
     public static void setServerId(boolean useAddress) {
-        ServerData serverData = MeteorClient.mc.getCurrentServer();
+        ServerInfo serverData = MeteorClient.mc.getCurrentServerEntry();
         if (serverData != null) {
             if (useAddress) {
                 String invalidChars = "[\\\\/:*?\"<>|]";
-                serverId = serverData.ip.replaceAll(invalidChars, "_");
+                serverId = serverData.address.replaceAll(invalidChars, "_");
             } else {
                 serverId = serverData.name;
             }
-        } else if (MeteorClient.mc.getSingleplayerServer() != null) {
-            serverId = MeteorClient.mc.getSingleplayerServer().getWorldData().getLevelName();
+        } else if (MeteorClient.mc.getServer() != null) {
+            serverId = MeteorClient.mc.getServer().getSaveProperties().getLevelName();
         } else {
             serverId = "other";
         }

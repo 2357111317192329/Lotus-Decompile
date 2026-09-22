@@ -34,9 +34,9 @@ import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.screen.ScreenHandler;
 
 public class PreviewTool extends BaseModule {
     private final SettingGroup iconGroup = settings.createGroup("盒子图标");
@@ -210,26 +210,26 @@ public class PreviewTool extends BaseModule {
 
     @EventHandler
     private void onOpenScreen(ScreenRenderEvent event) {
-        if (this.kitSpread.get() && this.mc.screen instanceof AbstractContainerScreen) {
+        if (this.kitSpread.get() && this.mc.currentScreen instanceof HandledScreen) {
             this.kitSpreadRenderer.onOpenScreen(event);
         }
     }
 
     @EventHandler
     private void onMouseScroll(MouseScrollEvent event) {
-        if (this.kitSpread.get() && this.mc.screen instanceof AbstractContainerScreen) {
+        if (this.kitSpread.get() && this.mc.currentScreen instanceof HandledScreen) {
             this.kitSpreadRenderer.onMouseScroll(event);
         }
     }
 
     @EventHandler
     private void onHandledScreenRenderEvent(HandledScreenRenderEvent event) {
-        Screen screen = this.mc.screen;
-        if (screen instanceof AbstractContainerScreen handledScreen) {
+        Screen screen = this.mc.currentScreen;
+        if (screen instanceof HandledScreen handledScreen) {
             if (this.boxPreview.get()) {
                 this.previewRenderer.updatePinned(event.getMouseX(), event.getMouseY(), event.getHoveredSlot());
             }
-            AbstractContainerMenu menu = handledScreen.getMenu();
+            ScreenHandler menu = handledScreen.getScreenHandler();
             this.markRenderer.update(menu);
             if (this.kitIcon.get()) {
                 this.kitIconRenderer.render(event.getDrawContext(), menu.slots);
@@ -240,8 +240,8 @@ public class PreviewTool extends BaseModule {
     @EventHandler
     private void onRender2D(Render2DEvent event) {
         this.markRenderer.clearTick();
-        if (this.kitIcon.get() && !(this.mc.screen instanceof AbstractContainerScreen)) {
-            this.kitIconRenderer.render(event.graphics);
+        if (this.kitIcon.get() && !(this.mc.currentScreen instanceof HandledScreen)) {
+            this.kitIconRenderer.render(event.drawContext);
         }
     }
 

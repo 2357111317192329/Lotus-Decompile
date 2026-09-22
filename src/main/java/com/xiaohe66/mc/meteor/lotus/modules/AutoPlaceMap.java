@@ -25,23 +25,23 @@ import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.BundleItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.BundleContents;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.BundleContentsComponent;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.item.BundleItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.text.Text;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3i;
 
 public class AutoPlaceMap extends StepModule {
     private final Setting<AutoPlaceOrder> placeOrder = sgGeneral.add(new EnumSetting.Builder<AutoPlaceOrder>()
@@ -66,7 +66,7 @@ public class AutoPlaceMap extends StepModule {
             if (this.mc.player == null || !this.isActive() || this.step == Steps.PLACE) {
                 return;
             }
-            boolean rightClicking = this.mc.options.keyUse.isDown();
+            boolean rightClicking = this.mc.options.useKey.isPressed();
             if (rightClicking && !this.wasRightClicking) {
                 this.checkItemFramePlacement();
             }
@@ -79,13 +79,13 @@ public class AutoPlaceMap extends StepModule {
     }
 
     private void preparePlace() {
-        ItemFrame firstItemFrame = this.getItemFrameAtPosition(this.blockPos1);
-        ItemFrame secondItemFrame = this.getItemFrameAtPosition(this.blockPos2);
+        ItemFrameEntity firstItemFrame = this.getItemFrameAtPosition(this.blockPos1);
+        ItemFrameEntity secondItemFrame = this.getItemFrameAtPosition(this.blockPos2);
         if (firstItemFrame == null || secondItemFrame == null) {
             return;
         }
-        Direction frameDirection = firstItemFrame.getNearestViewDirection();
-        if (frameDirection != secondItemFrame.getNearestViewDirection()) {
+        Direction frameDirection = firstItemFrame.getFacing();
+        if (frameDirection != secondItemFrame.getFacing()) {
             this.warning("方向不一致", new Object[0]);
             return;
         }
@@ -101,8 +101,8 @@ public class AutoPlaceMap extends StepModule {
     private void place() {
         HashMap<String, Integer> needCount = new HashMap<String, Integer>();
         for (PlaceMapPos placeMapPos : this.placePosList) {
-            ItemFrame itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
-            if (itemFrame == null || itemFrame.getItem().isEmpty()) {
+            ItemFrameEntity itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
+            if (itemFrame == null || itemFrame.getHeldItemStack().isEmpty()) {
                 needCount.merge(placeMapPos.getName(), 1, Integer::sum);
             }
         }
@@ -114,11 +114,11 @@ public class AutoPlaceMap extends StepModule {
         Set<String> missingNames = this.subtractInventoryCounts(needCount);
         if (missingNames.isEmpty() || !this.moveMissingToInventory(missingNames)) {
             PlaceMapPos mainHandPos = null;
-            ItemFrame mainHandFrame = null;
+            ItemFrameEntity mainHandFrame = null;
             PlaceMapPos hotbarPos = null;
-            ItemFrame hotbarFrame = null;
+            ItemFrameEntity hotbarFrame = null;
             PlaceMapPos otherPos = null;
-            ItemFrame otherFrame = null;
+            ItemFrameEntity otherFrame = null;
             int size = this.placePosList.size();
             for (int i = 0; i < size; ++i) {
                 PlaceMapPos placeMapPos = this.placePosList.get(this.placeIndex);
@@ -126,8 +126,8 @@ public class AutoPlaceMap extends StepModule {
                 if (this.placeIndex >= size) {
                     this.placeIndex = 0;
                 }
-                ItemFrame itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
-                if ((itemFrame == null || itemFrame.getItem().isEmpty()) && !this.isOutOfReach(placeMapPos.getBlockPos(), itemFrame)) {
+                ItemFrameEntity itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
+                if ((itemFrame == null || itemFrame.getHeldItemStack().isEmpty()) && !this.isOutOfReach(placeMapPos.getBlockPos(), itemFrame)) {
                     if (itemFrame == null) {
                         if (otherPos == null) {
                             otherPos = placeMapPos;
@@ -171,7 +171,7 @@ public class AutoPlaceMap extends StepModule {
     private Set<String> subtractInventoryCounts(Map<String, Integer> needCount) {
         for (int i = 0; i < 36; ++i) {
             ItemStack stack = this.getItemStack(i);
-            Component customName = stack.getCustomName();
+            Text customName = stack.getCustomName();
             if (stack.getItem() == Items.FILLED_MAP && customName != null) {
                 needCount.merge(customName.getString(), -stack.getCount(), Integer::sum);
             }
@@ -185,7 +185,7 @@ public class AutoPlaceMap extends StepModule {
         return missingNames;
     }
 
-    private void doPlace(PlaceMapPos placeMapPos, ItemFrame itemFrame) {
+    private void doPlace(PlaceMapPos placeMapPos, ItemFrameEntity itemFrame) {
         if (itemFrame == null) {
             FindItemResult frameResult = this.findFrame();
             if (frameResult.found()) {
@@ -216,7 +216,7 @@ public class AutoPlaceMap extends StepModule {
     }
 
     private boolean moveMissingToInventory(Set<String> missingNames) {
-        if (!(this.mc.player.containerMenu instanceof InventoryMenu)) {
+        if (!(this.mc.player.currentScreenHandler instanceof PlayerScreenHandler)) {
             HeInvUtils.closeCurScreen();
             this.setDelay();
             return true;
@@ -240,10 +240,10 @@ public class AutoPlaceMap extends StepModule {
         for (int i = 0; i < 36; ++i) {
             ItemStack stack = this.getItemStack(i);
             if (!(stack.getItem() instanceof BundleItem)) continue;
-            BundleContents contents = stack.get(DataComponents.BUNDLE_CONTENTS);
+            BundleContentsComponent contents = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
             if (contents == null) continue;
-            for (ItemStack bundleStack : contents.itemCopyStream().toList()) {
-                Component customName = bundleStack.getCustomName();
+            for (ItemStack bundleStack : contents.stream().toList()) {
+                Text customName = bundleStack.getCustomName();
                 if (bundleStack.getItem() == Items.FILLED_MAP && customName != null && names.contains(customName.getString())) {
                     return i;
                 }
@@ -252,9 +252,9 @@ public class AutoPlaceMap extends StepModule {
         return -1;
     }
 
-    private boolean isOutOfReach(BlockPos pos, ItemFrame itemFrame) {
-        double range = itemFrame == null ? this.mc.player.blockInteractionRange() : this.mc.player.entityInteractionRange();
-        return this.mc.player.getEyePosition().distanceToSqr(pos.getCenter()) > range * range;
+    private boolean isOutOfReach(BlockPos pos, ItemFrameEntity itemFrame) {
+        double range = itemFrame == null ? this.mc.player.getBlockInteractionRange() : this.mc.player.getEntityInteractionRange();
+        return this.mc.player.getEyePos().squaredDistanceTo(pos.toCenterPos()) > range * range;
     }
 
     private FindItemResult findMap(String mapName) {
@@ -266,20 +266,20 @@ public class AutoPlaceMap extends StepModule {
     }
 
     private void checkItemFramePlacement() {
-        LocalPlayer player = this.mc.player;
-        ItemStack mainHandStack = player.getItemInHand(InteractionHand.MAIN_HAND);
-        ItemStack offHandStack = player.getItemInHand(InteractionHand.OFF_HAND);
-        boolean hasFrame = mainHandStack.is(Items.ITEM_FRAME) || offHandStack.is(Items.ITEM_FRAME) || mainHandStack.is(Items.GLOW_ITEM_FRAME) || offHandStack.is(Items.GLOW_ITEM_FRAME);
+        ClientPlayerEntity player = this.mc.player;
+        ItemStack mainHandStack = player.getStackInHand(Hand.MAIN_HAND);
+        ItemStack offHandStack = player.getStackInHand(Hand.OFF_HAND);
+        boolean hasFrame = mainHandStack.isOf(Items.ITEM_FRAME) || offHandStack.isOf(Items.ITEM_FRAME) || mainHandStack.isOf(Items.GLOW_ITEM_FRAME) || offHandStack.isOf(Items.GLOW_ITEM_FRAME);
         if (!hasFrame) {
             return;
         }
-        if (this.mc.hitResult == null || this.mc.hitResult.getType() != HitResult.Type.BLOCK) {
+        if (this.mc.crosshairTarget == null || this.mc.crosshairTarget.getType() != HitResult.Type.BLOCK) {
             return;
         }
-        BlockHitResult blockHit = (BlockHitResult)this.mc.hitResult;
+        BlockHitResult blockHit = (BlockHitResult)this.mc.crosshairTarget;
         BlockPos blockPos = blockHit.getBlockPos();
-        Direction side = blockHit.getDirection();
-        BlockPos framePos = blockPos.relative(side);
+        Direction side = blockHit.getSide();
+        BlockPos framePos = blockPos.offset(side);
         if (this.blockPos1 == null) {
             this.blockPos1 = new BlockPos((Vec3i)framePos);
         } else {
@@ -291,8 +291,8 @@ public class AutoPlaceMap extends StepModule {
     private void readyMap() {
         int emptyFrameCount = 0;
         for (PlaceMapPos placeMapPos : this.placePosList) {
-            ItemFrame itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
-            if (itemFrame != null && !itemFrame.getItem().isEmpty()) {
+            ItemFrameEntity itemFrame = this.getItemFrameAtPosition(placeMapPos.getBlockPos());
+            if (itemFrame != null && !itemFrame.getHeldItemStack().isEmpty()) {
                 placeMapPos.setDone(true);
             } else {
                 ++emptyFrameCount;
@@ -306,9 +306,9 @@ public class AutoPlaceMap extends StepModule {
                 continue;
             }
             if (!(stack.getItem() instanceof BundleItem)) continue;
-            BundleContents contents = stack.get(DataComponents.BUNDLE_CONTENTS);
+            BundleContentsComponent contents = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
             if (contents == null) continue;
-            for (ItemStack bundleStack : contents.itemCopyStream().toList()) {
+            for (ItemStack bundleStack : contents.stream().toList()) {
                 if (bundleStack.getItem() != Items.FILLED_MAP) continue;
                 this.addMapNames(mapNames, bundleStack);
             }
@@ -328,7 +328,7 @@ public class AutoPlaceMap extends StepModule {
     }
 
     private void addMapNames(List<String> mapNames, ItemStack stack) {
-        Component customName = stack.getCustomName();
+        Text customName = stack.getCustomName();
         if (customName == null) {
             return;
         }
@@ -443,13 +443,13 @@ public class AutoPlaceMap extends StepModule {
         }
     }
 
-    public ItemFrame getItemFrameAtPosition(BlockPos framePos) {
-        if (this.mc.level == null) {
+    public ItemFrameEntity getItemFrameAtPosition(BlockPos framePos) {
+        if (this.mc.world == null) {
             return null;
         }
-        AABB searchBox = new AABB((double)framePos.getX(), (double)framePos.getY(), (double)framePos.getZ(), (double)(framePos.getX() + 1), (double)(framePos.getY() + 1), (double)(framePos.getZ() + 1));
-        List itemFrames = this.mc.level.getEntitiesOfClass(ItemFrame.class, searchBox, itemFrame -> itemFrame.blockPosition().equals(framePos));
-        return itemFrames.isEmpty() ? null : (ItemFrame)itemFrames.getFirst();
+        Box searchBox = new Box((double)framePos.getX(), (double)framePos.getY(), (double)framePos.getZ(), (double)(framePos.getX() + 1), (double)(framePos.getY() + 1), (double)(framePos.getZ() + 1));
+        List itemFrames = this.mc.world.getEntitiesByClass(ItemFrameEntity.class, searchBox, itemFrame -> itemFrame.getBlockPos().equals(framePos));
+        return itemFrames.isEmpty() ? null : (ItemFrameEntity)itemFrames.getFirst();
     }
 
     @EventHandler

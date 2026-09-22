@@ -41,13 +41,13 @@ import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+import net.minecraft.util.math.BlockPos;
 
 public class StorageEspPlus extends Module {
     private static final Cache<String, Boolean> storageStatusCache = CacheBuilder.newBuilder().maximumSize(1024L).expireAfterWrite(5L, TimeUnit.SECONDS).expireAfterAccess(5L, TimeUnit.SECONDS).build();
@@ -108,7 +108,7 @@ public class StorageEspPlus extends Module {
     }
 
     private boolean testInStructure(BlockEntity blockEntity) {
-        BlockPos originPos = blockEntity.getBlockPos();
+        BlockPos originPos = blockEntity.getPos();
         String cacheKey = originPos.getX() + "_" + originPos.getY() + "_" + originPos.getZ();
         try {
             return storageStatusCache.get(cacheKey, () -> this.doTestInStructure(blockEntity));
@@ -125,7 +125,7 @@ public class StorageEspPlus extends Module {
         Set<Item> excludeItemSet = excludeBlocks.stream().map(Block::asItem).collect(Collectors.toSet());
         int excludeCount = 0;
         int storageCount = 0;
-        BlockPos originPos = blockEntity.getBlockPos();
+        BlockPos originPos = blockEntity.getPos();
         int minX = originPos.getX() - range;
         int maxX = originPos.getX() + range;
         int minY = originPos.getY() - range;
@@ -136,7 +136,7 @@ public class StorageEspPlus extends Module {
             for (int y = minY; y <= maxY; ++y) {
                 for (int z = minZ; z <= maxZ; ++z) {
                     BlockPos blockPos = new BlockPos(x, y, z);
-                    BlockState blockState = MeteorClient.mc.level.getBlockState(blockPos);
+                    BlockState blockState = MeteorClient.mc.world.getBlockState(blockPos);
                     Item item = blockState.getBlock().asItem();
                     if (item == Items.CHEST || item == Items.TRAPPED_CHEST || item == Items.HOPPER) {
                         ++storageCount;

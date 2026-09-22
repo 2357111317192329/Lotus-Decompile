@@ -11,13 +11,12 @@ import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;
 import meteordevelopment.meteorclient.utils.misc.Names;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.state.BlockState;
-
+import net.minecraft.block.BlockState;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.math.BlockPos;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -76,7 +75,7 @@ public abstract class WarehouseModule extends WalkModule {
     }
 
     protected void placeEmptyKit(StoragePos pos) {
-        BlockState state = this.mc.level.getBlockState(pos.getKitPos());
+        BlockState state = this.mc.world.getBlockState(pos.getKitPos());
         if (state.getBlock() instanceof ShulkerBoxBlock) {
             this.step = Steps.PUT_ITEM;
         } else if (!state.isAir()) {
@@ -96,7 +95,7 @@ public abstract class WarehouseModule extends WalkModule {
     }
 
     protected void placeKit(StoragePos pos, Predicate<ShulkerBoxReader> predicate) {
-        BlockState state = this.mc.level.getBlockState(pos.getKitPos());
+        BlockState state = this.mc.world.getBlockState(pos.getKitPos());
         if (state.getBlock() instanceof ShulkerBoxBlock) {
             this.step = Steps.TAKE_ITEM;
         } else if (!state.isAir()) {
@@ -159,7 +158,7 @@ public abstract class WarehouseModule extends WalkModule {
             this.gotoBtnPos(pos, "<挖盒子>距离不够, 尝试移动", Steps.BREAK_KIT);
         } else {
             BlockPos kitPos = pos.getKitPos();
-            BlockState state = this.mc.level.getBlockState(kitPos);
+            BlockState state = this.mc.world.getBlockState(kitPos);
             if (!HeItemUtils.isShulkerBox(state.getBlock().asItem())) {
                 this.step = Steps.NEXT;
                 this.setDelay(20);

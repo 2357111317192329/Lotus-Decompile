@@ -7,20 +7,20 @@
 package com.xiaohe66.mc.meteor.lotus.event;
 
 import com.xiaohe66.mc.meteor.lotus.event.Event;
-import net.minecraft.world.entity.player.Input;
+import net.minecraft.util.PlayerInput;
 
 public class KeyboardInputTickEvent extends Event {
-    private Input playerInput;
+    private PlayerInput playerInput;
 
     public KeyboardInputTickEvent() {
         super(Stage.Post);
     }
 
-    public Input getPlayerInput() {
+    public PlayerInput getPlayerInput() {
         return this.playerInput;
     }
 
-    public void setPlayerInput(Input playerInput) {
+    public void setPlayerInput(PlayerInput playerInput) {
         this.playerInput = playerInput;
     }
 }

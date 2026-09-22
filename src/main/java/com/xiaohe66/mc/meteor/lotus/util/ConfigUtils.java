@@ -5,10 +5,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.xiaohe66.mc.meteor.lotus.modules.clearup.ClearUpMapping;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,8 +96,8 @@ public class ConfigUtils {
     public static void saveMappings(String path, Map<Item, ClearUpMapping> mappings) {
         LinkedHashMap<String, List<String>> json = new LinkedHashMap<>();
         for (ClearUpMapping mapping : mappings.values()) {
-            String target = BuiltInRegistries.ITEM.getKey(mapping.getTargetItem()).getPath();
-            List<String> related = mapping.getRelatedItems().stream().map(item -> BuiltInRegistries.ITEM.getKey(item).toString()).toList();
+            String target = Registries.ITEM.getId(mapping.getTargetItem()).getPath();
+            List<String> related = mapping.getRelatedItems().stream().map(item -> Registries.ITEM.getId(item).toString()).toList();
             json.put(target, related);
         }
         String content = GSON.toJson(json);
@@ -151,7 +151,7 @@ public class ConfigUtils {
         if (identifier == null) {
             return null;
         }
-        Item item = BuiltInRegistries.ITEM.getValue(identifier);
+        Item item = Registries.ITEM.get(identifier);
         return item == Items.AIR ? null : item;
     }
 }

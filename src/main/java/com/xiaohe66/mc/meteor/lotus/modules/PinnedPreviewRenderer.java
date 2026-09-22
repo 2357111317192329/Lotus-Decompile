@@ -20,18 +20,18 @@ import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.meteorclient.utils.tooltip.BundleTooltipComponent;
 import meteordevelopment.meteorclient.utils.tooltip.ContainerTooltipComponent;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.gui.screens.inventory.tooltip.ClientTextTooltip;
-import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
-import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.BundleContents;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.tooltip.OrderedTextTooltipComponent;
+import net.minecraft.client.gui.tooltip.TooltipComponent;
+import net.minecraft.client.gui.tooltip.TooltipPositioner;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.BundleContentsComponent;
+import net.minecraft.item.ItemStack;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.text.Text;
 import org.joml.Vector2i;
 
 public class PinnedPreviewRenderer {
@@ -51,14 +51,14 @@ public class PinnedPreviewRenderer {
 
     /** Cancels the vanilla container tooltip so the pinned preview can render instead. */
     public void cancelTooltip(ContainerTooltipTextEvent event) {
-        if (this.enabled.get() && MeteorClient.mc.screen instanceof AbstractContainerScreen) {
+        if (this.enabled.get() && MeteorClient.mc.currentScreen instanceof HandledScreen) {
             event.cancel();
         }
     }
 
     /** Injects the shulker box / bundle contents image into Meteor's tooltip data event. */
     public void onTooltipData(TooltipDataEvent event) {
-        if (this.enabled.get() && MeteorClient.mc.screen instanceof AbstractContainerScreen) {
+        if (this.enabled.get() && MeteorClient.mc.currentScreen instanceof HandledScreen) {
             ItemStack stack = event.itemStack;
             if (HeItemUtils.isShulkerBox(stack.getItem())) {
                 if (Utils.hasItems(stack)) {
@@ -66,7 +66,7 @@ public class PinnedPreviewRenderer {
                     event.tooltipData = new ContainerTooltipComponent(this.containerStacks, Utils.getShulkerColor(stack));
                 }
             } else {
-                BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+                BundleContentsComponent bundle = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
                 if (bundle != null && !bundle.isEmpty()) {
                     event.tooltipData = new BundleTooltipComponent(this.toArray(bundle), bundle);
                 }
@@ -85,8 +85,8 @@ public class PinnedPreviewRenderer {
         if (!this.enabled.get()) {
             this.clearPin();
         } else if (this.pinnedSlot != null) {
-            if (this.pinnedSlot.hasItem() && MeteorClient.mc.player.containerMenu.slots.contains(this.pinnedSlot)) {
-                event.setResult(event.getSlot() == this.pinnedSlot && MeteorClient.mc.player.containerMenu.getCarried().isEmpty());
+            if (this.pinnedSlot.hasStack() && MeteorClient.mc.player.currentScreenHandler.slots.contains(this.pinnedSlot)) {
+                event.setResult(event.getSlot() == this.pinnedSlot && MeteorClient.mc.player.currentScreenHandler.getCursorStack().isEmpty());
                 event.cancel();
             } else {
                 this.clearPin();
@@ -102,8 +102,8 @@ public class PinnedPreviewRenderer {
         }
     }
 
-    private void draw(GuiGraphicsExtractor drawContext, int mouseX, int mouseY) {
-        ItemStack stack = this.pinnedSlot.getItem();
+    private void draw(DrawContext drawContext, int mouseX, int mouseY) {
+        ItemStack stack = this.pinnedSlot.getStack();
         if (!stack.isEmpty() && this.isValidStack(stack)) {
             this.draw(drawContext, this.firstGrid, stack);
             if (this.pinnedIndex >= 0) {
@@ -126,7 +126,7 @@ public class PinnedPreviewRenderer {
         if (HeItemUtils.isShulkerBox(stack.getItem())) {
             return Utils.hasItems(stack);
         } else {
-            BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+            BundleContentsComponent bundle = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
             return bundle != null && !bundle.isEmpty();
         }
     }
@@ -137,7 +137,7 @@ public class PinnedPreviewRenderer {
         boolean pressed = key.isSet() && key.isPressed();
         if (pressed && !this.keyPressed) {
             if (this.pinnedSlot == null) {
-                if (hoveredSlot != null && hoveredSlot.hasItem() && this.isValidStack(hoveredSlot.getItem())) {
+                if (hoveredSlot != null && hoveredSlot.hasStack() && this.isValidStack(hoveredSlot.getStack())) {
                     this.pinnedSlot = hoveredSlot;
                     this.firstGrid.x = mouseX;
                     this.firstGrid.y = mouseY;
@@ -162,13 +162,13 @@ public class PinnedPreviewRenderer {
         this.keyPressed = pressed;
     }
 
-    private void draw(GuiGraphicsExtractor drawContext, TooltipGrid grid, ItemStack stack) {
-        Font textRenderer = MeteorClient.mc.font;
-        BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+    private void draw(DrawContext drawContext, TooltipGrid grid, ItemStack stack) {
+        TextRenderer textRenderer = MeteorClient.mc.textRenderer;
+        BundleContentsComponent bundle = stack.get(DataComponentTypes.BUNDLE_CONTENTS);
         boolean isBundle = !HeItemUtils.isShulkerBox(stack.getItem()) && bundle != null && !bundle.isEmpty();
-        ArrayList<ClientTooltipComponent> components = new ArrayList<ClientTooltipComponent>();
-        for (Component line : Screen.getTooltipFromItem(MeteorClient.mc, stack)) {
-            components.add(new ClientTextTooltip(line.getVisualOrderText()));
+        ArrayList<TooltipComponent> components = new ArrayList<TooltipComponent>();
+        for (Text line : Screen.getTooltipFromItem(MeteorClient.mc, stack)) {
+            components.add(new OrderedTextTooltipComponent(line.asOrderedText()));
         }
         if (isBundle) {
             components.add(new BundleTooltipComponent(this.toArray(bundle), bundle));
@@ -176,7 +176,7 @@ public class PinnedPreviewRenderer {
             Utils.getItemsInContainerItem(stack, this.containerStacks);
             components.add(new ContainerTooltipComponent(this.containerStacks, Utils.getShulkerColor(stack)));
         }
-        ClientTooltipPositioner positioner = (screenWidth, screenHeight, mouseX, mouseY, tooltipWidth, tooltipHeight) -> {
+        TooltipPositioner positioner = (screenWidth, screenHeight, mouseX, mouseY, tooltipWidth, tooltipHeight) -> {
             int tooltipX = grid.x + 12;
             int tooltipY = grid.y - 12;
             if (tooltipX + tooltipWidth > screenWidth) {
@@ -191,7 +191,7 @@ public class PinnedPreviewRenderer {
             grid.th = tooltipHeight;
             return new Vector2i(tooltipX, tooltipY);
         };
-        drawContext.tooltip(textRenderer, components, grid.x, grid.y, positioner, stack.get(DataComponents.TOOLTIP_STYLE));
+        drawContext.drawTooltipImmediately(textRenderer, components, grid.x, grid.y, positioner, stack.get(DataComponentTypes.TOOLTIP_STYLE));
         grid.rects.clear();
         int y = grid.ty;
         for (int i = 0; i < components.size() - 1; ++i) {
@@ -218,8 +218,8 @@ public class PinnedPreviewRenderer {
         }
     }
 
-    private void buildBundleGrid(TooltipGrid grid, BundleContents bundle, int y) {
-        List<ItemStack> stacks = bundle.itemCopyStream().toList();
+    private void buildBundleGrid(TooltipGrid grid, BundleContentsComponent bundle, int y) {
+        List<ItemStack> stacks = bundle.stream().toList();
         for (int i = 0; i < stacks.size(); ++i) {
             int sx = grid.tx + 8 + i % 8 * 24;
             int sy = y + 8 + i / 8 * 24;
@@ -227,13 +227,13 @@ public class PinnedPreviewRenderer {
         }
     }
 
-    private boolean drawHovered(GuiGraphicsExtractor drawContext, TooltipGrid grid, int mouseX, int mouseY) {
+    private boolean drawHovered(DrawContext drawContext, TooltipGrid grid, int mouseX, int mouseY) {
         SlotRect rect = this.findRect(grid, mouseX, mouseY);
         if (rect == null) {
             return false;
         } else {
             drawContext.fill(rect.fillX(), rect.fillY(), rect.fillX() + 16, rect.fillY() + 16, -2130706433);
-            drawContext.setTooltipForNextFrame(MeteorClient.mc.font, rect.stack(), mouseX, mouseY);
+            drawContext.drawItemTooltip(MeteorClient.mc.textRenderer, rect.stack(), mouseX, mouseY);
             return true;
         }
     }
@@ -256,8 +256,8 @@ public class PinnedPreviewRenderer {
         return null;
     }
 
-    private ItemStack[] toArray(BundleContents bundle) {
-        List<ItemStack> stacks = bundle.itemCopyStream().toList();
+    private ItemStack[] toArray(BundleContentsComponent bundle) {
+        List<ItemStack> stacks = bundle.stream().toList();
         return stacks.toArray(new ItemStack[0]);
     }
 

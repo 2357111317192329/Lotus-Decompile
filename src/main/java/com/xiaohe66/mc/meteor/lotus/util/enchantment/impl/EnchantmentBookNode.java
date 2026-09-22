@@ -11,15 +11,15 @@ package com.xiaohe66.mc.meteor.lotus.util.enchantment.impl;
 import com.xiaohe66.mc.meteor.lotus.util.EnchantmentUtils;
 import com.xiaohe66.mc.meteor.lotus.util.enchantment.EnchantmentNode;
 import meteordevelopment.meteorclient.utils.misc.Names;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.registry.RegistryKey;
 
 public class EnchantmentBookNode
 implements EnchantmentNode {
-    private final ResourceKey<Enchantment> registryKey;
+    private final RegistryKey<Enchantment> registryKey;
     private final int cost;
 
-    public EnchantmentBookNode(ResourceKey<Enchantment> registryKey) {
+    public EnchantmentBookNode(RegistryKey<Enchantment> registryKey) {
         this.registryKey = registryKey;
         this.cost = EnchantmentUtils.getCost(registryKey);
     }
@@ -39,7 +39,7 @@ implements EnchantmentNode {
         return 0;
     }
 
-    public ResourceKey<Enchantment> getEnchantmentKey() {
+    public RegistryKey<Enchantment> getEnchantmentKey() {
         return this.registryKey;
     }
 

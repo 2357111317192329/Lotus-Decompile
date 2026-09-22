@@ -15,11 +15,11 @@ import com.xiaohe66.mc.meteor.lotus.util.HeInvUtils;
 import com.xiaohe66.mc.meteor.lotus.modules.MosquitoCoilScan;
 
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.Hand;
 
 public class Pitch40Controller {
     private static final float INIT_PITCH = 37.72f;
@@ -28,7 +28,7 @@ public class Pitch40Controller {
     private static final float DESCEND_STEP = 5.45f;
     private static final float ASCEND_JITTER = 0.5f;
     private static final float DESCEND_JITTER = 1.0f;
-    private final Minecraft mc = Minecraft.getInstance();
+    private final MinecraftClient mc = MinecraftClient.getInstance();
     private final MosquitoCoilScan scan;
     private float currentPitch = 37.72f;
     private volatile boolean ascending = true;
@@ -68,7 +68,7 @@ public class Pitch40Controller {
             }
             if (this.currentPitch <= -54.77f) {
                 if (this.needClimb) {
-                    boolean falling = this.mc.player.getDeltaMovement().y < 1.0;
+                    boolean falling = this.mc.player.getVelocity().y < 1.0;
                     if (falling) {
                         if (playerY > (double)(this.scan.minHeight.get() + this.scan.heightRange.get())) {
                             this.needClimb = false;
@@ -84,7 +84,7 @@ public class Pitch40Controller {
                 }
             }
         }
-        this.mc.player.setXRot(this.currentPitch);
+        this.mc.player.setPitch(this.currentPitch);
     }
 
     public void launchFirework() {
@@ -98,11 +98,11 @@ public class Pitch40Controller {
         }
         ChatUtils.warning("使用烟花拉升高度 : %.1f", (Object[])new Object[]{this.mc.player.getY()});
         this.lastFireworkTime = now;
-        this.mc.gameMode.useItem((Player)this.mc.player, InteractionHand.MAIN_HAND);
+        this.mc.interactionManager.interactItem((PlayerEntity)this.mc.player, Hand.MAIN_HAND);
     }
 
     private boolean hasFirework() {
-        ItemStack mainHandStack = this.mc.player.getMainHandItem();
+        ItemStack mainHandStack = this.mc.player.getMainHandStack();
         if (mainHandStack.getItem() == Items.FIREWORK_ROCKET) {
             return true;
         }
@@ -121,12 +121,12 @@ public class Pitch40Controller {
         ItemStack stack;
         int slot;
         for (slot = 0; slot < 9; ++slot) {
-            stack = this.mc.player.getInventory().getItem(slot);
+            stack = this.mc.player.getInventory().getStack(slot);
             if (stack.getItem() != Items.FIREWORK_ROCKET) continue;
             return slot;
         }
         for (slot = 9; slot < 36; ++slot) {
-            stack = this.mc.player.getInventory().getItem(slot);
+            stack = this.mc.player.getInventory().getStack(slot);
             if (stack.getItem() != Items.FIREWORK_ROCKET) continue;
             return slot;
         }

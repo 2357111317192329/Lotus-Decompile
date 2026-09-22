@@ -15,8 +15,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 
 public class StorageWarp {
     private final ItemStack[] stacks;
@@ -53,7 +53,7 @@ public class StorageWarp {
             double bestRatio = 0.0;
             Map.Entry<ItemBo, ItemStack> entry = null;
             for (Map.Entry<ItemBo, ItemStack> entry2 : map.entrySet()) {
-                double ratio = (double)entry2.getValue().getCount() * 1.0 / (double)entry2.getKey().getItem().getDefaultMaxStackSize();
+                double ratio = (double)entry2.getValue().getCount() * 1.0 / (double)entry2.getKey().getItem().getMaxCount();
                 if (!(ratio > bestRatio)) continue;
                 bestRatio = ratio;
                 entry = entry2;
@@ -91,7 +91,7 @@ public class StorageWarp {
             double bestRatio = 0.0;
             Map.Entry<ItemBo, Integer> entry = null;
             for (Map.Entry<ItemBo, Integer> entry2 : this.itemCounts.entrySet()) {
-                double ratio = entry2.getValue().doubleValue() / (double)entry2.getKey().getItem().getDefaultMaxStackSize();
+                double ratio = entry2.getValue().doubleValue() / (double)entry2.getKey().getItem().getMaxCount();
                 if (!(ratio > bestRatio)) continue;
                 bestRatio = ratio;
                 entry = entry2;
