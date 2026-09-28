@@ -131,7 +131,7 @@ public class ContainerHighlightRenderer {
                 iterator.remove();
                 continue;
             }
-            double distance = cameraPos.distanceTo(itemFrame.blockPosition().getCenter());
+            double distance = cameraPos.distanceTo(Vec3.atCenterOf(itemFrame.blockPosition()));
             if (distance > (double)maxDistance) {
                 continue;
             }
@@ -144,7 +144,7 @@ public class ContainerHighlightRenderer {
         if (!HeBlockUtils.isContainer(blockPos)) {
             return;
         }
-        double distance = cameraPos.distanceTo(blockPos.getCenter());
+        double distance = cameraPos.distanceTo(Vec3.atCenterOf(blockPos));
         if (distance > (double)this.highlightDistance.get()) {
             return;
         }

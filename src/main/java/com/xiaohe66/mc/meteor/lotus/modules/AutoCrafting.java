@@ -67,6 +67,7 @@ import net.minecraft.world.inventory.SmithingMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.item.crafting.display.RecipeDisplay;
 import net.minecraft.world.item.crafting.display.RecipeDisplayEntry;
@@ -451,22 +452,22 @@ extends BaseModule {
 
     static {
         HashMap<Item, Item> hashMap = new HashMap<Item, Item>();
-        hashMap.put(Items.WHITE_SHULKER_BOX, Items.WHITE_DYE);
-        hashMap.put(Items.ORANGE_SHULKER_BOX, Items.ORANGE_DYE);
-        hashMap.put(Items.MAGENTA_SHULKER_BOX, Items.MAGENTA_DYE);
-        hashMap.put(Items.LIGHT_BLUE_SHULKER_BOX, Items.LIGHT_BLUE_DYE);
-        hashMap.put(Items.YELLOW_SHULKER_BOX, Items.YELLOW_DYE);
-        hashMap.put(Items.LIME_SHULKER_BOX, Items.LIME_DYE);
-        hashMap.put(Items.PINK_SHULKER_BOX, Items.PINK_DYE);
-        hashMap.put(Items.GRAY_SHULKER_BOX, Items.GRAY_DYE);
-        hashMap.put(Items.LIGHT_GRAY_SHULKER_BOX, Items.LIGHT_GRAY_DYE);
-        hashMap.put(Items.CYAN_SHULKER_BOX, Items.CYAN_DYE);
-        hashMap.put(Items.PURPLE_SHULKER_BOX, Items.PURPLE_DYE);
-        hashMap.put(Items.BLUE_SHULKER_BOX, Items.BLUE_DYE);
-        hashMap.put(Items.BROWN_SHULKER_BOX, Items.BROWN_DYE);
-        hashMap.put(Items.GREEN_SHULKER_BOX, Items.GREEN_DYE);
-        hashMap.put(Items.RED_SHULKER_BOX, Items.RED_DYE);
-        hashMap.put(Items.BLACK_SHULKER_BOX, Items.BLACK_DYE);
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.WHITE), Items.DYE.pick(DyeColor.WHITE));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.ORANGE), Items.DYE.pick(DyeColor.ORANGE));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.MAGENTA), Items.DYE.pick(DyeColor.MAGENTA));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_BLUE), Items.DYE.pick(DyeColor.LIGHT_BLUE));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.YELLOW), Items.DYE.pick(DyeColor.YELLOW));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.LIME), Items.DYE.pick(DyeColor.LIME));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.PINK), Items.DYE.pick(DyeColor.PINK));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.GRAY), Items.DYE.pick(DyeColor.GRAY));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_GRAY), Items.DYE.pick(DyeColor.LIGHT_GRAY));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.CYAN), Items.DYE.pick(DyeColor.CYAN));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.PURPLE), Items.DYE.pick(DyeColor.PURPLE));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.BLUE), Items.DYE.pick(DyeColor.BLUE));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.BROWN), Items.DYE.pick(DyeColor.BROWN));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.GREEN), Items.DYE.pick(DyeColor.GREEN));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.RED), Items.DYE.pick(DyeColor.RED));
+        hashMap.put(Items.DYED_SHULKER_BOX.pick(DyeColor.BLACK), Items.DYE.pick(DyeColor.BLACK));
         kitColorMap = Collections.unmodifiableMap(hashMap);
     }
 

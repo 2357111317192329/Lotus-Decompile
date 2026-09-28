@@ -41,7 +41,7 @@ public class MixinStashFinder {
     @Unique
     private BlockEntity blockEntity;
 
-    @Redirect(method={"onChunkData"}, at=@At(value="INVOKE", target="Ljava/util/List;contains(Ljava/lang/Object;)Z"))
+    @Redirect(method={"onChunkData"}, at=@At(value="INVOKE", target="Ljava/util/List;contains(Ljava/lang/Object;)Z", ordinal=0))
     private boolean isStorage(List<?> list, Object element) {
         boolean isStorage = ((List)this.storageBlocks.get()).contains(element);
         if (isStorage) {
@@ -54,7 +54,7 @@ public class MixinStashFinder {
         return isStorage;
     }
 
-    @ModifyVariable(method={"onChunkData"}, at=@At(value="INVOKE", target="Ljava/util/List;contains(Ljava/lang/Object;)Z", shift=At.Shift.BEFORE))
+    @ModifyVariable(method={"onChunkData"}, at=@At(value="INVOKE", target="Ljava/util/List;contains(Ljava/lang/Object;)Z", shift=At.Shift.BEFORE, ordinal=0))
     private BlockEntity captureBlockEntity(BlockEntity blockEntity) {
         this.blockEntity = blockEntity;
         return blockEntity;

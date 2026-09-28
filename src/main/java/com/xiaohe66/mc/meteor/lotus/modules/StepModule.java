@@ -38,6 +38,7 @@ import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
@@ -225,15 +226,15 @@ public class StepModule extends BaseModule {
     }
 
     protected boolean notInOperationRange(StoragePos pos) {
-        return this.mc.player.position().distanceTo(pos.getBtnPos().getCenter()) > 1.0;
+        return this.mc.player.position().distanceTo(Vec3.atCenterOf(pos.getBtnPos())) > 1.0;
     }
 
     protected boolean isTooFar(BlockPos blockPos, double range) {
-        return this.mc.player.position().distanceTo(blockPos.getCenter()) > range;
+        return this.mc.player.position().distanceTo(Vec3.atCenterOf(blockPos)) > range;
     }
 
     protected boolean isEyeTooFar(BlockPos blockPos, double range) {
-        return this.mc.player.getEyePosition().distanceTo(blockPos.getCenter()) > range;
+        return this.mc.player.getEyePosition().distanceTo(Vec3.atCenterOf(blockPos)) > range;
     }
 
     protected StoragePos checkAndBuildStoragePos(ItemFrame frame, StorageItem storageItem) {

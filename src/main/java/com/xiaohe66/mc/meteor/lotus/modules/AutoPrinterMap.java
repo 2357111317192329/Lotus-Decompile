@@ -634,7 +634,7 @@ public class AutoPrinterMap extends WalkModule {
             }
             List<BlockPos> rowPosList = this.printRows.get(this.currentRow);
             int index = Math.clamp((long)this.rowIndex, (int)0, (int)(rowPosList.size() - 1));
-            Vec3 targetCenter = rowPosList.get(index).getCenter();
+            Vec3 targetCenter = Vec3.atCenterOf(rowPosList.get(index));
             Vec3 playerPos = this.mc.player.position();
             double nearestDistance = Double.MAX_VALUE;
             BlockPos nearestPos = null;
@@ -643,7 +643,7 @@ public class AutoPrinterMap extends WalkModule {
                 List<BlockPos> chestPosList = this.itemChestPosMap.get(item);
                 for (BlockPos chestPos : chestPosList) {
                     double playerDistance;
-                    Vec3 chestCenter = chestPos.getCenter();
+                    Vec3 chestCenter = Vec3.atCenterOf(chestPos);
                     double distance = targetCenter.distanceTo(chestCenter);
                     double minDistance = Math.min(distance, playerDistance = playerPos.distanceTo(chestCenter));
                     if (!(minDistance < nearestDistance)) continue;
@@ -1054,8 +1054,8 @@ public class AutoPrinterMap extends WalkModule {
             itemClearUp.toggle();
             return;
         }
-        if (!(this.mc.screen instanceof InventoryScreen)) {
-            this.mc.setScreen((Screen)new InventoryScreen((Player)this.mc.player));
+        if (!(this.mc.gui.screen() instanceof InventoryScreen)) {
+            this.mc.gui.setScreen((Screen)new InventoryScreen((Player)this.mc.player));
             this.setDelay();
             return;
         }
@@ -1070,7 +1070,7 @@ public class AutoPrinterMap extends WalkModule {
             return;
         }
         this.sortingInProgress = false;
-        this.mc.setScreen(null);
+        this.mc.gui.setScreen(null);
         this.delayNext(Steps.RESTOCK);
     }
 
@@ -1090,7 +1090,7 @@ public class AutoPrinterMap extends WalkModule {
             if (this.currentPrintPos == null) {
                 return Collections.emptyList();
             }
-            if (this.mc.player.position().distanceTo(this.currentPrintPos.getCenter()) > 10.0) {
+            if (this.mc.player.position().distanceTo(Vec3.atCenterOf(this.currentPrintPos)) > 10.0) {
                 return Collections.emptyList();
             }
             return this.getNeededPositions(this.currentPrintPos);

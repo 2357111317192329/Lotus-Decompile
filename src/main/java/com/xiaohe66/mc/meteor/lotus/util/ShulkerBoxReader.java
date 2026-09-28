@@ -34,6 +34,7 @@ import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 
 public class ShulkerBoxReader
 implements Iterable<ItemStack> {
@@ -200,52 +201,52 @@ implements Iterable<ItemStack> {
 
     public int getColor() {
         Item item = this.boxItemStack.getItem();
-        if (item == Items.WHITE_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.WHITE)) {
             return -393218;
         }
-        if (item == Items.ORANGE_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.ORANGE)) {
             return -425955;
         }
-        if (item == Items.MAGENTA_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.MAGENTA)) {
             return -3715395;
         }
-        if (item == Items.LIGHT_BLUE_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_BLUE)) {
             return -12930086;
         }
-        if (item == Items.YELLOW_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.YELLOW)) {
             return -75715;
         }
-        if (item == Items.LIME_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.LIME)) {
             return -8337633;
         }
-        if (item == Items.PINK_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.PINK)) {
             return -816214;
         }
-        if (item == Items.GRAY_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.GRAY)) {
             return -12103854;
         }
-        if (item == Items.LIGHT_GRAY_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_GRAY)) {
             return -6447721;
         }
-        if (item == Items.CYAN_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.CYAN)) {
             return -15295332;
         }
-        if (item == Items.PURPLE_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.PURPLE)) {
             return -7785800;
         }
-        if (item == Items.BLUE_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.BLUE)) {
             return -12827478;
         }
-        if (item == Items.BROWN_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.BROWN)) {
             return -8170446;
         }
-        if (item == Items.GREEN_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.GREEN)) {
             return -10585066;
         }
-        if (item == Items.RED_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.RED)) {
             return -5231066;
         }
-        if (item == Items.BLACK_SHULKER_BOX) {
+        if (item == Items.DYED_SHULKER_BOX.pick(DyeColor.BLACK)) {
             return -14869215;
         }
         return -6728784;

@@ -1,5 +1,7 @@
 package com.xiaohe66.mc.meteor.lotus.util;
 
+import net.minecraft.world.phys.Vec3;
+
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;
 import com.xiaohe66.mc.meteor.lotus.bo.StoragePos;
 import com.xiaohe66.mc.meteor.lotus.modules.clearup.ClearUpMapping;
@@ -67,7 +69,7 @@ public class WarehouseHelper {
         for (ItemBo itemBo : itemBos) {
             StoragePos pos = this.unmappedPositions.get(itemBo);
             if (pos != null) {
-                double distance = playerPos.distanceTo(pos.getBtnPos().getCenter());
+                double distance = playerPos.distanceTo(Vec3.atCenterOf(pos.getBtnPos()));
                 if (distance < minDistance) {
                     minDistance = distance;
                     nearest = itemBo;
@@ -85,7 +87,7 @@ public class WarehouseHelper {
         for (ItemBo itemBo : itemBos) {
             StoragePos pos = this.mappedItemPositions.get(itemBo.getItem());
             if (pos != null) {
-                double distance = playerPos.distanceTo(pos.getBtnPos().getCenter());
+                double distance = playerPos.distanceTo(Vec3.atCenterOf(pos.getBtnPos()));
                 if (distance < minDistance) {
                     minDistance = distance;
                     nearest = itemBo;

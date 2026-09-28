@@ -74,38 +74,42 @@ import meteordevelopment.meteorclient.utils.render.RenderUtils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class EntityList
 extends Module {
+    private GuiGraphicsExtractor graphics;
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
     public final Setting<Set<EntityType<?>>> entitys = sgGeneral.add(new EntityTypeListSetting.Builder()
         .name("主世界实体")
         .description("仅在主世界显示的实体")
-        .defaultValue(new EntityType[]{EntityType.PLAYER, EntityType.EXPERIENCE_ORB, EntityType.ZOMBIFIED_PIGLIN})
+        .defaultValue(new EntityType[]{EntityTypes.PLAYER, EntityTypes.EXPERIENCE_ORB, EntityTypes.ZOMBIFIED_PIGLIN})
         .build());
     public final Setting<Set<EntityType<?>>> netherEntitys = sgGeneral.add(new EntityTypeListSetting.Builder()
         .name("下界实体")
         .description("仅在下界显示的实体")
-        .defaultValue(new EntityType[]{EntityType.PLAYER, EntityType.EXPERIENCE_ORB, EntityType.COW, EntityType.SHEEP, EntityType.PIG, EntityType.HORSE, EntityType.ZOMBIE, EntityType.CREEPER, EntityType.BOGGED, EntityType.HUSK, EntityType.SLIME, EntityType.VILLAGER, EntityType.SPIDER, EntityType.CAVE_SPIDER, EntityType.DROWNED, EntityType.ZOMBIE_VILLAGER})
+        .defaultValue(new EntityType[]{EntityTypes.PLAYER, EntityTypes.EXPERIENCE_ORB, EntityTypes.COW, EntityTypes.SHEEP, EntityTypes.PIG, EntityTypes.HORSE, EntityTypes.ZOMBIE, EntityTypes.CREEPER, EntityTypes.BOGGED, EntityTypes.HUSK, EntityTypes.SLIME, EntityTypes.VILLAGER, EntityTypes.SPIDER, EntityTypes.CAVE_SPIDER, EntityTypes.DROWNED, EntityTypes.ZOMBIE_VILLAGER})
         .build());
     public final Setting<Set<EntityType<?>>> endEntitys = sgGeneral.add(new EntityTypeListSetting.Builder()
         .name("末地实体")
         .description("仅在末地显示的实体")
-        .defaultValue(new EntityType[]{EntityType.PLAYER, EntityType.EXPERIENCE_ORB, EntityType.VILLAGER})
+        .defaultValue(new EntityType[]{EntityTypes.PLAYER, EntityTypes.EXPERIENCE_ORB, EntityTypes.VILLAGER})
         .build());
     public final Setting<SettingColor> entitysColor = sgGeneral.add(new ColorSetting.Builder()
         .name("实体颜色")
@@ -132,7 +136,7 @@ extends Module {
     private final SettingGroup itemGroup = settings.createGroup("物品");
     public final Setting<List<Item>> items1 = itemGroup.add(new ItemListSetting.Builder()
         .name("重点关注物品")
-        .defaultValue(new Item[]{Items.ELYTRA, Items.SHULKER_BOX, Items.WHITE_SHULKER_BOX, Items.ORANGE_SHULKER_BOX, Items.MAGENTA_SHULKER_BOX, Items.LIGHT_BLUE_SHULKER_BOX, Items.YELLOW_SHULKER_BOX, Items.LIME_SHULKER_BOX, Items.PINK_SHULKER_BOX, Items.GRAY_SHULKER_BOX, Items.LIGHT_GRAY_SHULKER_BOX, Items.CYAN_SHULKER_BOX, Items.PURPLE_SHULKER_BOX, Items.BLUE_SHULKER_BOX, Items.BROWN_SHULKER_BOX, Items.GREEN_SHULKER_BOX, Items.RED_SHULKER_BOX, Items.BLACK_SHULKER_BOX, Items.BUNDLE, Items.WHITE_BUNDLE, Items.ORANGE_BUNDLE, Items.MAGENTA_BUNDLE, Items.LIGHT_BLUE_BUNDLE, Items.YELLOW_BUNDLE, Items.LIME_BUNDLE, Items.PINK_BUNDLE, Items.GRAY_BUNDLE, Items.LIGHT_GRAY_BUNDLE, Items.CYAN_BUNDLE, Items.PURPLE_BUNDLE, Items.BLUE_BUNDLE, Items.BROWN_BUNDLE, Items.GREEN_BUNDLE, Items.RED_BUNDLE, Items.BLACK_BUNDLE, Items.ANCIENT_DEBRIS, Items.NETHERITE_SCRAP, Items.NETHERITE_INGOT, Items.NETHERITE_BLOCK, Items.NETHERITE_SWORD, Items.NETHERITE_AXE, Items.NETHERITE_HOE, Items.NETHERITE_PICKAXE, Items.NETHERITE_SHOVEL, Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS, Items.NETHERITE_SPEAR, Items.END_CRYSTAL, Items.ENCHANTED_GOLDEN_APPLE, Items.MACE, Items.HEAVY_CORE, Items.CREEPER_HEAD, Items.ZOMBIE_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL, Items.PLAYER_HEAD, Items.PIGLIN_HEAD, Items.DRAGON_HEAD})
+        .defaultValue(new Item[]{Items.ELYTRA, Items.SHULKER_BOX, Items.DYED_SHULKER_BOX.pick(DyeColor.WHITE), Items.DYED_SHULKER_BOX.pick(DyeColor.ORANGE), Items.DYED_SHULKER_BOX.pick(DyeColor.MAGENTA), Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_BLUE), Items.DYED_SHULKER_BOX.pick(DyeColor.YELLOW), Items.DYED_SHULKER_BOX.pick(DyeColor.LIME), Items.DYED_SHULKER_BOX.pick(DyeColor.PINK), Items.DYED_SHULKER_BOX.pick(DyeColor.GRAY), Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_GRAY), Items.DYED_SHULKER_BOX.pick(DyeColor.CYAN), Items.DYED_SHULKER_BOX.pick(DyeColor.PURPLE), Items.DYED_SHULKER_BOX.pick(DyeColor.BLUE), Items.DYED_SHULKER_BOX.pick(DyeColor.BROWN), Items.DYED_SHULKER_BOX.pick(DyeColor.GREEN), Items.DYED_SHULKER_BOX.pick(DyeColor.RED), Items.DYED_SHULKER_BOX.pick(DyeColor.BLACK), Items.BUNDLE, Items.DYED_BUNDLE.pick(DyeColor.WHITE), Items.DYED_BUNDLE.pick(DyeColor.ORANGE), Items.DYED_BUNDLE.pick(DyeColor.MAGENTA), Items.DYED_BUNDLE.pick(DyeColor.LIGHT_BLUE), Items.DYED_BUNDLE.pick(DyeColor.YELLOW), Items.DYED_BUNDLE.pick(DyeColor.LIME), Items.DYED_BUNDLE.pick(DyeColor.PINK), Items.DYED_BUNDLE.pick(DyeColor.GRAY), Items.DYED_BUNDLE.pick(DyeColor.LIGHT_GRAY), Items.DYED_BUNDLE.pick(DyeColor.CYAN), Items.DYED_BUNDLE.pick(DyeColor.PURPLE), Items.DYED_BUNDLE.pick(DyeColor.BLUE), Items.DYED_BUNDLE.pick(DyeColor.BROWN), Items.DYED_BUNDLE.pick(DyeColor.GREEN), Items.DYED_BUNDLE.pick(DyeColor.RED), Items.DYED_BUNDLE.pick(DyeColor.BLACK), Items.ANCIENT_DEBRIS, Items.NETHERITE_SCRAP, Items.NETHERITE_INGOT, Items.NETHERITE_BLOCK, Items.NETHERITE_SWORD, Items.NETHERITE_AXE, Items.NETHERITE_HOE, Items.NETHERITE_PICKAXE, Items.NETHERITE_SHOVEL, Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS, Items.NETHERITE_SPEAR, Items.END_CRYSTAL, Items.ENCHANTED_GOLDEN_APPLE, Items.MACE, Items.HEAVY_CORE, Items.CREEPER_HEAD, Items.ZOMBIE_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL, Items.PLAYER_HEAD, Items.PIGLIN_HEAD, Items.DRAGON_HEAD})
         .onChanged(this::setItems1)
         .build());
     public final Setting<SettingColor> items1Color = itemGroup.add(new ColorSetting.Builder()
@@ -247,7 +251,7 @@ extends Module {
 
     public EntityList() {
         super(Const.CATEGORY, "V实体列表", "显示实体列表, 可以按重要程度分组, 如红色为重点关注");
-        this.items2 = this.itemGroup.add(new ItemListSetting.Builder().name("关注物品").defaultValue(new Item[]{Items.DIAMOND_SWORD, Items.DIAMOND_AXE, Items.DIAMOND_HOE, Items.DIAMOND_PICKAXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS, Items.COAL_ORE, Items.DEEPSLATE_COAL_ORE, Items.IRON_ORE, Items.DEEPSLATE_IRON_ORE, Items.COPPER_ORE, Items.DEEPSLATE_COPPER_ORE, Items.GOLD_ORE, Items.DEEPSLATE_GOLD_ORE, Items.REDSTONE_ORE, Items.DEEPSLATE_REDSTONE_ORE, Items.LAPIS_ORE, Items.DEEPSLATE_LAPIS_ORE, Items.DIAMOND_ORE, Items.DEEPSLATE_DIAMOND_ORE, Items.EMERALD_ORE, Items.DEEPSLATE_EMERALD_ORE, Items.NETHER_QUARTZ_ORE, Items.NETHER_GOLD_ORE, Items.RAW_IRON, Items.RAW_COPPER, Items.RAW_GOLD, Items.COAL, Items.IRON_INGOT, Items.COPPER_INGOT, Items.GOLD_INGOT, Items.REDSTONE, Items.LAPIS_LAZULI, Items.DIAMOND, Items.EMERALD, Items.QUARTZ, Items.AMETHYST_SHARD, Items.COAL_BLOCK, Items.IRON_BLOCK, Items.COPPER_BLOCK, Items.GOLD_BLOCK, Items.REDSTONE_BLOCK, Items.LAPIS_BLOCK, Items.DIAMOND_BLOCK, Items.EMERALD_BLOCK, Items.QUARTZ_BLOCK, Items.AMETHYST_BLOCK, Items.SHULKER_SHELL, Items.ENDER_PEARL, Items.ENDER_CHEST, Items.MUSIC_DISC_13, Items.MUSIC_DISC_CAT, Items.MUSIC_DISC_BLOCKS, Items.MUSIC_DISC_CHIRP, Items.MUSIC_DISC_FAR, Items.MUSIC_DISC_MALL, Items.MUSIC_DISC_MELLOHI, Items.MUSIC_DISC_STAL, Items.MUSIC_DISC_STRAD, Items.MUSIC_DISC_WARD, Items.MUSIC_DISC_11, Items.MUSIC_DISC_WAIT, Items.MUSIC_DISC_OTHERSIDE, Items.MUSIC_DISC_5, Items.MUSIC_DISC_PIGSTEP, Items.MUSIC_DISC_RELIC, Items.ENDER_EYE, Items.END_ROD, Items.SNIFFER_EGG, Items.SEA_LANTERN, Items.VERDANT_FROGLIGHT, Items.OCHRE_FROGLIGHT, Items.PEARLESCENT_FROGLIGHT, Items.SHROOMLIGHT, Items.BEACON, Items.TNT, Items.SLIME_BALL, Items.SLIME_BLOCK, Items.DRAGON_BREATH, Items.GOLDEN_CARROT, Items.GHAST_TEAR, Items.BLAZE_ROD, Items.BREEZE_ROD, Items.NETHER_STAR, Items.GOLDEN_APPLE, Items.PORKCHOP, Items.COOKED_PORKCHOP, Items.BEEF, Items.COOKED_BEEF, Items.WIND_CHARGE, Items.GOAT_HORN, Items.RABBIT_FOOT, Items.OMINOUS_TRIAL_KEY, Items.TRIAL_KEY, Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, Items.SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE, Items.VEX_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WILD_ARMOR_TRIM_SMITHING_TEMPLATE, Items.COAST_ARMOR_TRIM_SMITHING_TEMPLATE, Items.DUNE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.RAISER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.HOST_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WARD_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.TIDE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE, Items.RIB_ARMOR_TRIM_SMITHING_TEMPLATE, Items.EYE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.FLOW_ARMOR_TRIM_SMITHING_TEMPLATE, Items.BOLT_ARMOR_TRIM_SMITHING_TEMPLATE, Items.HONEY_BLOCK, Items.TOTEM_OF_UNDYING, Items.OMINOUS_BOTTLE, Items.FIREWORK_ROCKET, Items.PUMPKIN_PIE, Items.CHORUS_FRUIT}).onChanged(this::setItems2).build());
+        this.items2 = this.itemGroup.add(new ItemListSetting.Builder().name("关注物品").defaultValue(new Item[]{Items.DIAMOND_SWORD, Items.DIAMOND_AXE, Items.DIAMOND_HOE, Items.DIAMOND_PICKAXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS, Items.COAL_ORE, Items.DEEPSLATE_COAL_ORE, Items.IRON_ORE, Items.DEEPSLATE_IRON_ORE, Items.COPPER_ORE, Items.DEEPSLATE_COPPER_ORE, Items.GOLD_ORE, Items.DEEPSLATE_GOLD_ORE, Items.REDSTONE_ORE, Items.DEEPSLATE_REDSTONE_ORE, Items.LAPIS_ORE, Items.DEEPSLATE_LAPIS_ORE, Items.DIAMOND_ORE, Items.DEEPSLATE_DIAMOND_ORE, Items.EMERALD_ORE, Items.DEEPSLATE_EMERALD_ORE, Items.NETHER_QUARTZ_ORE, Items.NETHER_GOLD_ORE, Items.RAW_IRON, Items.RAW_COPPER, Items.RAW_GOLD, Items.COAL, Items.IRON_INGOT, Items.COPPER_INGOT, Items.GOLD_INGOT, Items.REDSTONE, Items.LAPIS_LAZULI, Items.DIAMOND, Items.EMERALD, Items.QUARTZ, Items.AMETHYST_SHARD, Items.COAL_BLOCK, Items.IRON_BLOCK, Items.COPPER_BLOCK.weathering().unaffected(), Items.GOLD_BLOCK, Items.REDSTONE_BLOCK, Items.LAPIS_BLOCK, Items.DIAMOND_BLOCK, Items.EMERALD_BLOCK, Items.QUARTZ_BLOCK, Items.AMETHYST_BLOCK, Items.SHULKER_SHELL, Items.ENDER_PEARL, Items.ENDER_CHEST, Items.MUSIC_DISC_13, Items.MUSIC_DISC_CAT, Items.MUSIC_DISC_BLOCKS, Items.MUSIC_DISC_CHIRP, Items.MUSIC_DISC_FAR, Items.MUSIC_DISC_MALL, Items.MUSIC_DISC_MELLOHI, Items.MUSIC_DISC_STAL, Items.MUSIC_DISC_STRAD, Items.MUSIC_DISC_WARD, Items.MUSIC_DISC_11, Items.MUSIC_DISC_WAIT, Items.MUSIC_DISC_OTHERSIDE, Items.MUSIC_DISC_5, Items.MUSIC_DISC_PIGSTEP, Items.MUSIC_DISC_RELIC, Items.ENDER_EYE, Items.END_ROD, Items.SNIFFER_EGG, Items.SEA_LANTERN, Items.VERDANT_FROGLIGHT, Items.OCHRE_FROGLIGHT, Items.PEARLESCENT_FROGLIGHT, Items.SHROOMLIGHT, Items.BEACON, Items.TNT, Items.SLIME_BALL, Items.SLIME_BLOCK, Items.DRAGON_BREATH, Items.GOLDEN_CARROT, Items.GHAST_TEAR, Items.BLAZE_ROD, Items.BREEZE_ROD, Items.NETHER_STAR, Items.GOLDEN_APPLE, Items.PORKCHOP, Items.COOKED_PORKCHOP, Items.BEEF, Items.COOKED_BEEF, Items.WIND_CHARGE, Items.GOAT_HORN, Items.RABBIT_FOOT, Items.OMINOUS_TRIAL_KEY, Items.TRIAL_KEY, Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, Items.SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE, Items.VEX_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WILD_ARMOR_TRIM_SMITHING_TEMPLATE, Items.COAST_ARMOR_TRIM_SMITHING_TEMPLATE, Items.DUNE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.RAISER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE, Items.HOST_ARMOR_TRIM_SMITHING_TEMPLATE, Items.WARD_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.TIDE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE, Items.RIB_ARMOR_TRIM_SMITHING_TEMPLATE, Items.EYE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE, Items.FLOW_ARMOR_TRIM_SMITHING_TEMPLATE, Items.BOLT_ARMOR_TRIM_SMITHING_TEMPLATE, Items.HONEY_BLOCK, Items.TOTEM_OF_UNDYING, Items.OMINOUS_BOTTLE, Items.FIREWORK_ROCKET, Items.PUMPKIN_PIE, Items.CHORUS_FRUIT}).onChanged(this::setItems2).build());
         this.items1Set = new HashSet<Item>((Collection)this.items1.get());
         this.items2Set = new HashSet<Item>((Collection)this.items2.get());
         this.blackListSet = new HashSet<Item>((Collection)this.blackList.get());
@@ -274,6 +278,7 @@ extends Module {
         if (!this.renderFlag) {
             return;
         }
+        this.graphics = event.graphics;
         this.renderFlag = false;
         this.clearLists();
         ResourceKey worldKey = this.mc.player.level().dimension();
@@ -326,7 +331,7 @@ extends Module {
             double dz = Mth.lerp((double)event.tickDelta, entity.zOld, entity.getZ()) - entity.getZ();
             AABB box = entity.getBoundingBox();
             event.renderer.box(dx + box.minX, dy + box.minY, dz + box.minZ, dx + box.maxX, dy + box.maxY, dz + box.maxZ, this.fillRenderColor, this.lineRenderColor, this.renderMode.get(), 0);
-            if (this.connectionLine.get() && !this.mc.options.hideGui) {
+            if (this.connectionLine.get() && !this.mc.gui.hud.isHidden()) {
                 double height = box.maxY - box.minY;
                 event.renderer.line(RenderUtils.center.x, RenderUtils.center.y, RenderUtils.center.z, entity.getX() + dx, entity.getY() + dy + height / 2.0, entity.getZ() + dz, this.lineRenderColor);
             }
@@ -338,7 +343,7 @@ extends Module {
         if (!displayEntities.contains(entityType)) {
             return;
         }
-        if (entityType == EntityType.PLAYER) {
+        if (entityType == EntityTypes.PLAYER) {
             if (entity != this.mc.player && this.nonFriendPlayers.size() + this.friendPlayers.size() < this.playerLimit.get()) {
                 Player playerEntity = (Player)entity;
                 String playerName = playerEntity.getName().getString();
@@ -400,7 +405,7 @@ extends Module {
         } else if (now - this.startTime > (long)this.sendNotificationsCheckSeconds.get() * 1000L && now - this.prevTime > (long)this.sendNotificationsIntervalSeconds.get() * 1000L) {
             this.info("捡东西啦", new Object[0]);
             MeteorToast meteorToast = new MeteorToast.Builder(this.title).icon(Items.CHEST).text("捡东西啦~").build();
-            this.mc.getToastManager().addToast((Toast)meteorToast);
+            this.mc.gui.toastManager().addToast((Toast)meteorToast);
             this.prevTime = now;
         }
     }
@@ -465,7 +470,7 @@ extends Module {
     private void drawText(String text, Color color, double yPos) {
         int xPos;
         TextRenderer textRenderer = TextRenderer.get();
-        textRenderer.begin(this.scale.get());
+        textRenderer.begin(this.graphics, this.scale.get());
         if (this.displaySide.get() == DisplaySide.Right) {
             int textWidth = (int)textRenderer.getWidth(text);
             xPos = this.mc.getWindow().getScreenWidth() - textWidth - this.xOffset.get();

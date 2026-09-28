@@ -210,21 +210,21 @@ public class PreviewTool extends BaseModule {
 
     @EventHandler
     private void onOpenScreen(ScreenRenderEvent event) {
-        if (this.kitSpread.get() && this.mc.screen instanceof AbstractContainerScreen) {
+        if (this.kitSpread.get() && this.mc.gui.screen() instanceof AbstractContainerScreen) {
             this.kitSpreadRenderer.onOpenScreen(event);
         }
     }
 
     @EventHandler
     private void onMouseScroll(MouseScrollEvent event) {
-        if (this.kitSpread.get() && this.mc.screen instanceof AbstractContainerScreen) {
+        if (this.kitSpread.get() && this.mc.gui.screen() instanceof AbstractContainerScreen) {
             this.kitSpreadRenderer.onMouseScroll(event);
         }
     }
 
     @EventHandler
     private void onHandledScreenRenderEvent(HandledScreenRenderEvent event) {
-        Screen screen = this.mc.screen;
+        Screen screen = this.mc.gui.screen();
         if (screen instanceof AbstractContainerScreen handledScreen) {
             if (this.boxPreview.get()) {
                 this.previewRenderer.updatePinned(event.getMouseX(), event.getMouseY(), event.getHoveredSlot());
@@ -240,7 +240,7 @@ public class PreviewTool extends BaseModule {
     @EventHandler
     private void onRender2D(Render2DEvent event) {
         this.markRenderer.clearTick();
-        if (this.kitIcon.get() && !(this.mc.screen instanceof AbstractContainerScreen)) {
+        if (this.kitIcon.get() && !(this.mc.gui.screen() instanceof AbstractContainerScreen)) {
             this.kitIconRenderer.render(event.graphics);
         }
     }

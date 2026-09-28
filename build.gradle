@@ -1,5 +1,5 @@
 plugins {
-    id 'net.fabricmc.fabric-loom' version '1.15.+'
+    id 'net.fabricmc.fabric-loom' version '1.15+'
 }
 base {
     archivesName = project.archives_base_name
@@ -39,9 +39,9 @@ dependencies {
         // Meteor
         implementation "meteordevelopment:meteor-client:${project.meteor_version}"
         
-        implementation "com.github.sakura-ryoko:malilib:${project.malilib_version}"
+        implementation "fi.dy.masa.malilib:malilib-fabric-${project.minecraft_version}:${project.malilib_version}"
 
-        implementation "com.github.sakura-ryoko:litematica:${project.litematica_version}"
+        implementation "fi.dy.masa.litematica:litematica-fabric-${project.minecraft_version}:${project.litematica_version}"
 
         implementation "meteordevelopment:baritone:${project.baritone_version}"
 }

@@ -172,8 +172,8 @@ public class AutoMapCopy extends StepModule {
 
     private boolean ensureInventoryScreen() {
         if (this.mc.player.containerMenu instanceof InventoryMenu) {
-            if (!(this.mc.screen instanceof InventoryScreen)) {
-                this.mc.setScreen(new InventoryScreen(this.mc.player));
+            if (!(this.mc.gui.screen() instanceof InventoryScreen)) {
+                this.mc.gui.setScreen(new InventoryScreen(this.mc.player));
             }
             return true;
         }
@@ -367,9 +367,9 @@ public class AutoMapCopy extends StepModule {
 
     private void finish() {
         HeInvUtils.closeCurScreen();
-        if (this.mc.screen != null) {
-            this.mc.screen.onClose();
-            this.mc.setScreen(null);
+        if (this.mc.gui.screen() != null) {
+            this.mc.gui.screen().onClose();
+            this.mc.gui.setScreen(null);
         }
         this.toggle();
     }

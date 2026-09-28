@@ -27,6 +27,7 @@ import baritone.api.process.ICustomGoalProcess;
 import com.xiaohe66.mc.meteor.lotus.modules.step.Step;
 import com.xiaohe66.mc.meteor.lotus.modules.step.Steps;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import com.xiaohe66.mc.meteor.lotus.modules.StepModule;
 
 import com.xiaohe66.mc.meteor.lotus.bo.StoragePos;
@@ -70,7 +71,7 @@ public class WalkModule extends StepModule implements AbstractGameEventListener 
     }
 
     protected void gotoTargetIfNeed(BlockPos targetPos, int range, Step walkingNext, String gotoTargetMsg) {
-        double distance = this.mc.player.position().distanceTo(targetPos.getCenter());
+        double distance = this.mc.player.position().distanceTo(Vec3.atCenterOf(targetPos));
         if (distance > 1000.0) {
             this.warning("移动距离超过1000格, 功能关闭", new Object[0]);
             this.toggle();

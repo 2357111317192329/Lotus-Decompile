@@ -599,7 +599,7 @@ public class RedstoneAssist extends Module {
             String labelText = config.name.get() + " 半径=" + String.valueOf(config.radius.get());
             wTable.add((WWidget)guiTheme.label(labelText)).expandX().widget();
             WButton editButton = (WButton)wTable.add((WWidget)guiTheme.button(GuiRenderer.EDIT)).widget();
-            editButton.action = () -> this.mc.setScreen(new SphereEditScreen(guiTheme, config));
+            editButton.action = () -> this.mc.gui.setScreen(new SphereEditScreen(guiTheme, config));
             WButton centerButton = (WButton)wTable.add((WWidget)guiTheme.button("定位到玩家")).widget();
             centerButton.action = () -> {
                 Vec3 cameraPos = HePosUtils.getCameraPos();

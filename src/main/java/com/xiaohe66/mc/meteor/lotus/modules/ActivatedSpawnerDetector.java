@@ -36,10 +36,13 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.LevelLoadingScreen;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.SpawnData;
 import net.minecraft.world.level.block.Blocks;
@@ -145,7 +148,7 @@ public class ActivatedSpawnerDetector extends Module {
         this.airDisturbanceDetection = sgStructure.add(new BoolSetting.Builder().name("空气扰动检测").description("当刷怪笼周围空气有扰动时也判定为已激活（例如火把被放置后移除）。可能存在误报！").defaultValue(false).build());
         this.ignoreAmethystGeodes = sgStructure.add(new BoolSetting.Builder().name("忽略紫晶洞").description("刷怪笼附近有紫晶洞方块时跳过空气检测，以减少误报").defaultValue(true).visible(this.airDisturbanceDetection::get).build());
         this.storageBlocks = sgStructure.add(new BlockListSetting.Builder().name("储物方块").description("判断是否在聊天提示和渲染时检查的储物方块").defaultValue(Blocks.CHEST, Blocks.BARREL, Blocks.HOPPER, Blocks.DISPENSER).build());
-        this.storageEntities = sgStructure.add(new EntityTypeListSetting.Builder().name("储物实体").description("判断是否在聊天提示和渲染时检查的储物实体").defaultValue(EntityType.CHEST_MINECART).build());
+        this.storageEntities = sgStructure.add(new EntityTypeListSetting.Builder().name("储物实体").description("判断是否在聊天提示和渲染时检查的储物实体").defaultValue(EntityTypes.CHEST_MINECART).build());
         this.disabledSpawnerDetection = sgStructure.add(new BoolSetting.Builder().name("停用刷怪笼检测").description("检测被插上火把等发光方块的刷怪笼").defaultValue(true).build());
         this.torchScanDistance = sgStructure.add(new IntSetting.Builder().name("火把扫描距离").description("以刷怪笼为中心扫描发光方块的距离").defaultValue(1).min(1).sliderRange(1, 10).visible(this.disabledSpawnerDetection::get).build());
 
@@ -212,13 +215,13 @@ public class ActivatedSpawnerDetector extends Module {
         if (id == null) {
             return null;
         }
-        return EntityType.byString(id).orElse(null);
+        return BuiltInRegistries.ENTITY_TYPE.getOptional(Identifier.parse(id)).orElse(null);
     }
 
     private String getStructureName(SpawnerType spawnerType, EntityType<?> entityType, BlockPos pos) {
         switch (spawnerType) {
             case DUNGEON:
-                if (entityType == EntityType.SPIDER) {
+                if (entityType == EntityTypes.SPIDER) {
                     if (this.mc.level.getBlockState(pos.above()).getBlock() == Blocks.BIRCH_PLANKS && this.mansionEnabled.get()) {
                         return "林地府邸";
                     }

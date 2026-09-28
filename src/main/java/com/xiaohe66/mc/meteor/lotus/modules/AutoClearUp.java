@@ -37,6 +37,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -76,8 +77,8 @@ public class AutoClearUp extends WarehouseModule {
         this.operationCount = sgGeneral.add(new IntSetting.Builder().name("操作数").description("每次操作的物品数量").min(1).sliderMax(27).defaultValue(18).build());
         this.takeEmptyCount = sgGeneral.add(new IntSetting.Builder().name("拿取空盒数").description("拿取空盒时, 需要拿的空盒数量").min(1).sliderMax(9).defaultValue(2).build());
         this.emptyBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("空盒标识").description("空盒箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.SHULKER_BOX).build());
-        this.sortBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("待整理标识").description("待整理箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.WHITE_SHULKER_BOX).build());
-        this.unsortableMarker = sgGeneral.add(new ItemSetting.Builder().name("无法整理标识").description("无法整理箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.BLUE_SHULKER_BOX).build());
+        this.sortBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("待整理标识").description("待整理箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.DYED_SHULKER_BOX.pick(DyeColor.WHITE)).build());
+        this.unsortableMarker = sgGeneral.add(new ItemSetting.Builder().name("无法整理标识").description("无法整理箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.DYED_SHULKER_BOX.pick(DyeColor.BLUE)).build());
         this.configPath = sgGeneral.add(new StringSetting.Builder().name("散装物品配置").description("散装物品分类配置文件路径(相对Lotus文件夹, 也可填绝对路径), 文件格式: {\"目标物品id\":[\"关联物品id\", ...]}, 修改后需重新初始化").defaultValue("warehouse/mappings.json").build());
         this.initSetting = sgGeneral.add(new BoolSetting.Builder().name("初始化").description("使用前需要先初始化，保存所有箱子位置").defaultValue(false).onChanged(this::doInit).build());
         this.operationCounter = 0;
@@ -484,7 +485,7 @@ public class AutoClearUp extends WarehouseModule {
                         this.buildWidget(theme, list);
                     })
                     .build();
-                this.mc.setScreen(new ItemSettingScreen(theme, setting));
+                this.mc.gui.setScreen(new ItemSettingScreen(theme, setting));
             };
             String relatedText = mapping.getRelatedItems().isEmpty() ? "空" : mapping.getRelatedItems().size() + " 个物品";
             WButton relatedButton = (WButton) table.add(theme.button(relatedText)).expandX().widget();
@@ -500,7 +501,7 @@ public class AutoClearUp extends WarehouseModule {
                     list.clear();
                     this.buildWidget(theme, list);
                 });
-                this.mc.setScreen(screen);
+                this.mc.gui.setScreen(screen);
             };
             WCheckbox checkbox = (WCheckbox) table.add(theme.checkbox(mapping.isEnabled())).widget();
             checkbox.action = () -> mapping.setEnabled(checkbox.checked);

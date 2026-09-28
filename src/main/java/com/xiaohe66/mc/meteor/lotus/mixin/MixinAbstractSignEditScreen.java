@@ -47,7 +47,7 @@ extends Screen {
     @Inject(method={"init"}, at={@At(value="RETURN")})
     private void preventGuiOpen(CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
-        HeOpenScreenEvent event = HeOpenScreenEvent.get(mc.screen);
+        HeOpenScreenEvent event = HeOpenScreenEvent.get(mc.gui.screen());
         MeteorClient.EVENT_BUS.post(event);
         if (event.getSignText() != null) {
             this.text = event.getSignText();

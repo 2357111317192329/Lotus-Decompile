@@ -32,6 +32,7 @@ import meteordevelopment.meteorclient.renderer.text.Font;
 import meteordevelopment.meteorclient.renderer.text.FontFace;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -86,14 +87,14 @@ public abstract class CustomTextRendererMixin {
     }
 
     @Overwrite
-    public void begin(double scale, boolean scaleOnly, boolean maxSize) {
+    public void begin(GuiGraphicsExtractor graphics, double scale, boolean scaleOnly, boolean big) {
         if (this.building) {
             throw new RuntimeException("CustomTextRenderer.begin() called twice");
         }
         if (!scaleOnly) {
             this.mesh.begin();
         }
-        if (maxSize) {
+        if (big) {
             this.lotus$fixedFont = this.lotus$fixedFonts[this.lotus$fixedFonts.length - 1];
         } else {
             double roundedScale = Math.floor(scale * 10.0) / 10.0;
@@ -113,7 +114,7 @@ public abstract class CustomTextRendererMixin {
         }
         if (!this.scaleOnly) {
             this.mesh.end();
-            MeshRenderer.begin().attachments(Minecraft.getInstance().getMainRenderTarget()).pipeline(MeteorRenderPipelines.UI_TEXT).mesh(this.mesh).sampler("u_Texture", this.lotus$fixedFont.texture.getTextureView(), this.lotus$fixedFont.texture.getSampler()).end();
+            MeshRenderer.begin().attachments(Minecraft.getInstance().gameRenderer.mainRenderTarget()).pipeline(MeteorRenderPipelines.UI_TEXT).mesh(this.mesh).sampler("u_Texture", this.lotus$fixedFont.texture.getTextureView(), this.lotus$fixedFont.texture.getSampler()).end();
         }
         this.building = false;
         this.scale = 1.0;
@@ -124,7 +125,7 @@ public abstract class CustomTextRendererMixin {
         double x2;
         boolean wasBuilding = this.building;
         if (!wasBuilding) {
-            this.begin(1.0, false, false);
+            this.begin(null, 1.0, false, false);
         }
         if (shadow) {
             int shadowAlpha = CustomTextRenderer.SHADOW_COLOR.a;

@@ -66,6 +66,7 @@ import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.enchantment.Enchantment;
 
 public class HeInvUtils {
@@ -401,7 +402,7 @@ public class HeInvUtils {
     }
 
     public static boolean isKitInMainHand() {
-        return InvUtils.testInMainHand((Item[])new Item[]{Items.SHULKER_BOX, Items.WHITE_SHULKER_BOX, Items.ORANGE_SHULKER_BOX, Items.MAGENTA_SHULKER_BOX, Items.LIGHT_BLUE_SHULKER_BOX, Items.YELLOW_SHULKER_BOX, Items.LIME_SHULKER_BOX, Items.PINK_SHULKER_BOX, Items.GRAY_SHULKER_BOX, Items.LIGHT_GRAY_SHULKER_BOX, Items.CYAN_SHULKER_BOX, Items.PURPLE_SHULKER_BOX, Items.BLUE_SHULKER_BOX, Items.BROWN_SHULKER_BOX, Items.GREEN_SHULKER_BOX, Items.RED_SHULKER_BOX, Items.BLACK_SHULKER_BOX});
+        return InvUtils.testInMainHand((Item[])new Item[]{Items.SHULKER_BOX, Items.DYED_SHULKER_BOX.pick(DyeColor.WHITE), Items.DYED_SHULKER_BOX.pick(DyeColor.ORANGE), Items.DYED_SHULKER_BOX.pick(DyeColor.MAGENTA), Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_BLUE), Items.DYED_SHULKER_BOX.pick(DyeColor.YELLOW), Items.DYED_SHULKER_BOX.pick(DyeColor.LIME), Items.DYED_SHULKER_BOX.pick(DyeColor.PINK), Items.DYED_SHULKER_BOX.pick(DyeColor.GRAY), Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_GRAY), Items.DYED_SHULKER_BOX.pick(DyeColor.CYAN), Items.DYED_SHULKER_BOX.pick(DyeColor.PURPLE), Items.DYED_SHULKER_BOX.pick(DyeColor.BLUE), Items.DYED_SHULKER_BOX.pick(DyeColor.BROWN), Items.DYED_SHULKER_BOX.pick(DyeColor.GREEN), Items.DYED_SHULKER_BOX.pick(DyeColor.RED), Items.DYED_SHULKER_BOX.pick(DyeColor.BLACK)});
     }
 
     public static int getMainSlot() {

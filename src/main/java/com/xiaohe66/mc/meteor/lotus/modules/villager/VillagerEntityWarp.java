@@ -39,7 +39,7 @@ public class VillagerEntityWarp {
         this.villagerType = villagerType;
         this.uuid = uuid;
         this.operatePos = operatePos;
-        this.operatePosCenter = operatePos.getCenter();
+        this.operatePosCenter = Vec3.atCenterOf(operatePos);
         this.facing = facing;
         this.workPos = workPos;
     }

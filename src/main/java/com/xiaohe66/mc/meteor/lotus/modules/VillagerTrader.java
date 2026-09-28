@@ -89,6 +89,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.Inventory;
@@ -106,6 +107,7 @@ import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.BlockEntityTypes;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
@@ -251,8 +253,8 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
         double nearestBarrelDistance = Double.MAX_VALUE;
         for (BlockEntity blockEntity : Utils.blockEntities()) {
             BlockEntityType<?> blockEntityType = blockEntity.getType();
-            double distance = this.mc.player.position().distanceTo(blockEntity.getBlockPos().getCenter());
-            if (!BlockEntityType.BARREL.equals(blockEntityType) || !(distance < (double)this.supplyRange.get()) || !(distance < nearestBarrelDistance)) continue;
+            double distance = this.mc.player.position().distanceTo(Vec3.atCenterOf(blockEntity.getBlockPos()));
+            if (!BlockEntityTypes.BARREL.equals(blockEntityType) || !(distance < (double)this.supplyRange.get()) || !(distance < nearestBarrelDistance)) continue;
             moneyPos = blockEntity.getBlockPos();
             nearestBarrelDistance = distance;
         }
@@ -606,7 +608,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
             ItemStack nextPlayerStack = this.nextPlayerStack(buyVillagerItem::isSameItem);
             if (nextPlayerStack.isEmpty()) continue;
             BlockPos putPos = this.putPosMap.get(buyVillagerItem);
-            double distance = putPos.getCenter().distanceTo(playerPos);
+            double distance = Vec3.atCenterOf(putPos).distanceTo(playerPos);
             if (!(distance < nearestDistance)) continue;
             best = buyVillagerItem;
             nearestDistance = distance;
@@ -651,7 +653,7 @@ public class VillagerTrader extends WalkModule implements AbstractGameEventListe
     private List<VillagerEntityWarp> getVillagerEntity() {
         List<VillagerEntityWarp> villagerList = new ArrayList<VillagerEntityWarp>();
         for (Entity entity : this.mc.level.entitiesForRendering()) {
-            if (!EntityType.VILLAGER.equals(entity.getType())) continue;
+            if (!EntityTypes.VILLAGER.equals(entity.getType())) continue;
             double y = entity.position().y() - this.mc.player.getY();
             if (!(y >= -2.0) || !(y <= 2.0)) continue;
             Villager villager = (Villager)entity;

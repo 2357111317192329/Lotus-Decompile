@@ -79,7 +79,7 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.util.Tuple;
+import org.apache.commons.lang3.tuple.MutablePair;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -180,7 +180,7 @@ public class Printer extends BaseModule {
         .description("渲染颜色")
         .defaultValue(new SettingColor(95, 190, 255))
         .build());
-    private final List<Tuple<Integer, BlockPos>> renderPosList;
+    private final List<MutablePair<Integer, BlockPos>> renderPosList;
     private final Map<BlockPos, Integer> placeCooldownMap;
     private final List<PlaceBlockHelper> needPlaceBlockList;
     private int nextBlockIndex;
@@ -189,7 +189,7 @@ public class Printer extends BaseModule {
 
     public Printer() {
         super("A打印机", "3c专用。投影打印、平台打印、防刷怪。使用前请使用Via跨版本到1.20.6以下", 0);
-        this.renderPosList = new ArrayList<Tuple<Integer, BlockPos>>();
+        this.renderPosList = new ArrayList<MutablePair<Integer, BlockPos>>();
         this.placeCooldownMap = new HashMap<BlockPos, Integer>();
         this.needPlaceBlockList = new ArrayList<PlaceBlockHelper>();
         this.nextBlockIndex = 0;
@@ -211,8 +211,8 @@ public class Printer extends BaseModule {
             this.toggle();
             return;
         }
-        this.renderPosList.forEach(s -> s.setA(s.getA() - 1));
-        this.renderPosList.removeIf(s -> s.getA() <= 0);
+        this.renderPosList.forEach(s -> s.setLeft(s.getLeft() - 1));
+        this.renderPosList.removeIf(s -> s.getLeft() <= 0);
         this.placeCooldownMap.replaceAll((pos, cooldown) -> cooldown - 1);
         this.placeCooldownMap.entrySet().removeIf(entry -> entry.getValue() <= 0);
         if (!this.checkAndDecrement()) {
@@ -287,7 +287,7 @@ public class Printer extends BaseModule {
                 } else {
                     Printer.clickPlace(helper, blockPos);
                 }
-                this.renderPosList.add(new Tuple(this.fadeTime.get(), blockPos));
+                this.renderPosList.add(new MutablePair<>(this.fadeTime.get(), blockPos));
                 this.placeCooldownMap.put(blockPos, this.placeCooldown.get());
                 HeInvUtils.swapToSelectedSlot(slot);
                 HeInvUtils.sendCloseScreenPacket();
@@ -328,7 +328,7 @@ public class Printer extends BaseModule {
             PlaceBlockHelper helper = blocks.get((this.nextBlockIndex + i) % blockCount);
             ++checkedCount;
             BlockPos blockPos = helper.getBlockPos();
-            if (blockPos.getY() > DataManager.getRenderLayerRange().getLayerMax()) continue;
+            if (blockPos.getY() > DataManager.getRenderLayerRange().getLayerRangeMax()) continue;
             BlockState currentState = helper.getTargetState();
             if (this.printerMode.get() == PrinterMode.防刷怪) {
                 boolean isPlant = currentState.getBlock() instanceof VegetationBlock;
@@ -403,7 +403,7 @@ public class Printer extends BaseModule {
             int maxZ = centerPos.getZ() + rangeBlocks;
             for (int z = centerPos.getZ() - rangeBlocks; z <= maxZ; ++z) {
                 BlockPos targetPos = new BlockPos(x, centerPos.getY(), z);
-                double distanceSq = eyePos.distanceToSqr(targetPos.getCenter());
+                double distanceSq = eyePos.distanceToSqr(Vec3.atCenterOf(targetPos));
                 if (distanceSq > maxDistanceSq) continue;
                 PlaceBlockHelper helper = new PlaceBlockHelper(targetPos, distanceSq);
                 BlockState currentState = this.mc.level.getBlockState(targetPos);
@@ -425,7 +425,7 @@ public class Printer extends BaseModule {
         }
         for (int i = 0; i < 3; ++i) {
             basePos = basePos.below();
-            Vec3 checkCenter = basePos.getCenter();
+            Vec3 checkCenter = Vec3.atCenterOf(basePos);
             boolean west = eyePos.x() < checkCenter.x();
             boolean north = eyePos.z() < checkCenter.z();
             ArrayList<BlockPos> checkPositions = new ArrayList<BlockPos>(4);
@@ -494,8 +494,8 @@ public class Printer extends BaseModule {
     @EventHandler
     private void onRender(Render3DEvent event) {
         this.renderPosList.forEach(pair -> {
-            Color color = new Color(this.colour.get().r, this.colour.get().g, this.colour.get().b, (int)((float)pair.getA() / (float)this.fadeTime.get() * (float)this.colour.get().a));
-            event.renderer.box((BlockPos)pair.getB(), color, null, ShapeMode.Sides, 0);
+            Color color = new Color(this.colour.get().r, this.colour.get().g, this.colour.get().b, (int)((float)pair.getLeft() / (float)this.fadeTime.get() * (float)this.colour.get().a));
+            event.renderer.box((BlockPos)pair.getRight(), color, null, ShapeMode.Sides, 0);
         });
     }
 

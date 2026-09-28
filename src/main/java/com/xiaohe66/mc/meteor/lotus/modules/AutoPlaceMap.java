@@ -27,6 +27,7 @@ import meteordevelopment.orbit.EventHandler;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.component.DataComponents;
@@ -254,7 +255,7 @@ public class AutoPlaceMap extends StepModule {
 
     private boolean isOutOfReach(BlockPos pos, ItemFrame itemFrame) {
         double range = itemFrame == null ? this.mc.player.blockInteractionRange() : this.mc.player.entityInteractionRange();
-        return this.mc.player.getEyePosition().distanceToSqr(pos.getCenter()) > range * range;
+        return this.mc.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos)) > range * range;
     }
 
     private FindItemResult findMap(String mapName) {

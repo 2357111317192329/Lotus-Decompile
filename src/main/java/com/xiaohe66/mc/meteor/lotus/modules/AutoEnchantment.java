@@ -451,7 +451,7 @@ public class AutoEnchantment extends StepModule {
                 this.lastRenameTime = now;
                 this.info("改名", new Object[0]);
                 screenHandler.setItemName(newName);
-                EditBox nameField = ((AnvilScreen)this.mc.screen).name;
+                EditBox nameField = ((AnvilScreen)this.mc.gui.screen()).name;
                 nameField.setValue(newName);
                 nameField.moveCursorToEnd(false);
                 this.mc.player.connection.send((Packet)new ServerboundRenameItemPacket(newName));

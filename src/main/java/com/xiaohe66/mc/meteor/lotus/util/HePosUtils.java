@@ -222,8 +222,8 @@ public class HePosUtils {
                 result.put(itemBo, storagePos);
             } else {
                 ChatUtils.warning("存在多个位置: %s", itemBo.getName());
-                double newDistance = storagePos.getBtnPos().getCenter().distanceTo(playerEyePos);
-                double oldDistance = existing.getBtnPos().getCenter().distanceTo(playerEyePos);
+                double newDistance = Vec3.atCenterOf(storagePos.getBtnPos()).distanceTo(playerEyePos);
+                double oldDistance = Vec3.atCenterOf(existing.getBtnPos()).distanceTo(playerEyePos);
                 if (newDistance < oldDistance) {
                     result.put(itemBo, storagePos);
                 }
@@ -271,8 +271,8 @@ public class HePosUtils {
                 result.put(itemBo, storagePos);
             } else {
                 ChatUtils.warning("存在多个位置: %s", itemBo.getName());
-                double newDistance = storagePos.getBtnPos().getCenter().distanceTo(playerPosVec);
-                double oldDistance = existing.getBtnPos().getCenter().distanceTo(playerPosVec);
+                double newDistance = Vec3.atCenterOf(storagePos.getBtnPos()).distanceTo(playerPosVec);
+                double oldDistance = Vec3.atCenterOf(existing.getBtnPos()).distanceTo(playerPosVec);
                 if (newDistance < oldDistance) {
                     result.put(itemBo, storagePos);
                 }
@@ -297,7 +297,7 @@ public class HePosUtils {
                 double dX = candidate.getX() + 0.5 - pos.x;
                 double dZ = candidate.getZ() + 0.5 - pos.z;
                 if (dX * dX + dZ * dZ <= range && isStandableSpot(candidate)) {
-                    double distance = candidate.getCenter().distanceToSqr(playerPos);
+                    double distance = Vec3.atCenterOf(candidate).distanceToSqr(playerPos);
                     if (distance < minDistance) {
                         minDistance = distance;
                         nearest = candidate;

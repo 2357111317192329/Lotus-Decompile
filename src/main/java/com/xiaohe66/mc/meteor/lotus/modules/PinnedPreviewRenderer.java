@@ -51,14 +51,14 @@ public class PinnedPreviewRenderer {
 
     /** Cancels the vanilla container tooltip so the pinned preview can render instead. */
     public void cancelTooltip(ContainerTooltipTextEvent event) {
-        if (this.enabled.get() && MeteorClient.mc.screen instanceof AbstractContainerScreen) {
+        if (this.enabled.get() && MeteorClient.mc.gui.screen() instanceof AbstractContainerScreen) {
             event.cancel();
         }
     }
 
     /** Injects the shulker box / bundle contents image into Meteor's tooltip data event. */
     public void onTooltipData(TooltipDataEvent event) {
-        if (this.enabled.get() && MeteorClient.mc.screen instanceof AbstractContainerScreen) {
+        if (this.enabled.get() && MeteorClient.mc.gui.screen() instanceof AbstractContainerScreen) {
             ItemStack stack = event.itemStack;
             if (HeItemUtils.isShulkerBox(stack.getItem())) {
                 if (Utils.hasItems(stack)) {

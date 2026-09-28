@@ -65,7 +65,7 @@ public class StorageEspPlus extends Module {
     private final Setting<List<Block>> excludeBlock = sgGeneral.add(new BlockListSetting.Builder()
         .name("排除方块")
         .description("附近有指定方块时不显示连接线")
-        .defaultValue(new Block[]{Blocks.WAXED_COPPER_BLOCK, Blocks.WAXED_OXIDIZED_COPPER, Blocks.MOSSY_COBBLESTONE, Blocks.MOSSY_STONE_BRICKS, Blocks.NETHER_BRICKS, Blocks.BLACKSTONE, Blocks.CRACKED_POLISHED_BLACKSTONE_BRICKS})
+        .defaultValue(new Block[]{Blocks.COPPER_BLOCK.waxed().unaffected(), Blocks.COPPER_BLOCK.waxed().oxidized(), Blocks.MOSSY_COBBLESTONE, Blocks.MOSSY_STONE_BRICKS, Blocks.NETHER_BRICKS, Blocks.BLACKSTONE, Blocks.CRACKED_POLISHED_BLACKSTONE_BRICKS})
         .build());
     private final Setting<Integer> excludeRange = sgGeneral.add(new IntSetting.Builder()
         .name("排除范围")

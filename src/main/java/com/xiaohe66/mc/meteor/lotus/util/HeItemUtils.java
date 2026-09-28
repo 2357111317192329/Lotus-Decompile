@@ -23,10 +23,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 
 public class HeItemUtils {
-    public static final List<Item> CARPETS = Arrays.asList(Items.WHITE_CARPET, Items.ORANGE_CARPET, Items.MAGENTA_CARPET, Items.LIGHT_BLUE_CARPET, Items.YELLOW_CARPET, Items.LIME_CARPET, Items.PINK_CARPET, Items.GRAY_CARPET, Items.LIGHT_GRAY_CARPET, Items.CYAN_CARPET, Items.PURPLE_CARPET, Items.BLUE_CARPET, Items.BROWN_CARPET, Items.GREEN_CARPET, Items.RED_CARPET, Items.BLACK_CARPET);
+    public static final List<Item> CARPETS = Items.CARPET.asList();
 
     public static boolean isShulkerBox(Item item) {
-        return item == Items.SHULKER_BOX || item == Items.WHITE_SHULKER_BOX || item == Items.ORANGE_SHULKER_BOX || item == Items.MAGENTA_SHULKER_BOX || item == Items.LIGHT_BLUE_SHULKER_BOX || item == Items.YELLOW_SHULKER_BOX || item == Items.LIME_SHULKER_BOX || item == Items.PINK_SHULKER_BOX || item == Items.GRAY_SHULKER_BOX || item == Items.LIGHT_GRAY_SHULKER_BOX || item == Items.CYAN_SHULKER_BOX || item == Items.PURPLE_SHULKER_BOX || item == Items.BLUE_SHULKER_BOX || item == Items.BROWN_SHULKER_BOX || item == Items.GREEN_SHULKER_BOX || item == Items.RED_SHULKER_BOX || item == Items.BLACK_SHULKER_BOX;
+        return item == Items.SHULKER_BOX || Items.DYED_SHULKER_BOX.asList().contains(item);
     }
 
     public static boolean isCarpet(Item item) {
@@ -42,7 +42,7 @@ public class HeItemUtils {
     }
 
     public static boolean isBundle(Item item) {
-        return item == Items.BUNDLE || item == Items.WHITE_BUNDLE || item == Items.ORANGE_BUNDLE || item == Items.MAGENTA_BUNDLE || item == Items.LIGHT_BLUE_BUNDLE || item == Items.YELLOW_BUNDLE || item == Items.LIME_BUNDLE || item == Items.PINK_BUNDLE || item == Items.GRAY_BUNDLE || item == Items.LIGHT_GRAY_BUNDLE || item == Items.CYAN_BUNDLE || item == Items.PURPLE_BUNDLE || item == Items.BLUE_BUNDLE || item == Items.BROWN_BUNDLE || item == Items.GREEN_BUNDLE || item == Items.RED_BUNDLE || item == Items.BLACK_BUNDLE;
+        return item == Items.BUNDLE || Items.DYED_BUNDLE.asList().contains(item);
     }
 
     public static boolean allAir(Item... items) {

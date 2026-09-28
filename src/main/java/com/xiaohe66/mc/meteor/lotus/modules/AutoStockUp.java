@@ -33,6 +33,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -74,7 +75,7 @@ public class AutoStockUp extends WalkModule {
         this.operationCount = sgGeneral.add(new IntSetting.Builder().name("操作数").description("每次操作的物品数量").min(1).sliderMax(18).defaultValue(9).build());
         this.wholeBoxThreshold = sgGeneral.add(new IntSetting.Builder().name("整盒阈值(组)").description("当不满一盒部分超过多少组时, 备货直接拿整盒物品").defaultValue(9).min(1).sliderMax(27).build());
         this.emptyBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("空盒标识").description("空盒箱子展示框上的物品").defaultValue(Items.SHULKER_BOX).build());
-        this.stockBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("备货标识").description("备货箱子展示框上的物品, 取出的物品会存放这里").defaultValue(Items.GREEN_SHULKER_BOX).build());
+        this.stockBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("备货标识").description("备货箱子展示框上的物品, 取出的物品会存放这里").defaultValue(Items.DYED_SHULKER_BOX.pick(DyeColor.GREEN)).build());
         this.initSetting = sgGeneral.add(new BoolSetting.Builder().name("初始化").description("使用前需要先初始化，扫描所有箱子位置并统计当前激活投影的材料").defaultValue(false).onChanged(this::doInit).build());
         this.operationCounter = 0;
         this.addStep(Steps.NEXT, this::dispatch);

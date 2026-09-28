@@ -157,7 +157,7 @@ public class HeBlockUtils {
 
     private static Direction findClickSide(BlockPos pos) {
         Vec3 eyePos = MeteorClient.mc.player.getEyePosition();
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, pos.getCenter());
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, Vec3.atCenterOf(pos));
         Direction airSide = null;
         double airDistance = Double.MAX_VALUE;
         Direction blockSide = null;
@@ -165,7 +165,7 @@ public class HeBlockUtils {
         for (Direction direction : visibleSides) {
             BlockPos neighborPos = pos.relative(direction);
             BlockState neighborState = MeteorClient.mc.level.getBlockState(neighborPos);
-            Vec3 faceCenter = pos.getCenter().add((double)direction.getStepX() * 0.5, (double)direction.getStepY() * 0.5, (double)direction.getStepZ() * 0.5);
+            Vec3 faceCenter = Vec3.atCenterOf(pos).add((double)direction.getStepX() * 0.5, (double)direction.getStepY() * 0.5, (double)direction.getStepZ() * 0.5);
             double distance = eyePos.distanceToSqr(faceCenter);
             if (neighborState.isAir()) {
                 if (!(distance < airDistance)) continue;
@@ -216,7 +216,7 @@ public class HeBlockUtils {
     }
 
     private static boolean clickBlockWithOffset(BlockPos pos, Direction side, Vec3 offset) {
-        return HeBlockUtils.clickBlock(pos, side, pos.getCenter().add(offset));
+        return HeBlockUtils.clickBlock(pos, side, Vec3.atCenterOf(pos).add(offset));
     }
 
     private static boolean clickBlock(BlockPos pos, Direction side, Vec3 hitPos) {
@@ -295,7 +295,7 @@ public class HeBlockUtils {
     }
 
     private static boolean placeBlock(BlockPos targetPos, BlockPos clickPos, Direction clickSide, Direction faceDirection, Vec3 offset) {
-        Vec3 clickPoint = clickPos.getCenter().add(offset);
+        Vec3 clickPoint = Vec3.atCenterOf(clickPos).add(offset);
         Vec3 visiblePoint = HeBlockUtils.findVisiblePoint(clickPoint, clickSide, true);
         if (visiblePoint == null) {
             visiblePoint = clickPoint;
@@ -392,7 +392,7 @@ public class HeBlockUtils {
 
     public static Direction getSlabPlaceDirection(BlockPos pos, boolean isTopHalf) {
         BlockState state;
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), pos.getCenter());
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), Vec3.atCenterOf(pos));
         if (visibleSides.remove(Direction.DOWN) && isTopHalf && HeBlockUtils.isSolid(state = MeteorClient.mc.level.getBlockState(pos.above()))) {
             return Direction.DOWN;
         }
@@ -445,13 +445,13 @@ public class HeBlockUtils {
     }
 
     public static List<BlockPos> listPosInSphere(int range, BlockPos pos) {
-        Vec3 center = pos.getCenter();
+        Vec3 center = Vec3.atCenterOf(pos);
         ArrayList<BlockPos> posList = new ArrayList<BlockPos>();
         for (int x = pos.getX() - range; x < pos.getX() + range; ++x) {
             for (int z = pos.getZ() - range; z < pos.getZ() + range; ++z) {
                 for (int y = pos.getY() - range; y < pos.getY() + range; ++y) {
                     BlockPos curPos = new BlockPos(x, y, z);
-                    if (curPos.getCenter().distanceTo(center) > (double)range || posList.contains(curPos)) continue;
+                    if (Vec3.atCenterOf(curPos).distanceTo(center) > (double)range || posList.contains(curPos)) continue;
                     posList.add(curPos);
                 }
             }
@@ -561,7 +561,7 @@ public class HeBlockUtils {
     }
 
     public static Direction getClickSide(BlockPos pos) {
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), pos.getCenter());
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), Vec3.atCenterOf(pos));
         for (Direction direction : Direction.values()) {
             Block block;
             BlockState state = MeteorClient.mc.level.getBlockState(pos.relative(direction));
@@ -611,7 +611,7 @@ public class HeBlockUtils {
         double nearestDistance = 2.147483647E9;
         Direction bestSide = null;
         Vec3 eyePos = MeteorClient.mc.player.getEyePosition();
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, pos.getCenter());
+        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, Vec3.atCenterOf(pos));
         for (Direction direction : Direction.values()) {
             double distance;
             Vec3 clickPoint;

@@ -32,7 +32,6 @@ import meteordevelopment.meteorclient.settings.Setting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
@@ -46,6 +45,7 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.RegistryOps;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -157,7 +157,7 @@ public class ContainerMarkRenderer {
 
     /** Clears the tracked container position when no container screen is open (called every 2D frame). */
     public void clearTick() {
-        if (!(MeteorClient.mc.screen instanceof AbstractContainerScreen)) {
+        if (!(MeteorClient.mc.gui.screen() instanceof AbstractContainerScreen)) {
             this.reset();
         }
     }
@@ -270,7 +270,7 @@ public class ContainerMarkRenderer {
         }
         matrixStack.mulPose((Quaternionfc)Axis.XP.rotationDegrees(rotationX));
         matrixStack.mulPose((Quaternionfc)Axis.YP.rotationDegrees(rotationY));
-        int light = LevelRenderer.getLightCoords((BlockAndLightGetter)MeteorClient.mc.level, blockPos.relative(clickDirection));
+        int light = LightCoordsUtil.getLightCoords((BlockAndLightGetter)MeteorClient.mc.level, blockPos.relative(clickDirection));
         float scale = 0.5f * this.markScale.get().floatValue();
         this.renderItemIcon(event, matrixStack, iconStack, light, scale);
         if (overlayStack != null) {

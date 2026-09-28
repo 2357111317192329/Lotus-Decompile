@@ -176,7 +176,7 @@ extends BaseModule {
      * Enabled aggressive block sorting
      */
     public void startSort() {
-        if (!(this.mc.screen instanceof AbstractContainerScreen)) {
+        if (!(this.mc.gui.screen() instanceof AbstractContainerScreen)) {
             return;
         }
         AbstractContainerMenu handler = this.mc.player.containerMenu;
@@ -447,7 +447,7 @@ extends BaseModule {
 
     @EventHandler
     private void onMouseClick(MouseClickEvent event) {
-        if (!(this.mc.screen instanceof AbstractContainerScreen)) {
+        if (!(this.mc.gui.screen() instanceof AbstractContainerScreen)) {
             return;
         }
         if (event.button != 0) {
@@ -508,7 +508,7 @@ extends BaseModule {
 
     @EventHandler
     private void onMouseDrag(MouseDragEvent event) {
-        if (!this.scrollMove.get() || !(this.mc.screen instanceof AbstractContainerScreen)) {
+        if (!this.scrollMove.get() || !(this.mc.gui.screen() instanceof AbstractContainerScreen)) {
             return;
         }
         if (!this.isHeldShift()) {
@@ -549,7 +549,7 @@ extends BaseModule {
         if (!this.scrollTransfer.get()) {
             return;
         }
-        if (!(this.mc.screen instanceof AbstractContainerScreen)) {
+        if (!(this.mc.gui.screen() instanceof AbstractContainerScreen)) {
             return;
         }
         Slot slot = this.getSlotAt(event.getMouseX(), event.getMouseY(), event.getScreenX(), event.getScreenY());
@@ -597,7 +597,7 @@ extends BaseModule {
     }
 
     private boolean isContainerOpen() {
-        if (this.mc.screen instanceof AbstractContainerScreen) {
+        if (this.mc.gui.screen() instanceof AbstractContainerScreen) {
             return !(this.mc.player.containerMenu instanceof InventoryMenu);
         }
         return false;

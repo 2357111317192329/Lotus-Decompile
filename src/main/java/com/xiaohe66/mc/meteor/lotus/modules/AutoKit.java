@@ -21,6 +21,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -56,8 +57,8 @@ public class AutoKit extends WarehouseModule {
         this.operationCount = sgGeneral.add(new IntSetting.Builder().name("操作数").description("每次操作的物品数量").min(1).sliderMax(9).defaultValue(9).build());
         this.takeEmptyCount = sgGeneral.add(new IntSetting.Builder().name("拿取空盒数").description("拿取空盒时, 需要拿的空盒数量").min(1).sliderMax(9).defaultValue(2).build());
         this.emptyBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("空盒标识").description("空盒箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.SHULKER_BOX).build());
-        this.finishBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("成品标识").description("成品kit箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.LIGHT_BLUE_SHULKER_BOX).build());
-        this.miscBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("杂盒标识").description("杂盒箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.WHITE_SHULKER_BOX).build());
+        this.finishBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("成品标识").description("成品kit箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.DYED_SHULKER_BOX.pick(DyeColor.LIGHT_BLUE)).build());
+        this.miscBoxMarker = sgGeneral.add(new ItemSetting.Builder().name("杂盒标识").description("杂盒箱子展示框上的物品").filter(HeItemUtils::isShulkerBox).defaultValue(Items.DYED_SHULKER_BOX.pick(DyeColor.WHITE)).build());
         this.initSetting = sgGeneral.add(new BoolSetting.Builder().name("初始化").description("使用前需要先初始化，保存所有箱子位置并读取主手盒子作为模板").defaultValue(false).onChanged(this::doInit).build());
         this.templateIndex = 0;
         this.addStep(Steps.NEXT, this::dispatch);

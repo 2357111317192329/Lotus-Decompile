@@ -21,8 +21,8 @@
  */
 package com.xiaohe66.mc.meteor.lotus.util;
 
+import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.TextureFormat;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -63,7 +63,7 @@ public class FontFix {
         this.bitmap = BufferUtils.createByteBuffer((int)0x400000);
         this.packContext = STBTTPackContext.create();
         STBTruetype.stbtt_PackBegin((STBTTPackContext)this.packContext, (ByteBuffer)this.bitmap, (int)2048, (int)2048, (int)0, (int)1);
-        this.texture = new Texture(2048, 2048, TextureFormat.RED8, FilterMode.LINEAR, FilterMode.LINEAR);
+        this.texture = new Texture(2048, 2048, GpuFormat.R8_UNORM, FilterMode.LINEAR, FilterMode.LINEAR);
         this.scale = STBTruetype.stbtt_ScaleForPixelHeight((STBTTFontinfo)this.fontInfo, (float)fontSize);
         try (MemoryStack stack = MemoryStack.stackPush();){
             IntBuffer ascentBuffer = stack.mallocInt(1);
