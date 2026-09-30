@@ -92,7 +92,6 @@ public class StepModule extends BaseModule {
         return sgGeneral.add(new KeybindSetting.Builder()
             .name("快速停止键")
             .description("按下后关闭当前模块")
-            .defaultValue(Keybind.fromKey(256))
             .visible(this::useQuickStopKeybind)
             .action(this::onQuickStopKeybind)
             .build());

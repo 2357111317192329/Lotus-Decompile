@@ -4,7 +4,7 @@
  * match the item currently selected in the hotbar.  The highlight lists are
  * refreshed whenever the selected hotbar slot changes.
  */
-package com.xiaohe66.mc.meteor.lotus.modules;
+package com.xiaohe66.mc.meteor.lotus.render;
 
 import com.xiaohe66.mc.meteor.lotus.bo.DoublePos;
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;

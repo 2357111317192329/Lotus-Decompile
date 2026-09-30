@@ -32,7 +32,12 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.BrewingStandMenu;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.CrafterMenu;
+import net.minecraft.world.inventory.DispenserMenu;
+import net.minecraft.world.inventory.FurnaceMenu;
+import net.minecraft.world.inventory.HopperMenu;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.item.ItemStack;
@@ -200,7 +205,13 @@ extends Module {
         AbstractContainerMenu screenHandler = this.mc.player.containerMenu;
         if (screenHandler instanceof InventoryMenu || !blockPos.equals(this.lastBlockPos)) {
             this.tryRotateAndOpen(blockPos, direction);
-        } else if (screenHandler instanceof ChestMenu || screenHandler instanceof ShulkerBoxMenu) {
+        } else if (screenHandler instanceof ChestMenu
+            || screenHandler instanceof ShulkerBoxMenu
+            || screenHandler instanceof HopperMenu
+            || screenHandler instanceof DispenserMenu
+            || screenHandler instanceof FurnaceMenu
+            || screenHandler instanceof BrewingStandMenu
+            || screenHandler instanceof CrafterMenu) {
             this.openStatus = Steps.IDLE;
             consumer.accept(screenHandler);
         } else {

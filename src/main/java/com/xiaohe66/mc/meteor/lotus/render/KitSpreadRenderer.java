@@ -3,7 +3,7 @@
  * Spreads the contents of every shulker box in the open container screen
  * over the screen, one box per row, scrollable with the mouse wheel.
  */
-package com.xiaohe66.mc.meteor.lotus.modules;
+package com.xiaohe66.mc.meteor.lotus.render;
 
 import com.xiaohe66.mc.meteor.lotus.event.MouseScrollEvent;
 import com.xiaohe66.mc.meteor.lotus.event.ScreenRenderEvent;

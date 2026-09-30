@@ -3,7 +3,7 @@
  * Renders a small icon of the dominant item of every shulker box slot, with
  * a vertical fill bar showing how full the box is.
  */
-package com.xiaohe66.mc.meteor.lotus.modules;
+package com.xiaohe66.mc.meteor.lotus.render;
 
 import com.xiaohe66.mc.meteor.lotus.util.HeItemUtils;
 import com.xiaohe66.mc.meteor.lotus.util.ShulkerBoxReader;

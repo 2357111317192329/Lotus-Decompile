@@ -92,6 +92,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.BrewingStandBlock;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.CraftingTableBlock;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.block.EnchantingTableBlock;
 import net.minecraft.world.level.block.EnderChestBlock;
@@ -109,6 +110,7 @@ import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -146,6 +148,27 @@ public class HeBlockUtils {
         return result == null || result.getType() == HitResult.Type.MISS;
     }
 
+    /*
+     * 从玩家眼睛到容器指定面的中心发射线,
+     * 第一个命中的方块必须是目标容器本身才表示"看得见这个面"。
+     * 中间隔着任何方块(墙/栅栏/台阶等)都返回 false, 用于避免点击被阻挡的面触发反作弊。
+     */
+    public static boolean hasClearView(BlockPos pos, Direction side) {
+        return hasClearView(MeteorClient.mc.player.getEyePosition(), pos, side);
+    }
+
+    public static boolean hasClearView(Vec3 eyePos, BlockPos pos, Direction side) {
+        if (side == null) {
+            return false;
+        }
+        Vec3 faceCenter = pos.getCenter().add((double)side.getStepX() * 0.5, (double)side.getStepY() * 0.5, (double)side.getStepZ() * 0.5);
+        BlockHitResult result = MeteorClient.mc.level.clip(new ClipContext(eyePos, faceCenter, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, (Entity)MeteorClient.mc.player));
+        if (result == null || result.getType() == HitResult.Type.MISS) {
+            return true;
+        }
+        return pos.equals(result.getBlockPos());
+    }
+
     public static void open(BlockPos pos) {
         Direction clickSide = HeBlockUtils.findClickSide(pos);
         if (clickSide != null) {
@@ -156,13 +179,20 @@ public class HeBlockUtils {
     }
 
     private static Direction findClickSide(BlockPos pos) {
-        Vec3 eyePos = MeteorClient.mc.player.getEyePosition();
-        Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(eyePos, pos.getCenter());
+        return findClickSide(pos, MeteorClient.mc.player.getEyePosition());
+    }
+
+    private static Direction findClickSide(BlockPos pos, Vec3 eyePos) {
+        return findClickSide(pos, eyePos, HeBlockUtils.getVisibleDirections(eyePos, pos.getCenter()));
+    }
+
+    private static Direction findClickSide(BlockPos pos, Vec3 eyePos, Set<Direction> visibleSides) {
         Direction airSide = null;
         double airDistance = Double.MAX_VALUE;
         Direction blockSide = null;
         double blockDistance = Double.MAX_VALUE;
         for (Direction direction : visibleSides) {
+            if (!HeBlockUtils.hasClearView(eyePos, pos, direction)) continue;
             BlockPos neighborPos = pos.relative(direction);
             BlockState neighborState = MeteorClient.mc.level.getBlockState(neighborPos);
             Vec3 faceCenter = pos.getCenter().add((double)direction.getStepX() * 0.5, (double)direction.getStepY() * 0.5, (double)direction.getStepZ() * 0.5);
@@ -183,12 +213,76 @@ public class HeBlockUtils {
         return blockSide;
     }
 
+    /*
+     * 在容器周围寻找一个"玩家站过去后能点得到容器"的站立点:
+     * 1. 该点可以站立(该格与上方一格都是空气)
+     * 2. 站在该点时眼睛到容器中心距离在交互范围内(4.5格)
+     * 3. 从该点眼睛位置向容器至少有一个面视线检测通过
+     * 返回距离容器最近的可行点; 找不到返回 null。
+     */
+    public static BlockPos findViewPos(BlockPos containerPos) {
+        Vec3 containerCenter = containerPos.getCenter();
+        BlockPos bestPos = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dz = -4; dz <= 4; dz++) {
+                    BlockPos standPos = containerPos.offset(dx, dy, dz);
+                    if (!MeteorClient.mc.level.getBlockState(standPos).isAir() || !MeteorClient.mc.level.getBlockState(standPos.above()).isAir()) continue;
+                    Vec3 eyePos = standPos.getCenter().add(0.0, 1.62, 0.0);
+                    double distance = eyePos.distanceToSqr(containerCenter);
+                    if (distance > 4.5 * 4.5) continue;
+                    if (HeBlockUtils.findClickSide(containerPos, eyePos) == null) continue;
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestPos = standPos;
+                    }
+                }
+            }
+        }
+        return bestPos;
+    }
+
+    /*
+     * 在村民周围寻找一个"玩家站过去后能点到村民"的站立点:
+     * 1. 该点可以站立(该格与上方一格都是空气)
+     * 2. 站在该点时眼睛到村民中心距离在交互范围内(4.5格)
+     * 3. 从该点眼睛位置向村民发射线, 命中的第一个实体必须是该村民
+     * 返回距离村民最近的可行点; 找不到返回 null(视为该村民不可交易, 直接跳过)。
+     */
+    public static BlockPos findVillagerViewPos(Entity villager, BlockPos centerPos) {
+        AABB targetBox = villager.getBoundingBox();
+        Vec3 targetCenter = targetBox.getCenter();
+        BlockPos villagerFootPos = villager.blockPosition();
+        BlockPos bestPos = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dz = -4; dz <= 4; dz++) {
+                    BlockPos standPos = centerPos.offset(dx, dy, dz);
+                    // 排除村民自身所站/所佔的格子(不可能尋路到)
+                    if (standPos.equals(villagerFootPos) || standPos.equals(villagerFootPos.above())) continue;
+                    if (!MeteorClient.mc.level.getBlockState(standPos).isAir() || !MeteorClient.mc.level.getBlockState(standPos.above()).isAir()) continue;
+                    Vec3 eyePos = standPos.getCenter().add(0.0, 1.62, 0.0);
+                    double distance = eyePos.distanceToSqr(targetCenter);
+                    if (distance > 4.5 * 4.5) continue;
+                    EntityHitResult hit = ProjectileUtil.getEntityHitResult((Entity)MeteorClient.mc.player, eyePos, targetCenter, targetBox, Entity::isPickable, distance);
+                    if (hit == null || hit.getEntity() != villager) continue;
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestPos = standPos;
+                    }
+                }
+            }
+        }
+        return bestPos;
+    }
+
     public static void open(BlockPos pos, Direction side) {
-        HeRotationUtils.keepRotation(pos, side);
         Vec3i vector = side.getUnitVec3i();
         double offset = 0.45;
         Vec3 hitPos = new Vec3((double)pos.getX() + 0.5 + (double)vector.getX() * offset, (double)pos.getY() + 0.5 + (double)vector.getY() * offset, (double)pos.getZ() + 0.5 + (double)vector.getZ() * offset);
-        HeBlockUtils.open(pos, side, hitPos);
+        HeRotationUtils.rotate(hitPos, () -> HeBlockUtils.open(pos, side, hitPos));
     }
 
     public static void open(BlockPos pos, Direction side, Vec3 hitPos) {
@@ -563,6 +657,7 @@ public class HeBlockUtils {
     public static Direction getClickSide(BlockPos pos) {
         Set<Direction> visibleSides = HeBlockUtils.getVisibleDirections(MeteorClient.mc.player.getEyePosition(), pos.getCenter());
         for (Direction direction : Direction.values()) {
+            if (!HeBlockUtils.hasClearView(pos, direction.getOpposite())) continue;
             Block block;
             BlockState state = MeteorClient.mc.level.getBlockState(pos.relative(direction));
             if (state.isAir() || (block = state.getBlock()) instanceof LiquidBlock || HeBlockUtils.isInteractableBlock(block) && !MeteorClient.mc.player.isShiftKeyDown() || !visibleSides.contains(direction.getOpposite())) continue;

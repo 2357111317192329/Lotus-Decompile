@@ -4,7 +4,7 @@
  * the dominant item icon on the face of the container that points at the
  * camera.  Optionally persists the mark map to disk (NBT, mirroring 19.5 aP).
  */
-package com.xiaohe66.mc.meteor.lotus.modules;
+package com.xiaohe66.mc.meteor.lotus.render;
 
 import com.xiaohe66.mc.meteor.lotus.bo.DoublePos;
 import com.xiaohe66.mc.meteor.lotus.bo.ItemBo;

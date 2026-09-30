@@ -5,7 +5,7 @@
  * with its contents laid out as clickable cells, and allow pinning a second
  * layer from the first one.
  */
-package com.xiaohe66.mc.meteor.lotus.modules;
+package com.xiaohe66.mc.meteor.lotus.render;
 
 import com.xiaohe66.mc.meteor.lotus.event.ContainerTooltipTextEvent;
 import com.xiaohe66.mc.meteor.lotus.event.DrawMouseoverTooltipEvent;

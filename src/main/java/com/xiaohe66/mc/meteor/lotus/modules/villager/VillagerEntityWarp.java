@@ -30,6 +30,7 @@ public class VillagerEntityWarp {
     private final BlockPos workPos;
     private long lastTradeTime;
     private long lastFailTime;
+    private boolean tradedThisRound;
 
     public VillagerEntityWarp(VillagerType villagerType, UUID uuid, BlockPos operatePos) {
         this(villagerType, uuid, operatePos, null, null);
@@ -85,6 +86,14 @@ public class VillagerEntityWarp {
 
     public void setLastFailTime(long lastFailTime) {
         this.lastFailTime = lastFailTime;
+    }
+
+    public boolean isTradedThisRound() {
+        return this.tradedThisRound;
+    }
+
+    public void setTradedThisRound(boolean tradedThisRound) {
+        this.tradedThisRound = tradedThisRound;
     }
 
     public long getTimeOfDay() {

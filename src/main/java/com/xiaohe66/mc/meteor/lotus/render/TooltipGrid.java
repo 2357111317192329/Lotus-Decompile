@@ -4,7 +4,7 @@
  * rectangle (tx/ty/tw/th, filled in by the tooltip positioner) and the list
  * of slot rectangles inside one layer of the pinned preview.
  */
-package com.xiaohe66.mc.meteor.lotus.modules;
+package com.xiaohe66.mc.meteor.lotus.render;
 
 import java.util.ArrayList;
 import java.util.List;

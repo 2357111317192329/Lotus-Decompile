@@ -37,23 +37,34 @@ import com.xiaohe66.mc.meteor.lotus.modules.PreviewTool;
 import com.xiaohe66.mc.meteor.lotus.modules.RaidHelper;
 import com.xiaohe66.mc.meteor.lotus.modules.RedstoneAssist;
 import com.xiaohe66.mc.meteor.lotus.modules.StorageEspPlus;
+import com.xiaohe66.mc.meteor.lotus.modules.villager.TradeRule;
+import com.xiaohe66.mc.meteor.lotus.modules.villager.TradeRuleListSetting;
+import com.xiaohe66.mc.meteor.lotus.modules.villager.TradeRuleListSettingScreen;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.addons.MeteorAddon;
 import meteordevelopment.meteorclient.events.game.GameJoinedEvent;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
+import meteordevelopment.meteorclient.gui.renderer.GuiRenderer;
+import meteordevelopment.meteorclient.gui.utils.SettingsWidgetFactory;
+import meteordevelopment.meteorclient.gui.widgets.pressable.WButton;
+import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.systems.modules.Category;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
+import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 public class MeteorLotus extends MeteorAddon {
     private static final Logger log = LoggerFactory.getLogger(MeteorLotus.class);
 
     public void onInitialize() {
         log.info("Initializing Lotus");
+        this.registerCustomSettings();
         Modules modules = Modules.get();
         modules.add(new ActivatedSpawnerDetector());
         modules.add(new AutoCrafting());
@@ -120,6 +131,18 @@ public class MeteorLotus extends MeteorAddon {
 
     public void onRegisterCategories() {
         Modules.registerCategory((Category)Const.CATEGORY);
+    }
+
+    private void registerCustomSettings() {
+        SettingsWidgetFactory.registerCustomFactory(TradeRuleListSetting.class, theme -> (table, setting) -> {
+            @SuppressWarnings("unchecked")
+            Setting<List<TradeRule>> tradeSetting = (Setting<List<TradeRule>>)setting;
+            WButton edit = table.add(theme.button(GuiRenderer.EDIT)).expandCellX().widget();
+            edit.action = () -> Minecraft.getInstance().setScreen(new TradeRuleListSettingScreen(theme, tradeSetting));
+            WButton reset = table.add(theme.button(GuiRenderer.RESET)).widget();
+            reset.action = tradeSetting::reset;
+            reset.tooltip = "Reset";
+        });
     }
 
     public String getPackage() {

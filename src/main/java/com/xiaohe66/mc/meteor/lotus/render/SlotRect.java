@@ -7,7 +7,7 @@
  *   index    – index of the stack inside its container / bundle
  *   stack    – the ItemStack rendered in this cell
  */
-package com.xiaohe66.mc.meteor.lotus.modules;
+package com.xiaohe66.mc.meteor.lotus.render;
 
 import net.minecraft.world.item.ItemStack;
 

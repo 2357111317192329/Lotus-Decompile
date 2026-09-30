@@ -58,6 +58,9 @@ public class Steps {
     public static final Step CHECK_TRADES = new Step("CHECK_TRADES");
     public static final Step BREAK_LECTERN = new Step("BREAK_LECTERN");
     public static final Step WAIT_PROFESSION_CLEAR = new Step("WAIT_PROFESSION_CLEAR");
+    public static final Step PICKUP_LECTERN = new Step("PICKUP_LECTERN");
+    public static final Step GOTO_PLACE_POS = new Step("GOTO_PLACE_POS");
+    public static final Step MICRO_ADJUST = new Step("MICRO_ADJUST");
     public static final Step LOAD_SCHEMATIC = new Step("LOAD_SCHEMATIC");
     public static final Step CHECK_BACKPACK = new Step("CHECK_BACKPACK");
     public static final Step OPEN_PRINTER = new Step("OPEN_PRINTER");
