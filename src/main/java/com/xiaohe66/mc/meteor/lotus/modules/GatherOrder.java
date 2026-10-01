@@ -55,8 +55,8 @@ public class GatherOrder extends Module {
         .defaultValue("{random} Lotus-{version}")
         .build());
     private final Setting<Boolean> showVersion = sgGeneral.add(new BoolSetting.Builder()
-        .name("显示版本")
-        .description("勾选后，将发送消息中的{version}替换为插件版本号")
+        .name("显示游戏版本")
+        .description("勾选后, {version}替换为完整版本号;取消勾选则排除游戏版本号")
         .defaultValue(true)
         .build());
     private final Setting<Integer> minDelaySeconds = sgGeneral.add(new IntSetting.Builder()
@@ -203,7 +203,7 @@ public class GatherOrder extends Module {
             result = result.replace("{random}", POEMS[index]);
         }
         if (result.contains("{version}")) {
-            result = result.replace("{version}", this.showVersion.get() ? VERSION : "");
+            result = result.replace("{version}", this.getVersionText());
         }
         if (this.randomSuffix.get()) {
             result = result + "   " + System.currentTimeMillis() % 1000L;
@@ -213,6 +213,18 @@ public class GatherOrder extends Module {
 
     public boolean isPermanentlyDisabled() {
         return this.permanentlyDisabled.get();
+    }
+
+    /*
+     * showVersion = true  → 顯示完整版本號(例: 18.2-fork-2-26.1.2)
+     * showVersion = false → 排除最後一個"-"之後的內容(遊戲版本), 例: 18.2-fork-2
+     */
+    private String getVersionText() {
+        if (this.showVersion.get()) {
+            return VERSION;
+        }
+        int index = VERSION.lastIndexOf('-');
+        return index > 0 ? VERSION.substring(0, index) : VERSION;
     }
 
     static {
